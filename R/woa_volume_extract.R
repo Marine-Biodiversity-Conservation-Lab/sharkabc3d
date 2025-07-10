@@ -1,3 +1,44 @@
+#' Extract all layers of a given variable from WOA Raster
+#'
+#' @param woa_nc SpatRaster. This is the SpatRaster loaded with the terra package. 
+#' This is downloaded from the World Ocean Atlas 2023 data page: 
+#' https://www.ncei.noaa.gov/access/world-ocean-atlas-2023/ 
+#' @param selected_field string. This is the statistical field to select, see 
+#' World Ocean Atlas 2023 Product Documentation for further details: 
+#' https://repository.library.noaa.gov/view/noaa/70581
+#'
+#' @returns SpatRaster
+#' @export
+#'
+woa_nc_extract <- function(woa_nc, selected_field) {
+  #### INPUT PARAMS CHECK ####
+  # Check selected_field 
+  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
+  if(!selected_field %in% available_fields) {
+    stop(
+      "selected_field needs to be one of the following:\n
+      'an' Objectively analyzed climatology\n
+      'mn' Statistical mean\n
+      'dd' Number of observations\n
+      'sd' Standard deviation\n
+      'se' Standard error\n
+      'oa' Mean minus objectively analyzed climatology\n
+      'gp' Number of mean values within radius of influence\n
+      'sdo' Objectively analyzed standard deviation\n
+      'sea' Standard error of the analysis\n
+      See World Ocean Atlas 2023: Product Documentation (https://repository.library.noaa.gov/view/noaa/70581) for more details"
+    )
+  }
+  #### Select layers from woa_nc from input selected_field parameter ####
+  # Create field pattern to select columns for given field
+  var_abr <- woa_nc[[1]] %>% names() %>% substr(1, 2)
+  field_pattern <- paste0(var_abr, selected_field, "_depth=")
+  selected_names <- woa_nc %>%
+    names() %>% 
+    str_subset(field_pattern)
+  woa_nc_selected_field <- woa_nc[[selected_names]] # create raster stack of just one field 
+}
+
 #' Extract World Ocean Atlas values from 3D volume 
 #'
 #' @param area SpatVector. This is the area to which the WOA raster will get 
@@ -19,22 +60,22 @@
 woa_volume_extract <- function(area, min_depth, max_depth, woa_nc, selected_field) {
   #### INPUT PARAMS CHECK ####
   # Check selected_field 
-  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
-  if(!selected_field %in% available_fields) {
-    stop(
-      "selected_field needs to be one of the following:\n
-      'an' Objectively analyzed climatology\n
-      'mn' Statistical mean\n
-      'dd' Number of observations\n
-      'sd' Standard deviation\n
-      'se' Standard error\n
-      'oa' Mean minus objectively analyzed climatology\n
-      'gp' Number of mean values within radius of influence\n
-      'sdo' Objectively analyzed standard deviation\n
-      'sea' Standard error of the analysis\n
-      See World Ocean Atlas 2023: Product Documentation (https://repository.library.noaa.gov/view/noaa/70581) for more details"
-    )
-  }
+  # available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
+  # if(!selected_field %in% available_fields) {
+  #   stop(
+  #     "selected_field needs to be one of the following:\n
+  #     'an' Objectively analyzed climatology\n
+  #     'mn' Statistical mean\n
+  #     'dd' Number of observations\n
+  #     'sd' Standard deviation\n
+  #     'se' Standard error\n
+  #     'oa' Mean minus objectively analyzed climatology\n
+  #     'gp' Number of mean values within radius of influence\n
+  #     'sdo' Objectively analyzed standard deviation\n
+  #     'sea' Standard error of the analysis\n
+  #     See World Ocean Atlas 2023: Product Documentation (https://repository.library.noaa.gov/view/noaa/70581) for more details"
+  #   )
+  # }
   
   #### Select layers from woa_nc from input selected_field parameter ####
   # Create field pattern to select columns for given field
