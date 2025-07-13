@@ -1,9 +1,9 @@
-Package: 3d-extract-climate
-Title: What the Package Does (One Line, Title Case)
+Package: extractclimate3d
+Title: Extracts data from World Ocean Atlas 2023 by marine species area and depth range
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
+    person("Jay", "Matsushiba", , "jay.matsushiba@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-0496-9188"))
 Description: What the package does (one paragraph).
 License: MIT + file LICENSE
 Encoding: UTF-8
