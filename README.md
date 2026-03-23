@@ -1,14 +1,15 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# 3dextractclimate
+# sharkABC3D
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of extractclimate3d is to facilitate the querying of World
-Ocean Atlas 2023 for marine species ranges, in terms of area and depth
-ranges.
+The goal of sharkABC3D is to facilitate a range of analyses for querying abiotic factors by shark species. 
+
+## Functionality
+- Querying of World Ocean Atlas 2023 for marine species ranges, in terms of area and depth ranges.
 
 ## Installation
 
