@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 inst/doc
+
+/.quarto/
+/previous_projects/
+/data-processed/
+/data-raw/
