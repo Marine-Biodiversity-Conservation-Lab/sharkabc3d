@@ -1,162 +1,3 @@
-#' Load species range polygons
-#'
-#' Load species range polygons from an IUCN Red List shapefile. Filter
-#' parameters are translated into a SQL WHERE clause and passed to
-#' [sf::st_read()], so only matching features are read into memory. After
-#' loading, multipolygons are dissolved (unioned) per species.
-#'
-#' @param path Character. Path to the IUCN shapefile (.shp).
-#' @param id_no Numeric vector. SIS taxon IDs to include. Default `NULL`.
-#' @param sci_name Character vector. Scientific names to include. Default
-#'   `NULL`.
-#' @param presence Numeric vector. Presence codes to include (1 = Extant,
-#'   2 = Probably Extant, etc.). Default `c(1)`.
-#' @param origin Numeric vector. Origin codes to include (1 = Native,
-#'   2 = Reintroduced, etc.). Default `c(1, 2)`.
-#' @param seasonal Numeric vector. Seasonal codes to include (1 = Resident,
-#'   2 = Breeding Season, 3 = Non-breeding Season, etc.). Default
-#'   `c(1, 2, 3)`.
-#' @param compiler Character vector. Compiler names to include. Default
-#'   `NULL`.
-#' @param yrcompiled Numeric vector. Years compiled to include. Default
-#'   `NULL`.
-#' @param citation Character vector. Citation strings to include. Default
-#'   `NULL`.
-#' @param subspecies Character vector. Subspecies names to include. Default
-#'   `NULL`.
-#' @param subpop Character vector. Subpopulation names to include. Default
-#'   `NULL`.
-#' @param source Character vector. Source values to include. Default `NULL`.
-#' @param island Character vector. Island names to include. Default `NULL`.
-#' @param tax_comm Character vector. Taxonomic comments to include. Default
-#'   `NULL`.
-#' @param dist_comm Character vector. Distribution comments to include.
-#'   Default `NULL`.
-#' @param generalisd Numeric vector. Generalised flag values. Default `NULL`.
-#' @param legend Character vector. Legend values to include. Default `NULL`.
-#' @param kingdom Character vector. Kingdom names to include. Default `NULL`.
-#' @param phylum Character vector. Phylum names to include. Default `NULL`.
-#' @param class Character vector. Class names to include. Default `NULL`.
-#' @param order_ Character vector. Order names to include. Default `NULL`.
-#' @param family Character vector. Family names to include. Default `NULL`.
-#' @param genus Character vector. Genus names to include. Default `NULL`.
-#' @param category Character vector. IUCN Red List category codes to include
-#'   (e.g., `c("CR", "EN")`). Default `NULL`.
-#' @param marine Numeric vector. Marine flag values (e.g., `c(1)`). Default
-#'   `NULL`.
-#' @param terrestria Numeric vector. Terrestrial flag values. Default `NULL`.
-#' @param freshwater Numeric vector. Freshwater flag values. Default `NULL`.
-#'
-#' @returns sf object with columns: id_no, sci_name, geometry (dissolved per
-#'   species).
-#' @export
-load_species_ranges <- function(path,
-                                id_no = NULL,
-                                sci_name = NULL,
-                                presence = c(1),
-                                origin = c(1, 2),
-                                seasonal = c(1, 2, 3),
-                                compiler = NULL,
-                                yrcompiled = NULL,
-                                citation = NULL,
-                                subspecies = NULL,
-                                subpop = NULL,
-                                source = NULL,
-                                island = NULL,
-                                tax_comm = NULL,
-                                dist_comm = NULL,
-                                generalisd = NULL,
-                                legend = NULL,
-                                kingdom = NULL,
-                                phylum = NULL,
-                                class = NULL,
-                                order_ = NULL,
-                                family = NULL,
-                                genus = NULL,
-                                category = c("LC", "NT", "VU", "EN", "CR", "DD"),
-                                marine = NULL,
-                                terrestria = NULL,
-                                freshwater = NULL) {
-  layer_name <- sf::st_layers(path)$name[1]
-
-  # Build SQL WHERE clause from non-NULL parameters
-  clauses <- character(0)
-
-  # Helper: quote character values for SQL
-  sql_in <- function(col, vals) {
-    if (is.character(vals)) {
-      quoted <- paste0("'", gsub("'", "''", vals), "'")
-      paste0(col, " IN (", paste(quoted, collapse = ", "), ")")
-    } else {
-      paste0(col, " IN (", paste(vals, collapse = ", "), ")")
-    }
-  }
-
-  # Map each parameter to its shapefile column name
-  filter_params <- list(
-    id_no = id_no,
-    sci_name = sci_name,
-    presence = presence,
-    origin = origin,
-    seasonal = seasonal,
-    compiler = compiler,
-    yrcompiled = yrcompiled,
-    citation = citation,
-    subspecies = subspecies,
-    subpop = subpop,
-    source = source,
-    island = island,
-    tax_comm = tax_comm,
-    dist_comm = dist_comm,
-    generalisd = generalisd,
-    legend = legend,
-    kingdom = kingdom,
-    phylum = phylum,
-    class = class,
-    order_ = order_,
-    family = family,
-    genus = genus,
-    category = category,
-    marine = marine,
-    terrestria = terrestria,
-    freshwater = freshwater
-  )
-
-  for (col in names(filter_params)) {
-    vals <- filter_params[[col]]
-    if (!is.null(vals)) {
-      clauses <- c(clauses, sql_in(col, vals))
-    }
-  }
-
-  if (length(clauses) > 0) {
-    where <- paste(clauses, collapse = " AND ")
-    sql <- paste0("SELECT * FROM \"", layer_name, "\" WHERE ", where)
-    ranges <- sf::st_read(path, query = sql, quiet = TRUE)
-  } else {
-    ranges <- sf::st_read(path, quiet = TRUE)
-  }
-
-  if (nrow(ranges) == 0) {
-    warning("No features matched the provided filters.")
-    return(ranges)
-  }
-
-  # Dissolve multipolygons per species
-  species_ids <- unique(ranges$id_no)
-  dissolved <- lapply(species_ids, function(id) {
-    sp <- ranges[ranges$id_no == id, ]
-    geom <- sf::st_union(sp)
-    sf::st_sf(
-      id_no = id,
-      sci_name = sp$sci_name[1],
-      geometry = geom
-    )
-  })
-
-  do.call(rbind, dissolved)
-}
-
 #' Fetch species assessment data from IUCN Red List API
 #'
 #' Query IUCN Red List API for species assessment data including taxonomy,
@@ -227,8 +68,13 @@ fetch_species_assessments <- function(api_key,
     assessment_ids <- group$assessment_id
   } else if (!is.null(sis_ids)) {
     assessment_ids <- unlist(lapply(sis_ids, function(sid) {
-      res <- rredlist::rl_sis_latest(id = sid, scope = "1", key = api_key)
-      res$assessment_id
+      tryCatch({
+        res <- rredlist::rl_sis_latest(id = sid, scope = "1", key = api_key)
+        res$assessment_id
+      }, error = function(e) {
+        warning("No assessment found for SIS ID: ", sid)
+        NA
+      })
     }))
     assessment_ids <- assessment_ids[!is.na(assessment_ids)]
   } else {
@@ -238,10 +84,15 @@ fetch_species_assessments <- function(api_key,
         warning("Could not parse scientific name: ", name)
         return(NA)
       }
-      res <- rredlist::rl_species_latest(
-        genus = parts[1], species = parts[2], scope = "1", key = api_key
-      )
-      res$assessment_id
+      tryCatch({
+        res <- rredlist::rl_species_latest(
+          genus = parts[1], species = parts[2], scope = "1", key = api_key
+        )
+        res$assessment_id
+      }, error = function(e) {
+        warning("No assessment found for: ", name)
+        NA
+      })
     }))
     assessment_ids <- assessment_ids[!is.na(assessment_ids)]
   }

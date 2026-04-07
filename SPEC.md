@@ -76,8 +76,7 @@ Multi-depth SpatRasters used by this package must encode depth in layer names us
 ### Data loading and preparation
 Functions to load and standardize inputs into common formats used by the rest of the package.
 
-- [ ] **(P1)** `load_species_ranges(source, ids)` — Load species range polygons from IUCN shapefile or `chondrichthyes.species.ranges` package. Filter by presence/origin/seasonal codes, dissolve multipolygons per species. Returns sf object with id, scientific_name, geometry.
-  - Source: `previous_projects/woa_extract_climate_3d/explore_woa_take_2.qmd` + `previous_projects/mpa.chondrichthyes-main/data-raw/scripts/species_ranges.R`
+- [x] ~~`load_species_ranges(source, ids)`~~ — Removed; replaced with inline `sf::st_read()` calls with SQL filtering in vignettes.
 - [ ] **(P1)** `fetch_species_depths(api_key, species_ids)` — Query IUCN Red List API for upper/lower depth limits per species. Returns tibble with sis_id, scientific_name, upper_depth_limit, lower_depth_limit.
   - Source: `previous_projects/woa_extract_climate_3d/explore_woa_take_2.qmd`
 - [ ] **(P1)** `fill_missing_depths(depth_table, method = "genus_mean")` — Fill NA depth values using genus-level means (or other method). Handles swapped upper/lower values. Returns complete depth table.
