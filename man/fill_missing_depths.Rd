@@ -7,7 +7,7 @@
 fill_missing_depths(depth_table, method = "genus_mean")
 }
 \arguments{
-\item{depth_table}{Tibble. Output from \code{\link[=fetch_species_depths]{fetch_species_depths()}} with
+\item{depth_table}{Tibble. Output from \code{\link[=fetch_species_assessments]{fetch_species_assessments()}} with
 possible NA values in depth columns.}
 
 \item{method}{Character. Method for filling missing values. Default

@@ -7,11 +7,11 @@
 load_bathymetry(file_path)
 }
 \arguments{
-\item{file_path}{Character. Path to bathymetry raster file.}
+\item{file_path}{Character. Path to GEBCO bathymetry raster netCDF file.}
 }
 \value{
 SpatRaster.
 }
 \description{
-Load a bathymetry raster (e.g., GEBCO).
+Load a bathymetry raster from GEBCO that is in netCDF format.
 }

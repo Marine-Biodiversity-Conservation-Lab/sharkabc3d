@@ -31,3 +31,11 @@ You can install the development version of extractclimate3d from [GitHub](https:
 # install.packages("devtools")
 devtools::install_github("Marine-Biodiversity-Conservation-Lab/extractclimate3d")
 ```
+
+Make sure to add your IUCN API key for accessing Red List data. Sign up and acquire your API key here: https://api.iucnredlist.org/ 
+
+```{r}
+usethis::edit_r_environ()
+# Add the following line to the .Renviron file
+IUCN_API_KEY="your_iucn_api_key_here"
+```
