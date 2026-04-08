@@ -4,16 +4,22 @@
 \alias{plot_volume_overlap}
 \title{Plot 3D volume overlap between two ranges}
 \usage{
-plot_volume_overlap(overlap_rast)
+plot_volume_overlap(overlap_rast, name_a = "Species", name_b = "Fishery")
 }
 \arguments{
-\item{overlap_rast}{SpatRaster. Per-cell overlap raster from
-\code{\link[=calc_volume_overlap]{calc_volume_overlap()}}.}
+\item{overlap_rast}{SpatRaster. Output of \code{\link[=calc_volume_overlap]{calc_volume_overlap()}}, a
+multi-layer raster with layers: volume_a, volume_b, volume_overlap.}
+
+\item{name_a}{Character. Label for range A (default \code{"Species"}).}
+
+\item{name_b}{Character. Label for range B (default \code{"Fishery"}).}
 }
 \value{
 A ggplot object.
 }
 \description{
-Map view of per-cell 3D volume overlap between two rasterized ranges (output
-of \code{\link[=calc_volume_overlap]{calc_volume_overlap()}}). Cells colored by overlap depth.
+Map view of per-cell 3D volume overlap between two rasterized ranges.
+Cells are categorised as range A only (species), intersection (overlap),
+or range B only (fishery), matching the visualisation style of
+Haque et al. Requires the output of \code{\link[=calc_volume_overlap]{calc_volume_overlap()}}.
 }

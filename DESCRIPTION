@@ -9,6 +9,9 @@ Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
     calculation, environmental extraction, and spatial overlap analysis between
     species ranges, fisheries, and protected areas.
 License: MIT + file LICENSE
+Imports:
+    ggplot2,
+    terra
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

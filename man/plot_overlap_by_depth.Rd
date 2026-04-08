@@ -11,13 +11,15 @@ plot_overlap_by_depth(species_name, fishery_names, overlap_results)
 
 \item{fishery_names}{Character vector. Names of the sub-fisheries.}
 
-\item{overlap_results}{List or tibble. Overlap results from
-\code{\link[=calc_volume_overlap]{calc_volume_overlap()}} applied across fisheries.}
+\item{overlap_results}{Data frame or tibble with columns: species, fishery,
+volume_species_km3, volume_fishery_km3, volume_overlap_km3.}
 }
 \value{
 A ggplot object.
 }
 \description{
-Bar or circular plot comparing 3D overlap percentage across sub-fisheries
-for a species, with depth breakdown.
+Horizontal bar chart showing per-depth-bin cell counts for the species
+range, fishery footprint, and their intersection. For a single species
+across multiple fisheries, this recreates the depth histogram panels from
+Haque et al. (Figure 1).
 }

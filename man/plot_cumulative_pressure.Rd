@@ -4,7 +4,7 @@
 \alias{plot_cumulative_pressure}
 \title{Plot cumulative fishing pressure on a species}
 \usage{
-plot_cumulative_pressure(species_rast, fishery_rasters)
+plot_cumulative_pressure(species_rast, fishery_rasters, species_name = NULL)
 }
 \arguments{
 \item{species_rast}{SpatRaster. Rasterized species range from
@@ -12,11 +12,15 @@ plot_cumulative_pressure(species_rast, fishery_rasters)
 
 \item{fishery_rasters}{List of SpatRasters. Rasterized fishery footprints
 from \code{\link[=rasterize_range]{rasterize_range()}}.}
+
+\item{species_name}{Character. Optional species name for the plot title.}
 }
 \value{
 A ggplot object.
 }
 \description{
 Map showing cumulative fishing pressure from all sub-fisheries on a given
-species. Cells colored by number of overlapping fisheries.
+species. Each cell is coloured by the number of fisheries whose depth range
+overlaps the species at that location. Reproduces the per-species
+cumulative pressure maps from Haque et al.
 }
