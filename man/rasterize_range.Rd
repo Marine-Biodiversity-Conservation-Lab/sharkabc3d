@@ -13,8 +13,9 @@ polygons.}
 \item{grid}{SpatRaster. Study area raster grid (e.g., from
 \code{\link[=create_study_raster]{create_study_raster()}}).}
 
-\item{bathymetry}{SpatRaster. Bathymetry raster with negative values for
-depth below sea level (e.g., from \code{\link[=load_bathymetry]{load_bathymetry()}}).}
+\item{bathymetry}{SpatRaster. Seafloor depth raster with positive values
+in metres, matching the CRS and resolution of \code{grid}. Pre-prepare from
+GEBCO with: \code{seafloor <- terra::clamp(-terra::project(bathy, grid), lower = 0)}.}
 
 \item{depth_min}{Numeric. Minimum (shallowest) depth in metres.}
 

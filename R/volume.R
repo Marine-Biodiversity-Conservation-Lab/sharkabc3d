@@ -44,8 +44,9 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'   polygons.
 #' @param grid SpatRaster. Study area raster grid (e.g., from
 #'   [create_study_raster()]).
-#' @param bathymetry SpatRaster. Bathymetry raster with negative values for
-#'   depth below sea level (e.g., from [load_bathymetry()]).
+#' @param bathymetry SpatRaster. Seafloor depth raster with positive values
+#'   in metres, matching the CRS and resolution of `grid`. Pre-prepare from
+#'   GEBCO with: `seafloor <- terra::clamp(-terra::project(bathy, grid), lower = 0)`.
 #' @param depth_min Numeric. Minimum (shallowest) depth in metres.
 #' @param depth_max Numeric. Maximum (deepest) depth in metres.
 #'
@@ -54,6 +55,13 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'   than depth_min are NA.
 #' @export
 rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
+  if (!terra::same.crs(bathymetry, grid)) {
+    stop("bathymetry CRS does not match grid. Pre-project bathymetry onto the study grid.")
+  }
+  if (!all(terra::res(bathymetry) == terra::res(grid))) {
+    stop("bathymetry resolution does not match grid. Pre-project bathymetry onto the study grid.")
+  }
+
   if (inherits(polygons, "sf") || inherits(polygons, "sfc")) {
     polygons <- terra::vect(polygons)
   }
@@ -62,11 +70,7 @@ rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
   # Rasterize presence onto the study grid
   presence <- terra::rasterize(polygons, grid, field = 1, background = NA)
 
-  # Crop and resample bathymetry to the study grid
-  # GEBCO uses negative values below sea level; convert to positive depth
-  bathy_proj <- terra::project(bathymetry, grid)
-  seafloor <- -bathy_proj
-  seafloor <- terra::clamp(seafloor, lower = 0)
+  seafloor <- bathymetry
 
   # Mask seafloor to where the range is present
   seafloor <- terra::mask(seafloor, presence)
