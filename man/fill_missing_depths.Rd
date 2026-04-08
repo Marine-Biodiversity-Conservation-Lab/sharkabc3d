@@ -4,19 +4,33 @@
 \alias{fill_missing_depths}
 \title{Fill missing depth values}
 \usage{
-fill_missing_depths(depth_table, method = "genus_mean")
+fill_missing_depths(upper, lower, genus, method = "genus_mean")
 }
 \arguments{
-\item{depth_table}{Tibble. Output from \code{\link[=fetch_species_assessments]{fetch_species_assessments()}} with
-possible NA values in depth columns.}
+\item{upper}{Numeric vector. Upper (shallower) depth limit values, possibly
+with NAs or swapped values.}
 
-\item{method}{Character. Method for filling missing values. Default
-\code{"genus_mean"}.}
+\item{lower}{Numeric vector. Lower (deeper) depth limit values, possibly
+with NAs or swapped values.}
+
+\item{genus}{Character vector. Genus names, used to compute genus-level
+mean depths for filling NAs.}
+
+\item{method}{Character. Method for filling missing values. Currently only
+\code{"genus_mean"} is supported. Default \code{"genus_mean"}.}
 }
 \value{
-Complete depth table with no NA depth values.
+A tibble with columns \code{upper_depth} and \code{lower_depth}, suitable
+for use with \code{\link[dplyr:mutate]{dplyr::mutate()}}.
 }
 \description{
-Fill NA depth values using genus-level means (or other method). Handles
-swapped upper/lower values.
+Fix swapped upper/lower depth values and fill NAs using genus-level means.
+Designed for use inside \code{\link[dplyr:mutate]{dplyr::mutate()}} — returns a two-column tibble
+(\code{upper_depth} and \code{lower_depth}) that can be unpacked with \code{mutate()}.
+}
+\examples{
+\dontrun{
+species_info <- species_info \%>\%
+  mutate(fill_missing_depths(upper_depth_limit, lower_depth_limit, genus_name))
+}
 }

@@ -2,26 +2,32 @@
 % Please edit documentation in R/volume.R
 \name{rasterize_range}
 \alias{rasterize_range}
-\title{Rasterize a species range or fishery footprint onto a bathymetry grid}
+\title{Rasterize a species range or fishery footprint onto a study grid}
 \usage{
-rasterize_range(polygons, bathymetry, depth_min, depth_max)
+rasterize_range(polygons, grid, bathymetry, depth_min, depth_max)
 }
 \arguments{
 \item{polygons}{sf or SpatVector. Species range or fishery footprint
 polygons.}
 
-\item{bathymetry}{SpatRaster. Bathymetry raster (e.g., from
-\code{\link[=load_bathymetry]{load_bathymetry()}}).}
+\item{grid}{SpatRaster. Study area raster grid (e.g., from
+\code{\link[=create_study_raster]{create_study_raster()}}).}
 
-\item{depth_min}{Numeric. Minimum depth (metres) of the range.}
+\item{bathymetry}{SpatRaster. Bathymetry raster with negative values for
+depth below sea level (e.g., from \code{\link[=load_bathymetry]{load_bathymetry()}}).}
 
-\item{depth_max}{Numeric. Maximum depth (metres) of the range.}
+\item{depth_min}{Numeric. Minimum (shallowest) depth in metres.}
+
+\item{depth_max}{Numeric. Maximum (deepest) depth in metres.}
 }
 \value{
-Multi-layer SpatRaster with layers: presence, depth_min, depth_max.
+Multi-layer SpatRaster with layers: depth_min, depth_max.
+Cells where the species/fishery is absent or the seafloor is shallower
+than depth_min are NA.
 }
 \description{
-Rasterize species range or fishery footprint onto the bathymetry grid.
-Returns multi-layer SpatRaster with: presence (1/0), depth_min, depth_max
-(clamped to bathymetry per cell so depth_max never exceeds seafloor).
+Rasterize polygons onto a study grid and assign depth limits per cell.
+The maximum depth is clamped to the bathymetry (seafloor) so it never
+exceeds the actual depth at each cell. Cells where the minimum depth is
+deeper than the seafloor are set to NA (species not present).
 }

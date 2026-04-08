@@ -8,7 +8,7 @@ calc_volume(range_rast)
 }
 \arguments{
 \item{range_rast}{SpatRaster. Output from \code{\link[=rasterize_range]{rasterize_range()}}, with layers:
-presence, depth_min, depth_max.}
+depth_min, depth_max.}
 }
 \value{
 Numeric. Total volume in km³.

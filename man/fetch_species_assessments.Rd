@@ -4,22 +4,32 @@
 \alias{fetch_species_assessments}
 \title{Fetch species assessment data from IUCN Red List API}
 \usage{
-fetch_species_assessments(api_key, species_ids)
+fetch_species_assessments(
+  api_key,
+  sis_ids = NULL,
+  species_names = NULL,
+  group_code = NULL
+)
 }
 \arguments{
-\item{api_key}{Character. IUCN Red List API token (raw string, not yet
-initialised). Will be passed to \code{iucnredlist::init_api()}.}
+\item{api_key}{Character. IUCN Red List API token. Set once per session
+with \code{rredlist::rl_use_iucn()}, or pass directly here.}
 
-\item{species_ids}{Character or numeric vector. Either a comprehensive group
-code (e.g., \code{"sharks_and_rays"}) to fetch all species in that group, or a
-vector of assessment IDs / SIS taxon IDs to fetch individually.}
+\item{sis_ids}{Numeric vector. SIS taxon IDs (i.e., \code{id_no} from IUCN
+shapefiles). Default \code{NULL}.}
+
+\item{species_names}{Character vector. Scientific names in \code{"Genus species"}
+format. Default \code{NULL}.}
+
+\item{group_code}{Character. A single comprehensive group code (e.g.,
+\code{"sharks_and_rays"}). Default \code{NULL}.}
 }
 \value{
-Tibble with columns: assessment_id, assessment_date, sis_id,
+Data frame with columns: assessment_id, assessment_date, sis_id,
 scientific_name, kingdom_name, phylum_name, class_name, order_name,
 family_name, genus_name, species_name, subpopulation_name,
-red_list_category, systems_description, systems_code,
-upper_depth_limit, lower_depth_limit, assessment_ranges, citation, url.
+red_list_category, systems_code,
+upper_depth_limit, lower_depth_limit, citation, url.
 }
 \description{
 Query IUCN Red List API for species assessment data including taxonomy,
@@ -27,5 +37,26 @@ Red List category, depth limits, and assessment metadata. Retrieves the most
 recent global assessment for each species.
 }
 \details{
-Requires the \code{iucnredlist} package (\code{pak::pkg_install("iucnredlist")}).
+Exactly one of \code{sis_ids}, \code{species_names}, or \code{group_code} must be
+provided.
+
+Requires the \code{rredlist} package (\code{install.packages("rredlist")}).
+}
+\examples{
+\dontrun{
+# By SIS taxon IDs (e.g., id_no column from IUCN shapefile)
+assessments <- fetch_species_assessments(api_key, sis_ids = c(39332, 39385))
+
+# By scientific names
+assessments <- fetch_species_assessments(
+  api_key,
+  species_names = c("Sphyrna lewini", "Carcharhinus amblyrhynchos")
+)
+
+# By comprehensive group (all sharks and rays)
+assessments <- fetch_species_assessments(
+  api_key,
+  group_code = "sharks_and_rays"
+)
+}
 }

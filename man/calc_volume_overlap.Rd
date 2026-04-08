@@ -14,12 +14,8 @@ calc_volume_overlap(range_rast_a, range_rast_b)
 \code{\link[=rasterize_range]{rasterize_range()}}).}
 }
 \value{
-List with:
-\itemize{
-\item \code{overlap_rast}: SpatRaster of per-cell overlap depth.
-\item \code{summary}: Tibble with overlap_volume_km3, proportion_of_a,
-proportion_of_b.
-}
+Multi-layer SpatRaster with layers: volume_a, volume_b,
+volume_overlap. Each layer contains per-cell volume in km³.
 }
 \description{
 Per-cell depth overlap = min(max_a, max_b) - max(min_a, min_b), clamped to
