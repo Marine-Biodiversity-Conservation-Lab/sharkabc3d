@@ -2,6 +2,7 @@
 
 export(calc_volume)
 export(calc_volume_overlap)
+export(count_3d_overlap)
 export(create_study_raster)
 export(extract_rast_volume)
 export(fetch_species_assessments)

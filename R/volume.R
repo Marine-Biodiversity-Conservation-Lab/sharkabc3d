@@ -160,6 +160,37 @@ calc_volume <- function(range_rast) {
   terra::global(vol_rast, "sum", na.rm = TRUE)[[1]]
 }
 
+#' Binary 3D overlap between two rasterized ranges
+#'
+#' Returns a single-layer raster that is `1` in cells where the two ranges
+#' overlap both horizontally (both present) and vertically (their depth
+#' intervals intersect), and `NA` otherwise. Useful for richness / tally
+#' maps where the per-cell overlap volume is not needed.
+#'
+#' @param range_rast_a SpatRaster. First rasterized range (output of
+#'   [rasterize_range()]).
+#' @param range_rast_b SpatRaster. Second rasterized range (output of
+#'   [rasterize_range()]).
+#'
+#' @returns Single-layer SpatRaster (`1` where the two ranges overlap in 3D,
+#'   `NA` elsewhere).
+#' @export
+count_3d_overlap <- function(range_rast_a, range_rast_b) {
+  both_present <- !is.na(range_rast_a[["depth_min"]]) &
+    !is.na(range_rast_b[["depth_min"]])
+
+  dmin_a <- range_rast_a[["depth_min"]]
+  dmax_a <- range_rast_a[["depth_max"]]
+  dmin_b <- range_rast_b[["depth_min"]]
+  dmax_b <- range_rast_b[["depth_max"]]
+
+  overlap_min <- terra::ifel(dmin_a > dmin_b, dmin_a, dmin_b)
+  overlap_max <- terra::ifel(dmax_a < dmax_b, dmax_a, dmax_b)
+
+  has_overlap <- both_present & (overlap_max > overlap_min)
+  terra::ifel(has_overlap, 1, NA)
+}
+
 #' Calculate 3D volume overlap between two rasterized ranges
 #'
 #' Per-cell depth overlap = min(max_a, max_b) - max(min_a, min_b), clamped to
