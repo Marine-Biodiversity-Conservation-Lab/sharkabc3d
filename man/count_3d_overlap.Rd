@@ -20,6 +20,7 @@ Single-layer SpatRaster (\code{1} where the two ranges overlap in 3D,
 \description{
 Returns a single-layer raster that is \code{1} in cells where the two ranges
 overlap both horizontally (both present) and vertically (their depth
-intervals intersect), and \code{NA} otherwise. Useful for richness / tally
-maps where the per-cell overlap volume is not needed.
+intervals intersect), and \code{NA} otherwise. Thin wrapper around
+\code{\link[=calc_volume_overlap]{calc_volume_overlap()}} for richness / tally maps where the per-cell
+overlap volume is not needed.
 }

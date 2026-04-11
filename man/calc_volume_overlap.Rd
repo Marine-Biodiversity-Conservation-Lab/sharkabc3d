@@ -14,10 +14,20 @@ calc_volume_overlap(range_rast_a, range_rast_b)
 \code{\link[=rasterize_range]{rasterize_range()}}).}
 }
 \value{
-Multi-layer SpatRaster with layers: volume_a, volume_b,
-volume_overlap. Each layer contains per-cell volume in km³.
+Multi-layer SpatRaster with 9 layers:
+\describe{
+\item{depth_min_a, depth_max_a}{Depth limits of range A (m)}
+\item{depth_min_b, depth_max_b}{Depth limits of range B (m)}
+\item{depth_min_overlap, depth_max_overlap}{Depth limits of the
+intersection (m). NA where ranges do not overlap in depth.}
+\item{volume_a, volume_b}{Per-cell volume of each range (km³)}
+\item{volume_overlap}{Per-cell overlap volume (km³)}
+}
 }
 \description{
-Per-cell depth overlap = min(max_a, max_b) - max(min_a, min_b), clamped to
-0. Bathymetry is already applied in \code{\link[=rasterize_range]{rasterize_range()}}.
+Computes per-cell depth intervals and volumes for two ranges and their
+intersection. Returns a 9-layer raster stack containing the depth limits
+for each range and their overlap, plus the corresponding volumes. Cells
+where a range is absent have NA for that range's layers. The intersection
+layers are NA where the two depth intervals do not overlap.
 }
