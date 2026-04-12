@@ -11,6 +11,7 @@ Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
 License: MIT + file LICENSE
 Imports:
     ggplot2,
+    stringr,
     terra
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
