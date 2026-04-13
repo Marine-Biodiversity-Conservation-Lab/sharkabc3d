@@ -65,7 +65,7 @@ fetch_species_assessments <- function(api_key,
     group <- rredlist::rl_comp_groups(
       name = group_code, key = api_key, latest = TRUE, scope_code = 1
     )
-    assessment_ids <- group$assessment_id
+    assessment_ids <- group$assessments$assessment_id
   } else if (!is.null(sis_ids)) {
     assessment_ids <- unlist(lapply(sis_ids, function(sid) {
       tryCatch({
