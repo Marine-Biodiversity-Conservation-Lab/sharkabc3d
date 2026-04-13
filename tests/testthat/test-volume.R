@@ -28,7 +28,8 @@ test_that("overlap volume never exceeds volume of either input range", {
   )
 
   result <- calc_volume_overlap(a, b)
-  totals <- terra::global(result, "sum", na.rm = TRUE)$sum
+  vol_layers <- result[[c("volume_a", "volume_b", "volume_overlap")]]
+  totals <- terra::global(vol_layers, "sum", na.rm = TRUE)$sum
   names(totals) <- c("volume_a", "volume_b", "volume_overlap")
 
   expect_true(totals[["volume_overlap"]] <= totals[["volume_a"]])
@@ -81,7 +82,8 @@ test_that("full overlap when ranges are identical", {
   )
 
   result <- calc_volume_overlap(a, a)
-  totals <- terra::global(result, "sum", na.rm = TRUE)$sum
+  vol_layers <- result[[c("volume_a", "volume_b", "volume_overlap")]]
+  totals <- terra::global(vol_layers, "sum", na.rm = TRUE)$sum
   names(totals) <- c("volume_a", "volume_b", "volume_overlap")
 
   expect_equal(totals[["volume_overlap"]], totals[["volume_a"]])

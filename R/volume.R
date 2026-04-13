@@ -83,8 +83,9 @@ rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
   dmin_rast <- valid * depth_min
   names(dmin_rast) <- "depth_min"
 
-  # depth_max layer: clamped to seafloor
-  dmax_rast <- terra::ifel(seafloor < depth_max, seafloor, valid * depth_max)
+  # depth_max layer: clamped to seafloor, masked to valid cells
+  dmax_rast <- terra::ifel(seafloor < depth_max, seafloor, depth_max)
+  dmax_rast <- terra::mask(dmax_rast, valid)
   names(dmax_rast) <- "depth_max"
 
   c(dmin_rast, dmax_rast)
