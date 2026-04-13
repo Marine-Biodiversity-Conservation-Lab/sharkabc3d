@@ -4,14 +4,11 @@
 \alias{summarise_species_environment}
 \title{Summarise environmental conditions within a species' 3D range}
 \usage{
-summarise_species_environment(species_range, min_depth, max_depth, raster_list)
+summarise_species_environment(range_rast, raster_list)
 }
 \arguments{
-\item{species_range}{sf or SpatVector. Single species range polygon.}
-
-\item{min_depth}{Numeric. Upper (shallower) depth limit (metres).}
-
-\item{max_depth}{Numeric. Lower (deeper) depth limit (metres).}
+\item{range_rast}{SpatRaster. Output of \code{\link[=rasterize_range]{rasterize_range()}} with
+\code{depth_min} and \code{depth_max} layers.}
 
 \item{raster_list}{Named list of multi-depth SpatRasters following the
 \verb{\{variable\}_depth=\{value\}} layer naming convention.}
@@ -20,11 +17,18 @@ summarise_species_environment(species_range, min_depth, max_depth, raster_list)
 Single-row data frame of summary statistics across all rasters.
 }
 \description{
-For one species polygon + depth limits, extract each raster in
-\code{raster_list} via \code{\link[=extract_rast_volume]{extract_rast_volume()}} and compute summary statistics.
-Apply across species with \code{lapply()} / \code{mapply()} in vignettes.
+Takes a rasterized species range (output of \code{\link[=rasterize_range]{rasterize_range()}} with
+per-cell \code{depth_min}/\code{depth_max} clamped to bathymetry) and a named list
+of multi-depth environmental rasters. For each environmental raster,
+values are restricted to cells + depths inside the species' per-cell
+depth window via \code{\link[=extract_rast_range]{extract_rast_range()}} before summary statistics are
+computed. Apply across species with \code{lapply()} / \code{mapply()} in vignettes.
 }
 \details{
+All rasters in \code{raster_list} must share extent, resolution, and CRS with
+\code{range_rast}. Pre-align heterogeneous environmental rasters onto a common
+grid before calling.
+
 For each named raster, returns columns:
 \verb{\{name\}_min}, \verb{\{name\}_max}, \verb{\{name\}_mean}, \verb{\{name\}_n_surface_cells},
 \verb{\{name\}_n_cells}, \verb{\{name\}_n_depths}.

@@ -1,37 +1,43 @@
 #' Plot environmental depth profile for a species
 #'
-#' Plot environmental variable (e.g., temperature, dissolved oxygen) as a
-#' vertical depth profile within a species range. Line plot with depth on
-#' y-axis (inverted).
+#' Plot an environmental variable (e.g., temperature, dissolved oxygen) as a
+#' vertical depth profile within the species range. At each depth layer the
+#' spatial mean, min, and max are computed across cells where that depth
+#' falls inside the species' per-cell depth window (bathymetry-clamped). The
+#' mean is drawn as a line with points; the min-max range is shaded as a
+#' ribbon. Depth is on the y-axis (inverted).
 #'
-#' @param species_name Character. Species name for the plot title.
-#' @param rast_3d SpatRaster. Multi-depth raster with layer names following the
-#'   `{variable}_depth={value}` convention.
-#' @param min_depth Numeric. Upper depth limit (metres).
-#' @param max_depth Numeric. Lower depth limit (metres).
+#' Uses [extract_rast_range()] to apply the per-cell depth window. Layers
+#' that end up all-NA (no cells where the species is present at that depth)
+#' are dropped from the plot.
+#'
+#' @param species_name Character. Species name used for the plot title.
+#' @param range_rast SpatRaster. Output of [rasterize_range()] with per-cell
+#'   `depth_min` and `depth_max` layers.
+#' @param rast_3d SpatRaster. Multi-depth environmental raster with layer
+#'   names following the `{variable}_depth={value}` convention.
 #'
 #' @returns A ggplot object.
 #' @export
-plot_depth_profile <- function(species_name, rast_3d, min_depth, max_depth) {
-  depths <- .parse_depth_layers(rast_3d)
-  keep <- !is.na(depths) & depths >= min_depth & depths <= max_depth
-  if (!any(keep)) {
-    stop("No depth layers fall within [", min_depth, ", ", max_depth, "].")
-  }
-  sub <- rast_3d[[which(keep)]]
+plot_depth_profile <- function(species_name, range_rast, rast_3d) {
+  masked <- extract_rast_range(range_rast, rast_3d)
+  depths <- .parse_depth_layers(masked)
 
-  # Per-layer summary stats across all cells
-  summary_per_depth <- lapply(seq_len(terra::nlyr(sub)), function(i) {
-    v <- terra::values(sub[[i]])
+  summary_per_depth <- lapply(seq_len(terra::nlyr(masked)), function(i) {
+    v <- terra::values(masked[[i]])
+    if (all(is.na(v))) return(NULL)
     data.frame(
-      depth = depths[keep][i],
-      mean  = suppressWarnings(mean(v, na.rm = TRUE)),
-      min   = suppressWarnings(min(v, na.rm = TRUE)),
-      max   = suppressWarnings(max(v, na.rm = TRUE))
+      depth = depths[i],
+      mean  = mean(v, na.rm = TRUE),
+      min   = min(v, na.rm = TRUE),
+      max   = max(v, na.rm = TRUE)
     )
   })
-  df <- do.call(rbind, summary_per_depth)
-  df[] <- lapply(df, function(x) ifelse(is.infinite(x), NA_real_, x))
+  df <- do.call(rbind, Filter(Negate(is.null), summary_per_depth))
+  if (is.null(df) || nrow(df) == 0) {
+    stop("No cells overlap the species range and the raster's depth layers.",
+         call. = FALSE)
+  }
 
   ggplot2::ggplot(df, ggplot2::aes(x = .data$mean, y = .data$depth)) +
     ggplot2::geom_ribbon(

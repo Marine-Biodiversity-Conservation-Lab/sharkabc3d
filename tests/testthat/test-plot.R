@@ -23,21 +23,37 @@ make_area_polygon <- function() {
   ) |> sf::st_sf(geometry = _)
 }
 
+make_range_rast_plot <- function(depth_min_vals = rep(0, 16),
+                                 depth_max_vals = rep(500, 16),
+                                 ncol = 4, nrow = 4) {
+  template <- terra::rast(
+    nrows = nrow, ncols = ncol,
+    xmin = -10, xmax = 10, ymin = -10, ymax = 10,
+    crs = "EPSG:4326"
+  )
+  dmin <- template; terra::values(dmin) <- depth_min_vals; names(dmin) <- "depth_min"
+  dmax <- template; terra::values(dmax) <- depth_max_vals; names(dmax) <- "depth_max"
+  c(dmin, dmax)
+}
+
 test_that("plot_depth_profile returns a ggplot", {
+  skip_if_not_installed("sf")
   p <- plot_depth_profile(
     species_name = "Fakus sharkus",
-    rast_3d = make_env_rast(),
-    min_depth = 0,
-    max_depth = 1000
+    range_rast = make_range_rast_plot(rep(0, 16), rep(1000, 16)),
+    rast_3d = make_env_rast()
   )
   expect_s3_class(p, "ggplot")
 })
 
-test_that("plot_depth_profile errors when no layer falls in range", {
+test_that("plot_depth_profile errors when no cells fall inside the range window", {
+  skip_if_not_installed("sf")
   r <- make_env_rast(depths = c(0, 50))
+  # Depth window is deeper than any raster layer → no layer has cells in window
+  range_rast <- make_range_rast_plot(rep(2000, 16), rep(3000, 16))
   expect_error(
-    plot_depth_profile("X", r, min_depth = 2000, max_depth = 3000),
-    "within"
+    plot_depth_profile("X", range_rast, r),
+    "No cells"
   )
 })
 

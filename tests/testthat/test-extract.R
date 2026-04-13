@@ -27,6 +27,21 @@ make_area_polygon <- function() {
   ) |> sf::st_sf(geometry = _)
 }
 
+# Build a rasterize_range-style stack (depth_min + depth_max layers) directly
+# from a vector of per-cell depth_min and depth_max values. Aligned to the
+# grid used by make_env_rast(), so extract_rast_range() doesn't have to
+# resample.
+make_range_rast <- function(depth_min_vals, depth_max_vals, ncol = 4, nrow = 4) {
+  template <- terra::rast(
+    nrows = nrow, ncols = ncol,
+    xmin = -10, xmax = 10, ymin = -10, ymax = 10,
+    crs = "EPSG:4326"
+  )
+  dmin <- template; terra::values(dmin) <- depth_min_vals; names(dmin) <- "depth_min"
+  dmax <- template; terra::values(dmax) <- depth_max_vals; names(dmax) <- "depth_max"
+  c(dmin, dmax)
+}
+
 test_that("extract_rast_volume selects the correct depth range", {
   skip_if_not_installed("sf")
   r <- make_env_rast()
@@ -64,12 +79,10 @@ test_that("extract_rast_volume errors on non-standard layer names", {
 test_that("summarise_species_environment returns one row per call with expected cols", {
   skip_if_not_installed("sf")
   r <- make_env_rast()
-  a <- make_area_polygon()
+  range_rast <- make_range_rast(rep(0, 16), rep(500, 16))
 
   result <- summarise_species_environment(
-    species_range = a,
-    min_depth = 0,
-    max_depth = 500,
+    range_rast = range_rast,
     raster_list = list(temp = r, oxy = r)
   )
 
@@ -88,9 +101,9 @@ test_that("summarise_species_environment returns one row per call with expected 
 test_that("summarise_species_environment rejects unnamed raster_list", {
   skip_if_not_installed("sf")
   r <- make_env_rast()
-  a <- make_area_polygon()
+  range_rast <- make_range_rast(rep(0, 16), rep(100, 16))
   expect_error(
-    summarise_species_environment(a, 0, 100, list(r, r)),
+    summarise_species_environment(range_rast, list(r, r)),
     "fully named"
   )
 })
@@ -113,14 +126,13 @@ make_uniform_rast <- function(depth_values) {
 
 test_that("summarise_species_environment reports correct min/max/mean", {
   skip_if_not_installed("sf")
-  # Depth 0 layer = constant 10; depth 100 layer = constant 30.
   r <- make_uniform_rast(list(
     `tan_depth=0` = rep(10, 16),
     `tan_depth=100` = rep(30, 16)
   ))
-  a <- make_area_polygon()
+  range_rast <- make_range_rast(rep(0, 16), rep(100, 16))
 
-  res <- summarise_species_environment(a, 0, 100, list(temp = r))
+  res <- summarise_species_environment(range_rast, list(temp = r))
 
   expect_equal(res$temp_min, 10)
   expect_equal(res$temp_max, 30)
@@ -131,35 +143,27 @@ test_that("summarise_species_environment reports correct min/max/mean", {
 test_that("summarise_species_environment n_surface_cells <= n_cells", {
   skip_if_not_installed("sf")
   r <- make_env_rast()
-  a <- make_area_polygon()
-  res <- summarise_species_environment(a, 0, 500, list(x = r))
-  # Each surface cell contributes up to n_depths non-NA cells.
+  range_rast <- make_range_rast(rep(0, 16), rep(500, 16))
+  res <- summarise_species_environment(range_rast, list(x = r))
   expect_lte(res$x_n_surface_cells, res$x_n_cells)
   expect_gt(res$x_n_surface_cells, 0)
 })
 
 test_that("summarise_species_environment handles NA cells correctly", {
   skip_if_not_installed("sf")
-  # Half the cells NA in the depth=0 layer.
   vals0 <- c(rep(5, 8), rep(NA_real_, 8))
   vals100 <- rep(15, 16)
   r <- make_uniform_rast(list(
     `tan_depth=0` = vals0,
     `tan_depth=100` = vals100
   ))
-  # Polygon covering the whole raster so all 16 surface cells are selected.
-  a <- sf::st_sfc(
-    sf::st_polygon(list(rbind(
-      c(-10, -10), c(10, -10), c(10, 10), c(-10, 10), c(-10, -10)
-    ))),
-    crs = "EPSG:4326"
-  ) |> sf::st_sf(geometry = _)
+  range_rast <- make_range_rast(rep(0, 16), rep(100, 16))
 
-  res <- summarise_species_environment(a, 0, 100, list(temp = r))
+  res <- summarise_species_environment(range_rast, list(temp = r))
 
   expect_equal(res$temp_min, 5)
   expect_equal(res$temp_max, 15)
-  # n_cells should count only non-NA cells across both layers
+  # n_cells counts only non-NA cells across both layers
   expect_equal(res$temp_n_cells, 8 + 16)
 })
 
@@ -173,40 +177,90 @@ test_that("summarise_species_environment preserves per-raster column prefixes", 
     `oan_depth=0` = rep(100, 16),
     `oan_depth=100` = rep(200, 16)
   ))
-  a <- make_area_polygon()
+  range_rast <- make_range_rast(rep(0, 16), rep(100, 16))
 
   res <- summarise_species_environment(
-    a, 0, 100,
+    range_rast,
     raster_list = list(temperature = r1, oxygen = r2)
   )
 
   expect_equal(res$temperature_mean, 1.5)
   expect_equal(res$oxygen_mean, 150)
-  # Column count: 6 stats x 2 rasters
   expect_equal(ncol(res), 12)
 })
 
-test_that("summarise_species_environment returns NA for empty range", {
+test_that("summarise_species_environment returns NA when range is all-NA", {
   skip_if_not_installed("sf")
   r <- make_env_rast()
-  # Polygon entirely outside the raster extent
-  far_poly <- sf::st_sfc(
-    sf::st_polygon(list(rbind(
-      c(100, 100), c(110, 100), c(110, 110), c(100, 110), c(100, 100)
-    ))),
-    crs = "EPSG:4326"
-  ) |> sf::st_sf(geometry = _)
+  range_rast <- make_range_rast(rep(NA_real_, 16), rep(NA_real_, 16))
 
-  res <- tryCatch(
-    summarise_species_environment(far_poly, 0, 100, list(temp = r)),
-    error = function(e) NULL
+  res <- summarise_species_environment(range_rast, list(temp = r))
+  expect_true(is.na(res$temp_min))
+  expect_true(is.na(res$temp_max))
+  expect_equal(res$temp_n_cells, 0)
+})
+
+test_that("extract_rast_range masks cells outside per-cell depth window", {
+  skip_if_not_installed("sf")
+  r <- make_uniform_rast(list(
+    `tan_depth=0` = rep(1, 16),
+    `tan_depth=100` = rep(2, 16),
+    `tan_depth=500` = rep(3, 16)
+  ))
+  # First 8 cells: 0-100m window; last 8 cells: 0-500m window
+  range_rast <- make_range_rast(
+    rep(0, 16),
+    c(rep(100, 8), rep(500, 8))
   )
-  # Either errors cleanly (acceptable) or returns NA summaries + zero counts.
-  if (!is.null(res)) {
-    expect_true(is.na(res$temp_min))
-    expect_true(is.na(res$temp_max))
-    expect_equal(res$temp_n_cells, 0)
-  } else {
-    succeed()
-  }
+
+  out <- extract_rast_range(range_rast, r)
+
+  # depth=500 layer should have only the last 8 cells non-NA
+  vals500 <- terra::values(out[["tan_depth=500"]])
+  expect_equal(sum(!is.na(vals500)), 8)
+  # depth=100 layer should have all 16 non-NA
+  vals100 <- terra::values(out[["tan_depth=100"]])
+  expect_equal(sum(!is.na(vals100)), 16)
+})
+
+test_that("extract_rast_range rejects a range_rast without depth layers", {
+  r <- make_env_rast()
+  bad <- terra::rast(nrows = 2, ncols = 2)
+  names(bad) <- "foo"
+  terra::values(bad) <- 1
+  expect_error(extract_rast_range(bad, r), "depth_min")
+})
+
+test_that("summarise_species_environment errors when a raster is unaligned", {
+  skip_if_not_installed("sf")
+  r_ok <- make_env_rast()
+  r_bad <- terra::rast(
+    nrows = 8, ncols = 8,  # higher resolution → not aligned
+    xmin = -10, xmax = 10, ymin = -10, ymax = 10,
+    crs = "EPSG:4326"
+  )
+  terra::values(r_bad) <- 1
+  names(r_bad) <- "tan_depth=0"
+
+  range_rast <- make_range_rast(rep(0, 16), rep(100, 16))
+
+  expect_error(
+    summarise_species_environment(range_rast, list(ok = r_ok, bad = r_bad)),
+    "not aligned with range_rast"
+  )
+})
+
+test_that("extract_rast_range errors on mismatched geometry", {
+  r <- make_env_rast()
+  # range_rast at a different resolution → not aligned
+  mismatched <- terra::rast(
+    nrows = 8, ncols = 8,
+    xmin = -10, xmax = 10, ymin = -10, ymax = 10,
+    crs = "EPSG:4326"
+  )
+  dmin <- mismatched; terra::values(dmin) <- 0; names(dmin) <- "depth_min"
+  dmax <- mismatched; terra::values(dmax) <- 500; names(dmax) <- "depth_max"
+  range_rast <- c(dmin, dmax)
+
+  expect_error(extract_rast_range(range_rast, r), "not aligned")
 })

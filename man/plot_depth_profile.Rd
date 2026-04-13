@@ -4,23 +4,30 @@
 \alias{plot_depth_profile}
 \title{Plot environmental depth profile for a species}
 \usage{
-plot_depth_profile(species_name, rast_3d, min_depth, max_depth)
+plot_depth_profile(species_name, range_rast, rast_3d)
 }
 \arguments{
-\item{species_name}{Character. Species name for the plot title.}
+\item{species_name}{Character. Species name used for the plot title.}
 
-\item{rast_3d}{SpatRaster. Multi-depth raster with layer names following the
-\verb{\{variable\}_depth=\{value\}} convention.}
+\item{range_rast}{SpatRaster. Output of \code{\link[=rasterize_range]{rasterize_range()}} with per-cell
+\code{depth_min} and \code{depth_max} layers.}
 
-\item{min_depth}{Numeric. Upper depth limit (metres).}
-
-\item{max_depth}{Numeric. Lower depth limit (metres).}
+\item{rast_3d}{SpatRaster. Multi-depth environmental raster with layer
+names following the \verb{\{variable\}_depth=\{value\}} convention.}
 }
 \value{
 A ggplot object.
 }
 \description{
-Plot environmental variable (e.g., temperature, dissolved oxygen) as a
-vertical depth profile within a species range. Line plot with depth on
-y-axis (inverted).
+Plot an environmental variable (e.g., temperature, dissolved oxygen) as a
+vertical depth profile within the species range. At each depth layer the
+spatial mean, min, and max are computed across cells where that depth
+falls inside the species' per-cell depth window (bathymetry-clamped). The
+mean is drawn as a line with points; the min-max range is shaded as a
+ribbon. Depth is on the y-axis (inverted).
+}
+\details{
+Uses \code{\link[=extract_rast_range]{extract_rast_range()}} to apply the per-cell depth window. Layers
+that end up all-NA (no cells where the species is present at that depth)
+are dropped from the plot.
 }
