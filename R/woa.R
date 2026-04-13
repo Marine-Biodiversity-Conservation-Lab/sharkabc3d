@@ -210,42 +210,94 @@ woa_download <- function(variable,
   # are an explicit opt-in already.
   if (using_default_cache) .woa_cache_consent(output_dir)
   base <- "https://www.ncei.noaa.gov/thredds-ocean/fileServer/woa23/DATA"
-
-  paths <- vapply(period_codes, function(pc) {
+  plan <- lapply(period_codes, function(pc) {
     filename <- sprintf("woa23_%s_%s%s_%s.nc",
                         decade, vspec$code, pc, rspec$code)
-    url <- sprintf("%s/%s/netcdf/%s/%s/%s",
-                   base, vspec$dir, decade, rspec$dir, filename)
-    dest <- file.path(output_dir, filename)
+    list(
+      url = sprintf("%s/%s/netcdf/%s/%s/%s",
+                    base, vspec$dir, decade, rspec$dir, filename),
+      dest = file.path(output_dir, filename),
+      filename = filename
+    )
+  })
 
-    remote_mb <- .woa_remote_size_mb(url)
-
-    if (!force && file.exists(dest) && file.size(dest) > 0) {
-      local_mb <- file.size(dest) / 1024^2
-      # Re-download if remote size is known and local is clearly truncated.
-      # Tolerance of 1 MB allows for filesystem reporting quirks.
+  # Partition into already-cached vs. needs-download. Re-download any cached
+  # file whose size disagrees with the remote (i.e., truncated from a prior
+  # interrupted run).
+  to_fetch <- Filter(Negate(is.null), lapply(plan, function(p) {
+    if (!force && file.exists(p$dest) && file.size(p$dest) > 0) {
+      remote_mb <- .woa_remote_size_mb(p$url)
+      local_mb <- file.size(p$dest) / 1024^2
       if (is.na(remote_mb) || abs(local_mb - remote_mb) < 1) {
-        if (!quiet) message("Cached: ", filename)
-        return(dest)
+        if (!quiet) message("Cached: ", p$filename)
+        return(NULL)
       }
       if (!quiet) {
         message(sprintf(
           "Cached file is truncated (%.1f / %.1f MB); re-downloading: %s",
-          local_mb, remote_mb, filename
+          local_mb, remote_mb, p$filename
         ))
       }
     }
+    p
+  }))
 
+  if (length(to_fetch) == 1) {
+    p <- to_fetch[[1]]
     if (!quiet) {
-      size_str <- if (is.na(remote_mb)) "unknown size" else
-        sprintf("%.1f MB", remote_mb)
-      message("Downloading (", size_str, "): ", filename)
+      size_mb <- .woa_remote_size_mb(p$url)
+      size_str <- if (is.na(size_mb)) "unknown size" else
+        sprintf("%.1f MB", size_mb)
+      message("Downloading (", size_str, "): ", p$filename)
     }
-    .woa_fetch(url, dest, quiet = quiet)
-    dest
-  }, character(1))
+    .woa_fetch(p$url, p$dest, quiet = quiet)
+  } else if (length(to_fetch) > 1) {
+    .woa_fetch_parallel(to_fetch, quiet = quiet)
+  }
 
-  unname(paths)
+  unname(vapply(plan, `[[`, character(1), "dest"))
+}
+
+# Internal: download multiple files concurrently via curl::multi_download.
+# NCEI THREDDS throttles per-connection rather than per-client, so several
+# parallel streams typically give 3-5x aggregate throughput over serial.
+.woa_fetch_parallel <- function(items, quiet = FALSE) {
+  urls <- vapply(items, `[[`, character(1), "url")
+  dests <- vapply(items, `[[`, character(1), "dest")
+  filenames <- vapply(items, `[[`, character(1), "filename")
+
+  if (!quiet) {
+    message("Downloading ", length(items), " files in parallel:")
+    for (fn in filenames) message("  - ", fn)
+  }
+
+  cleanup <- function() {
+    for (d in dests) if (file.exists(d)) file.remove(d)
+  }
+
+  res <- tryCatch(
+    curl::multi_download(urls, destfiles = dests,
+                         resume = TRUE, progress = !quiet),
+    error = function(e) {
+      cleanup()
+      stop("Parallel download failed: ", conditionMessage(e), call. = FALSE)
+    },
+    interrupt = function(e) {
+      cleanup()
+      stop("Download interrupted.", call. = FALSE)
+    }
+  )
+
+  failed <- is.na(res$success) | !res$success
+  if (any(failed)) {
+    for (d in dests[failed]) if (file.exists(d)) file.remove(d)
+    stop(
+      "Download failed for ", sum(failed), " file(s):\n  ",
+      paste(filenames[failed], collapse = "\n  "),
+      call. = FALSE
+    )
+  }
+  invisible(dests)
 }
 
 #' Load a WOA NetCDF file
