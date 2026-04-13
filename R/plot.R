@@ -13,10 +13,7 @@
 #' @returns A ggplot object.
 #' @export
 plot_depth_profile <- function(species_name, rast_3d, min_depth, max_depth) {
-  layer_names <- names(rast_3d)
-  depths <- suppressWarnings(
-    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
-  )
+  depths <- .parse_depth_layers(rast_3d)
   keep <- !is.na(depths) & depths >= min_depth & depths <= max_depth
   if (!any(keep)) {
     stop("No depth layers fall within [", min_depth, ", ", max_depth, "].")
@@ -68,13 +65,7 @@ plot_depth_profile <- function(species_name, rast_3d, min_depth, max_depth) {
 #' @returns A ggplot object.
 #' @export
 plot_range_at_depth <- function(species_range, depth, rast_3d) {
-  layer_names <- names(rast_3d)
-  depths <- suppressWarnings(
-    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
-  )
-  if (all(is.na(depths))) {
-    stop("No layer names match the '{variable}_depth={value}' convention.")
-  }
+  depths <- .parse_depth_layers(rast_3d)
   idx <- which.min(abs(depths - depth))
   layer <- rast_3d[[idx]]
   actual_depth <- depths[idx]

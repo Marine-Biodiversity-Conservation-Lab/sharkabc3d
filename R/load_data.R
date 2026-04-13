@@ -174,34 +174,20 @@ fill_missing_depths <- function(upper, lower, genus, method = "genus_mean") {
     stop("Only method = 'genus_mean' is currently supported.")
   }
 
-  # Step 1: Fix swapped values (upper should be shallower, i.e. smaller)
+  # Fix swapped values (upper should be shallower, i.e. smaller)
   swapped <- !is.na(upper) & !is.na(lower) & upper > lower
-  temp_upper <- upper
+  tmp <- upper[swapped]
   upper[swapped] <- lower[swapped]
-  lower[swapped] <- temp_upper[swapped]
+  lower[swapped] <- tmp
 
-  # Step 2: Compute genus-level means from non-NA values
-  df <- data.frame(genus = genus, upper = upper, lower = lower,
-                   stringsAsFactors = FALSE)
-  genus_means <- stats::aggregate(
-    cbind(upper, lower) ~ genus, data = df, FUN = mean, na.rm = TRUE,
-    na.action = stats::na.pass
+  # Per-genus means, broadcast back to each input row in place
+  genus_mean <- function(x) stats::ave(x, genus,
+                                       FUN = function(v) mean(v, na.rm = TRUE))
+
+  tibble::tibble(
+    upper_depth = ifelse(is.na(upper), genus_mean(upper), upper),
+    lower_depth = ifelse(is.na(lower), genus_mean(lower), lower)
   )
-  names(genus_means) <- c("genus", "upper_genus_mean", "lower_genus_mean")
-  df <- merge(df, genus_means, by = "genus", sort = FALSE)
-
-  # Restore original row order
-  df <- df[match(genus, df$genus), ]
-  # Handle duplicate genus matches — merge gives one row per unique genus,
-  # so rebuild properly
-  upper_genus <- genus_means$upper_genus_mean[match(genus, genus_means$genus)]
-  lower_genus <- genus_means$lower_genus_mean[match(genus, genus_means$genus)]
-
-  # Step 3: Fill NAs with genus means
-  upper_filled <- ifelse(is.na(upper), upper_genus, upper)
-  lower_filled <- ifelse(is.na(lower), lower_genus, lower)
-
-  tibble::tibble(upper_depth = upper_filled, lower_depth = lower_filled)
 }
 
 #' Load bathymetry raster

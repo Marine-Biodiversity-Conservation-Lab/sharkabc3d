@@ -1,11 +1,28 @@
+# Internal: parse numeric depths from the `{variable}_depth={value}` layer
+# naming convention used throughout the package. Returns a numeric vector the
+# same length as `nlyr(rast)`; errors if no layer matches the convention.
+.parse_depth_layers <- function(rast) {
+  layer_names <- names(rast)
+  depths <- suppressWarnings(
+    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
+  )
+  if (all(is.na(depths))) {
+    stop(
+      "No layer names match the '{variable}_depth={value}' convention. ",
+      "Got: ", paste(utils::head(layer_names), collapse = ", "),
+      call. = FALSE
+    )
+  }
+  depths
+}
+
 #' Extract raster values from a 3D volume
 #'
 #' Crop a multi-depth SpatRaster to an area polygon and select depth layers
 #' within a given depth range. Layer names must follow the
 #' `{variable}_depth={value}` convention (native to WOA NetCDFs); the numeric
 #' depth is parsed from each layer name. The nearest available depth layers to
-#' `min_depth` and `max_depth` are used as the inclusive bounds, matching the
-#' original `woa_volume_extract()` behaviour.
+#' `min_depth` and `max_depth` are used as the inclusive bounds.
 #'
 #' @param area sf or SpatVector. Area polygon to crop the raster to.
 #' @param min_depth Numeric. Shallowest depth (metres).
@@ -16,16 +33,7 @@
 #' @returns SpatRaster cropped to `area` and filtered to the depth range.
 #' @export
 extract_rast_volume <- function(area, min_depth, max_depth, rast_3d) {
-  layer_names <- names(rast_3d)
-  depths <- suppressWarnings(
-    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
-  )
-  if (all(is.na(depths))) {
-    stop(
-      "No layer names match the '{variable}_depth={value}' convention. ",
-      "Got: ", paste(utils::head(layer_names), collapse = ", ")
-    )
-  }
+  depths <- .parse_depth_layers(rast_3d)
 
   idx_min <- which.min(abs(depths - min_depth))
   idx_max <- which.min(abs(depths - max_depth))

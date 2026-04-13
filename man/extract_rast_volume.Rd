@@ -24,6 +24,5 @@ Crop a multi-depth SpatRaster to an area polygon and select depth layers
 within a given depth range. Layer names must follow the
 \verb{\{variable\}_depth=\{value\}} convention (native to WOA NetCDFs); the numeric
 depth is parsed from each layer name. The nearest available depth layers to
-\code{min_depth} and \code{max_depth} are used as the inclusive bounds, matching the
-original \code{woa_volume_extract()} behaviour.
+\code{min_depth} and \code{max_depth} are used as the inclusive bounds.
 }
