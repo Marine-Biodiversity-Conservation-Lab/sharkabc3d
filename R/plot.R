@@ -13,7 +13,46 @@
 #' @returns A ggplot object.
 #' @export
 plot_depth_profile <- function(species_name, rast_3d, min_depth, max_depth) {
-  stop("Not yet implemented")
+  layer_names <- names(rast_3d)
+  depths <- suppressWarnings(
+    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
+  )
+  keep <- !is.na(depths) & depths >= min_depth & depths <= max_depth
+  if (!any(keep)) {
+    stop("No depth layers fall within [", min_depth, ", ", max_depth, "].")
+  }
+  sub <- rast_3d[[which(keep)]]
+
+  # Per-layer summary stats across all cells
+  summary_per_depth <- lapply(seq_len(terra::nlyr(sub)), function(i) {
+    v <- terra::values(sub[[i]])
+    data.frame(
+      depth = depths[keep][i],
+      mean  = suppressWarnings(mean(v, na.rm = TRUE)),
+      min   = suppressWarnings(min(v, na.rm = TRUE)),
+      max   = suppressWarnings(max(v, na.rm = TRUE))
+    )
+  })
+  df <- do.call(rbind, summary_per_depth)
+  df[] <- lapply(df, function(x) ifelse(is.infinite(x), NA_real_, x))
+
+  ggplot2::ggplot(df, ggplot2::aes(x = .data$mean, y = .data$depth)) +
+    ggplot2::geom_ribbon(
+      ggplot2::aes(xmin = .data$min, xmax = .data$max),
+      alpha = 0.2
+    ) +
+    ggplot2::geom_line() +
+    ggplot2::geom_point() +
+    ggplot2::scale_y_reverse() +
+    ggplot2::labs(
+      title = species_name,
+      x = "Value",
+      y = "Depth (m)"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "italic")
+    )
 }
 
 #' Plot species range at a specific depth layer
@@ -29,7 +68,48 @@ plot_depth_profile <- function(species_name, rast_3d, min_depth, max_depth) {
 #' @returns A ggplot object.
 #' @export
 plot_range_at_depth <- function(species_range, depth, rast_3d) {
-  stop("Not yet implemented")
+  layer_names <- names(rast_3d)
+  depths <- suppressWarnings(
+    as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
+  )
+  if (all(is.na(depths))) {
+    stop("No layer names match the '{variable}_depth={value}' convention.")
+  }
+  idx <- which.min(abs(depths - depth))
+  layer <- rast_3d[[idx]]
+  actual_depth <- depths[idx]
+
+  if (inherits(species_range, "sf")) {
+    range_vect <- terra::vect(species_range)
+  } else {
+    range_vect <- species_range
+  }
+  if (terra::crs(range_vect) != terra::crs(layer) && terra::crs(range_vect) != "") {
+    range_vect <- terra::project(range_vect, terra::crs(layer))
+  }
+
+  cropped <- terra::crop(layer, range_vect, mask = TRUE, touches = TRUE)
+  df <- as.data.frame(cropped, xy = TRUE)
+  names(df)[3] <- "value"
+  df <- df[!is.na(df$value), ]
+
+  range_sf <- if (inherits(species_range, "sf")) species_range else sf::st_as_sf(range_vect)
+
+  ggplot2::ggplot() +
+    ggplot2::geom_raster(
+      data = df,
+      mapping = ggplot2::aes(x = .data$x, y = .data$y, fill = .data$value)
+    ) +
+    ggplot2::geom_sf(data = range_sf, fill = NA, colour = "black", linewidth = 0.3) +
+    ggplot2::scale_fill_viridis_c(name = NULL) +
+    ggplot2::coord_sf() +
+    ggplot2::labs(
+      subtitle = paste0("Depth: ", actual_depth, " m")
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank()
+    )
 }
 
 #' Plot 3D volume overlap between two ranges

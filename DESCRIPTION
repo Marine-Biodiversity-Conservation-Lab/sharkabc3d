@@ -10,7 +10,9 @@ Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
     species ranges, fisheries, and protected areas.
 License: MIT + file LICENSE
 Imports:
+    curl,
     ggplot2,
+    magrittr,
     stringr,
     terra
 Encoding: UTF-8

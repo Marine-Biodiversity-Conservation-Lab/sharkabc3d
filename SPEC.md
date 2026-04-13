@@ -50,20 +50,20 @@ The idea is to create a R package that encapsulates the work across these papers
 
 I had some grand ideas about creating a space-time cube model, combining raster and vector data. But this is probably overkill for now, point towards it as a future direction. Just refactor and implement the code used across the above 4 papers. 
 
-## Definition of done: 
-- [ ] Create empty functions with intended params
-- [ ] Create test data for each function
-- [ ] Implement tests to cover empty functions
-- [ ] Implement each function, until tests pass
-- [ ] Write documentation for each function
-- [ ] Recreate past analyses with the package, document and use as vignettes for package
-  - [ ] 3D Bangladesh Fisheries (Alifa)
-  - [ ] Dispersal Potential (Rachel)
-  - [ ] Marine Protected Areas (Amanda)
+## Definition of done:
+- [x] Create empty functions with intended params
+- [~] Create test data for each function (done for volume functions; pending for extract, plot, woa)
+- [~] Implement tests to cover empty functions (done for `calc_volume`, `calc_volume_overlap`; pending for extract, plot, woa, load_data)
+- [~] Implement each function, until tests pass (P1 volume + load_data done; P1 extract/woa/plot stubs remaining; P2 not started)
+- [~] Write documentation for each function (all exported functions have roxygen2 docs)
+- [~] Recreate past analyses with the package, document and use as vignettes for package
+  - [~] 3D Bangladesh Fisheries (Alifa) — skeleton vignette created, eval=FALSE
+  - [~] Dispersal Potential (Rachel) — skeleton vignette created, eval=FALSE
+  - [~] Marine Protected Areas (Amanda) — skeleton vignette created, eval=FALSE
   - [ ] Deep sea sharks (Brit)
 - [ ] Write package README.md
 - [ ] Create documentation website with Quarto
-- [ ] Create presentation for Sharks International 2026 using Quarto. Complete by May 1st before going to Sri Lanka. 
+- [ ] Create presentation for Sharks International 2026 using Quarto. Complete by May 1st before going to Sri Lanka.
 
 ## Depth layer convention
 
@@ -77,11 +77,11 @@ Multi-depth SpatRasters used by this package must encode depth in layer names us
 Functions to load and standardize inputs into common formats used by the rest of the package.
 
 - [x] ~~`load_species_ranges(source, ids)`~~ — Removed; replaced with inline `sf::st_read()` calls with SQL filtering in vignettes.
-- [ ] **(P1)** `fetch_species_depths(api_key, species_ids)` — Query IUCN Red List API for upper/lower depth limits per species. Returns tibble with sis_id, scientific_name, upper_depth_limit, lower_depth_limit.
+- [x] **(P1)** `fetch_species_assessments(api_key, sis_ids, species_names, group_code)` — Query IUCN Red List API for full species assessments including depth limits, taxonomy, Red List category. Returns data frame. (Originally spec'd as `fetch_species_depths`; expanded to full assessments.)
   - Source: `previous_projects/woa_extract_climate_3d/explore_woa_take_2.qmd`
-- [ ] **(P1)** `fill_missing_depths(depth_table, method = "genus_mean")` — Fill NA depth values using genus-level means (or other method). Handles swapped upper/lower values. Returns complete depth table.
+- [x] **(P1)** `fill_missing_depths(upper, lower, genus, method = "genus_mean")` — Fill NA depth values using genus-level means. Handles swapped upper/lower values. Returns two-column tibble for use in `dplyr::mutate()`.
   - Source: `previous_projects/woa_extract_climate_3d/explore_woa_take_2.qmd`
-- [ ] **(P1)** `load_bathymetry(file_path)` — Load bathymetry raster (e.g., GEBCO). Returns SpatRaster.
+- [x] **(P1)** `load_bathymetry(file_path)` — Load GEBCO bathymetry raster from NetCDF. Validates file format, variable name, and global extent. Returns SpatRaster.
 - [ ] **(P2)** `load_eez(file_path)` — Load Exclusive Economic Zone polygons from geopackage. Returns sf with MRGID, GEONAME, geometry.
   - Source: `previous_projects/mpa.chondrichthyes-main/data-raw/scripts/eez.R`
 - [ ] **(P2)** `load_mpa(source, ...)` — Load Marine Protected Area polygons from WDPA or MPAtlas. Filter by status (not Proposed), marine realm only. Returns sf with name, protection_level, geometry.
@@ -98,18 +98,21 @@ Reusable spatial geometry operations used across species ranges, MPAs, and other
 ### Volume calculation
 Functions that compute 3D volumes using a stacked raster approach. The bathymetry raster serves as the common grid — species ranges and fishery footprints are rasterized onto it with `terra::rasterize()`, and depth overlap is computed via raster algebra. This avoids creating intermediate hex/vector grids and leverages terra's optimized operations. Approach developed for the Bangladesh fisheries analysis (Haque et al.) and generalized here.
 
-- [ ] **(P1)** `rasterize_range(polygons, bathymetry, depth_min, depth_max)` — Rasterize species range or fishery footprint onto the bathymetry grid. Returns multi-layer SpatRaster with: presence (1/0), depth_min, depth_max (clamped to bathymetry per cell so depth_max never exceeds seafloor). Stores min/max separately so `calc_volume_overlap()` can compute the overlap formula.
+- [x] `create_study_raster(layers, res, crs)` — Build an empty raster covering the combined extent of one or more spatial objects. Helper for defining the common grid before rasterizing. *(Not originally spec'd; added during implementation.)*
+- [x] **(P1)** `rasterize_range(polygons, grid, bathymetry, depth_min, depth_max)` — Rasterize species range or fishery footprint onto a study grid. Returns two-layer SpatRaster (depth_min, depth_max) clamped to bathymetry; cells shallower than depth_min are NA.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Methods section
-- [ ] **(P1)** `calc_volume(range_rast)` — Calculate total 3D volume of a rasterized range. Volume = sum of (cell_area × (depth_max - depth_min)) across all present cells. Returns numeric in km³.
-- [ ] **(P1)** `calc_volume_overlap(range_rast_a, range_rast_b)` — Calculate 3D volume overlap between two rasterized ranges. Per-cell depth overlap = `min(max_a, max_b) - max(min_a, min_b)`, clamped to 0 (bathymetry already applied in `rasterize_range`). Returns SpatRaster of per-cell overlap + summary tibble with overlap volume and proportion of each range's total volume.
+- [x] `rasterize_ranges(sf_data, grid, bathymetry, depth_min_col, depth_max_col, name_col)` — Batch wrapper around `rasterize_range()` with progress bar. *(Not originally spec'd; added during implementation.)*
+- [x] **(P1)** `calc_volume(range_rast)` — Calculate total 3D volume of a rasterized range. Volume = sum of (cell_area × (depth_max - depth_min)) across all present cells. Returns numeric in km³.
+- [x] **(P1)** `calc_volume_overlap(range_rast_a, range_rast_b)` — Calculate 3D volume overlap between two rasterized ranges. Returns 9-layer SpatRaster with per-cell depth limits and volumes for A, B, and their intersection.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Methods section — generalized from hex grid to raster algebra
+- [x] `count_3d_overlap(range_rast_a, range_rast_b)` — Binary overlap raster (1 where two ranges overlap in 3D, NA elsewhere). Thin wrapper around `calc_volume_overlap()` for tally maps. *(Not originally spec'd; added during implementation.)*
 
 ### Environmental extraction
 Generic functions that extract values from any multi-depth SpatRaster within a species' 3D range (area + depth). Raster-agnostic — works with any data source prepared by the functions in the Data source utilities section. Note: the Volume calculation section handles uniform-depth ranges (species range polygon + single min/max depth), while this section handles variable-depth environmental data (multi-layer rasters with values at standard depth levels, e.g., WOA temperature at 57 depth layers).
 
-- [ ] **(P1)** `extract_rast_volume(area, min_depth, max_depth, rast_3d)` — Crop a multi-depth SpatRaster to an area polygon and select depth layers within range (using the `{variable}_depth={value}` layer naming convention). Returns SpatRaster. (Generalized from existing `woa_volume_extract()`.)
+- [x] **(P1)** `extract_rast_volume(area, min_depth, max_depth, rast_3d)` — Crop a multi-depth SpatRaster to an area polygon and select depth layers within range (using the `{variable}_depth={value}` layer naming convention). Returns SpatRaster. (Generalized from existing `woa_volume_extract()`.)
   - Source: `R/woa_volume_extract.R`
-- [ ] **(P1)** `summarise_species_environment(species_range, min_depth, max_depth, raster_list)` — Takes one species range + depth + named list of multi-depth SpatRasters. Extracts and summarises each raster (extreme min/max, mean, cell counts). Returns single-row tibble. Apply across species with `mapply()`/`lapply()` in vignettes.
+- [x] **(P1)** `summarise_species_environment(species_range, min_depth, max_depth, raster_list)` — Takes one species range + depth + named list of multi-depth SpatRasters. Extracts and summarises each raster (min/max/mean + cell counts). Returns single-row data frame with `{name}_{stat}` columns per raster. Apply across species with `lapply()` in vignettes.
   - Source: `previous_projects/woa_extract_climate_3d/explore_woa_take_2.qmd` per-species loop body
 
 ### 2D area overlap analysis
@@ -134,22 +137,26 @@ Functions that aggregate environmental and trait data across species for compara
 ### Visualization
 Functions to visualize 3D species-environment relationships.
 
-- [ ] **(P1)** `plot_depth_profile(species_name, rast_3d, min_depth, max_depth)` — Plot environmental variable (temp, DO) as a vertical depth profile within a species range. Line plot with depth on y-axis (inverted).
+- [x] **(P1)** `plot_depth_profile(species_name, rast_3d, min_depth, max_depth)` — Plot environmental variable (temp, DO) as a vertical depth profile within a species range. Line plot with depth on y-axis (inverted).
 - [ ] **(P2)** `plot_cross_section(rast_3d, transect_line, depth_range)` — Plot a vertical cross-section of environmental data along a transect. Filled contour with lon/lat on x-axis, depth on y-axis.
-- [ ] **(P1)** `plot_range_at_depth(species_range, depth, rast_3d)` — Map view of a species range with environmental variable values at a specific depth layer.
-- [ ] **(P1)** `plot_volume_overlap(overlap_rast)` — Map view of per-cell 3D volume overlap between two rasterized ranges (output of `calc_volume_overlap()`). Cells colored by overlap depth.
-- [ ] **(P1)** `plot_cumulative_pressure(species_rast, fishery_rasters)` — Map showing cumulative fishing pressure from all sub-fisheries on a given species. Cells colored by number of overlapping fisheries.
+- [x] **(P1)** `plot_range_at_depth(species_range, depth, rast_3d)` — Map view of a species range with environmental variable values at a specific depth layer.
+- [x] **(P1)** `plot_volume_overlap(overlap_rast, name_a, name_b)` — Map view of per-cell 3D volume overlap between two rasterized ranges. Cells categorized as A only / B only / intersection with viridis palette matching Haque et al. Figure 1.
+- [x] **(P1)** `plot_cumulative_pressure(species_rast, fishery_rasters, species_name)` — Map showing cumulative fishing pressure from all sub-fisheries on a given species. Cells colored by number of overlapping fisheries.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Figure 4
-- [ ] **(P1)** `plot_overlap_by_depth(species_name, fishery_names, overlap_results)` — Bar or circular plot comparing 3D overlap percentage across sub-fisheries for a species, with depth breakdown.
+- [x] **(P1)** `plot_overlap_by_depth(species_name, fishery_names, overlap_results)` — Horizontal grouped bar chart comparing volume (km³) of species, fishery, and overlap across sub-fisheries. Reproduces Haque et al. depth histogram panels.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Figures 2 & 3
 
 ### Data source utilities
 Helper functions to prepare specific data sources into the generic formats expected by the core functions above. Responsible for converting source-specific formats into the package's `{variable}_depth={value}` layer naming convention.
 
-- [ ] **(P1)** `woa_load_nc(file_path, field = "an")` — Load a WOA .nc file and select layers for a given statistical field. Wrapper around `terra::rast()` + existing `woa_nc_extract()`. Returns SpatRaster with standardized depth layer names.
+- [~] `woa_nc_extract(woa_nc, selected_field)` — Legacy function in `R/woa_volume_extract.R`. Selects layers for a given field from a WOA SpatRaster. To be superseded by `woa_load_nc()`. *(Pre-existing; not yet refactored.)*
+- [~] `woa_volume_extract(area, min_depth, max_depth, woa_nc, selected_field)` — Legacy function in `R/woa_volume_extract.R`. Crops WOA raster to area and depth range. To be superseded by `extract_rast_volume()`. *(Pre-existing; not yet refactored.)*
+- [x] **(P1)** `woa_load_nc(file_path, field = "an")` — Load a WOA .nc file and select layers for a given statistical field. Wrapper around `terra::rast()` + existing `woa_nc_extract()`. Returns SpatRaster with standardized depth layer names.
   - Source: `R/woa_volume_extract.R` `woa_nc_extract()`
-- [ ] **(P1)** `woa_summarise_monthly(monthly_dir, field = "an")` — Refactor of `data-raw/WOA.R`. Takes a directory of monthly WOA .nc files, computes min/max/diff across months at each depth. Returns named list of SpatRasters (min, max, diff). Works for any WOA variable (temperature, dissolved oxygen, salinity, etc.).
+- [x] **(P1)** `woa_summarise_monthly(monthly_dir, field = "an", files = NULL)` — Refactor of `data-raw/WOA.R`. Takes a directory of monthly WOA .nc files (or explicit `files` vector), computes min/max/diff across months at each depth. Returns named list of SpatRasters (min, max, diff). Works for any WOA variable.
   - Source: `data-raw/WOA.R`
+- [x] **(P1)** `woa_download(variable, period, resolution, decade, output_dir, force, quiet)` — Download WOA23 NetCDFs from NCEI THREDDS with caching in `tools::R_user_dir()`. Skips re-download unless `force = TRUE`. *(Not originally spec'd; added during implementation to replace manual URL lookup.)*
+- [x] `woa_cache_dir()`, `woa_cache_clear(confirm)` — Helpers to inspect/clear the cache directory used by `woa_download()`. *(Not originally spec'd; added during implementation.)*
 - [ ] **(P2)** `copernicus_load(file_path)` — Load Copernicus marine data .nc file. Standardize depth layer naming to match package conventions. Returns SpatRaster.
 - [ ] **(P2)** `copernicus_summarise(file_paths, fun)` — Summarise Copernicus data across time steps (e.g., monthly to annual min/max/mean). Returns named list of SpatRasters.
 - [ ] **(P2)** `wdpa_prepare_hierarchy(wdpa_sf, eez_sf)` — WDPA-specific wrapper: separate by NO_TAKE levels (All > Part > None > Not Reported), apply dateline fixes, clip to individual EEZ, call `create_zone_hierarchy()`. Saves per-EEZ gpkg files.

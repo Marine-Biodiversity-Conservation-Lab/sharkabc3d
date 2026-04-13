@@ -9,22 +9,21 @@ extract_rast_volume(area, min_depth, max_depth, rast_3d)
 \arguments{
 \item{area}{sf or SpatVector. Area polygon to crop the raster to.}
 
-\item{min_depth}{Numeric. Minimum depth (metres).}
+\item{min_depth}{Numeric. Shallowest depth (metres).}
 
-\item{max_depth}{Numeric. Maximum depth (metres).}
+\item{max_depth}{Numeric. Deepest depth (metres).}
 
-\item{rast_3d}{SpatRaster. Multi-depth raster with layer names following the
-\verb{\{variable\}_depth=\{value\}} convention.}
+\item{rast_3d}{SpatRaster. Multi-depth raster with \verb{\{variable\}_depth=\{value\}}
+layer names.}
 }
 \value{
-SpatRaster cropped to area and filtered to depth range.
+SpatRaster cropped to \code{area} and filtered to the depth range.
 }
 \description{
 Crop a multi-depth SpatRaster to an area polygon and select depth layers
-within range. Uses the \verb{\{variable\}_depth=\{value\}} layer naming convention to
-determine which depth layers to select.
-}
-\details{
-Generalized from \code{\link[=woa_volume_extract]{woa_volume_extract()}} — works with any multi-depth
-SpatRaster, not just WOA data.
+within a given depth range. Layer names must follow the
+\verb{\{variable\}_depth=\{value\}} convention (native to WOA NetCDFs); the numeric
+depth is parsed from each layer name. The nearest available depth layers to
+\code{min_depth} and \code{max_depth} are used as the inclusive bounds, matching the
+original \code{woa_volume_extract()} behaviour.
 }

@@ -4,19 +4,27 @@
 \alias{woa_summarise_monthly}
 \title{Summarise monthly WOA data across months}
 \usage{
-woa_summarise_monthly(monthly_dir, field = "an")
+woa_summarise_monthly(monthly_dir = NULL, field = "an", files = NULL)
 }
 \arguments{
 \item{monthly_dir}{Character. Path to directory containing monthly WOA .nc
-files.}
+files. All \code{.nc} files in the directory are loaded.}
 
-\item{field}{Character. Statistical field to select. Default \code{"an"}.}
+\item{field}{Character. Statistical field to select from each file.
+Default \code{"an"}.}
+
+\item{files}{Character vector. Optional explicit list of files (overrides
+\code{monthly_dir}).}
 }
 \value{
-Named list of SpatRasters: min, max, diff.
+Named list of SpatRasters: \code{min}, \code{max}, \code{diff}. Each uses the
+\verb{\{variable\}_depth=\{value\}} layer naming convention.
 }
 \description{
-Takes a directory of monthly WOA .nc files, computes min/max/diff across
-months at each depth. Works for any WOA variable (temperature, dissolved
-oxygen, salinity, etc.).
+Takes a directory of monthly WOA .nc files (e.g., 12 files for January to
+December) and computes the min, max, and max-minus-min (diff) across months
+at each depth layer. Works for any WOA variable.
+}
+\details{
+Replaces the ad-hoc loop in \code{data-raw/WOA.R}.
 }

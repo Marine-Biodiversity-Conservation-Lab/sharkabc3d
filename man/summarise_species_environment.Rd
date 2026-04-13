@@ -9,19 +9,23 @@ summarise_species_environment(species_range, min_depth, max_depth, raster_list)
 \arguments{
 \item{species_range}{sf or SpatVector. Single species range polygon.}
 
-\item{min_depth}{Numeric. Upper depth limit (metres).}
+\item{min_depth}{Numeric. Upper (shallower) depth limit (metres).}
 
-\item{max_depth}{Numeric. Lower depth limit (metres).}
+\item{max_depth}{Numeric. Lower (deeper) depth limit (metres).}
 
-\item{raster_list}{Named list of SpatRasters. Each element is a multi-depth
-raster following the \verb{\{variable\}_depth=\{value\}} layer naming convention.}
+\item{raster_list}{Named list of multi-depth SpatRasters following the
+\verb{\{variable\}_depth=\{value\}} layer naming convention.}
 }
 \value{
-Single-row tibble with summary statistics for each raster in
-\code{raster_list}.
+Single-row data frame of summary statistics across all rasters.
 }
 \description{
-Takes one species range + depth limits + named list of multi-depth
-SpatRasters. Extracts and summarises each raster (extreme min/max, mean,
-cell counts). Apply across species with \code{mapply()}/\code{lapply()} in vignettes.
+For one species polygon + depth limits, extract each raster in
+\code{raster_list} via \code{\link[=extract_rast_volume]{extract_rast_volume()}} and compute summary statistics.
+Apply across species with \code{lapply()} / \code{mapply()} in vignettes.
+}
+\details{
+For each named raster, returns columns:
+\verb{\{name\}_min}, \verb{\{name\}_max}, \verb{\{name\}_mean}, \verb{\{name\}_n_surface_cells},
+\verb{\{name\}_n_cells}, \verb{\{name\}_n_depths}.
 }
