@@ -86,27 +86,17 @@ plot_range_at_depth <- function(species_range, depth, rast_3d) {
   }
 
   cropped <- terra::crop(layer, range_vect, mask = TRUE, touches = TRUE)
-  df <- as.data.frame(cropped, xy = TRUE)
-  names(df)[3] <- "value"
-  df <- df[!is.na(df$value), ]
-
   range_sf <- if (inherits(species_range, "sf")) species_range else sf::st_as_sf(range_vect)
 
   ggplot2::ggplot() +
-    ggplot2::geom_raster(
-      data = df,
-      mapping = ggplot2::aes(x = .data$x, y = .data$y, fill = .data$value)
-    ) +
-    ggplot2::geom_sf(data = range_sf, fill = NA, colour = "black", linewidth = 0.3) +
-    ggplot2::scale_fill_viridis_c(name = NULL) +
+    tidyterra::geom_spatraster(data = cropped) +
+    ggplot2::geom_sf(data = range_sf, fill = NA, colour = "black",
+                     linewidth = 0.3) +
+    ggplot2::scale_fill_viridis_c(name = NULL, na.value = "transparent") +
     ggplot2::coord_sf() +
-    ggplot2::labs(
-      subtitle = paste0("Depth: ", actual_depth, " m")
-    ) +
+    ggplot2::labs(subtitle = paste0("Depth: ", actual_depth, " m")) +
     ggplot2::theme_minimal() +
-    ggplot2::theme(
-      axis.title = ggplot2::element_blank()
-    )
+    ggplot2::theme(axis.title = ggplot2::element_blank())
 }
 
 #' Plot 3D volume overlap between two ranges
@@ -122,7 +112,7 @@ plot_range_at_depth <- function(species_range, depth, rast_3d) {
 #' @param name_b Character. Label for range B (default `"Fishery"`).
 #'
 #' @returns A ggplot object.
-#' @importFrom ggplot2 ggplot aes geom_raster scale_fill_manual coord_equal
+#' @importFrom ggplot2 ggplot aes scale_fill_manual coord_sf
 #'   theme_minimal theme labs element_text element_blank
 #' @export
 plot_volume_overlap <- function(overlap_rast, name_a = "Species",
@@ -131,36 +121,29 @@ plot_volume_overlap <- function(overlap_rast, name_a = "Species",
   vol_b <- overlap_rast[["volume_b"]]
   vol_ov <- overlap_rast[["volume_overlap"]]
 
-  # Classify each cell into categories
-  # 1 = A only, 2 = B only, 3 = intersection, NA = neither
   has_a <- !is.na(vol_a) & vol_a > 0
   has_b <- !is.na(vol_b) & vol_b > 0
   has_ov <- !is.na(vol_ov) & vol_ov > 0
 
+  # Classify each cell: 1 = A only, 2 = B only, 3 = intersection, NA = neither
   categ <- terra::ifel(has_ov, 3,
     terra::ifel(has_a & has_b, 3,
       terra::ifel(has_a, 1,
         terra::ifel(has_b, 2, NA))))
+  categ <- terra::as.factor(categ)
+  levels(categ) <- data.frame(ID = 1:3, category = c(name_a, name_b, "Intersect"))
+  names(categ) <- "category"
 
-  # Convert to data.frame for ggplot
-  df <- as.data.frame(categ, xy = TRUE)
-  names(df)[3] <- "category"
-  df <- df[!is.na(df$category), ]
-  df$category <- factor(df$category, levels = c(1, 2, 3),
-                        labels = c(name_a, name_b, "Intersect"))
+  # Viridis-inspired 3-colour palette matching Figure 1
+  pal <- stats::setNames(c("#440154", "#fde725", "#21918c"),
+                         c(name_a, name_b, "Intersect"))
 
-  # Viridis-inspired 3-colour palette matching Figure 1:
-  # dark purple = species, yellow = fishery, teal = intersection
-  pal <- c(
-    stats::setNames("#440154", name_a),
-    stats::setNames("#fde725", name_b),
-    "Intersect" = "#21918c"
-  )
-
-  ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$y, fill = .data$category)) +
-    ggplot2::geom_raster() +
-    ggplot2::scale_fill_manual(values = pal, name = NULL) +
-    ggplot2::coord_equal() +
+  ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = categ) +
+    ggplot2::scale_fill_manual(values = pal, name = NULL,
+                               na.value = "transparent",
+                               na.translate = FALSE) +
+    ggplot2::coord_sf() +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
@@ -183,7 +166,7 @@ plot_volume_overlap <- function(overlap_rast, name_a = "Species",
 #' @param species_name Character. Optional species name for the plot title.
 #'
 #' @returns A ggplot object.
-#' @importFrom ggplot2 ggplot aes geom_raster scale_fill_viridis_c coord_equal
+#' @importFrom ggplot2 ggplot aes scale_fill_viridis_c coord_sf
 #'   theme_minimal theme labs element_text element_blank
 #' @export
 plot_cumulative_pressure <- function(species_rast, fishery_rasters,
@@ -192,7 +175,6 @@ plot_cumulative_pressure <- function(species_rast, fishery_rasters,
   sp_dmin <- species_rast[["depth_min"]]
   sp_dmax <- species_rast[["depth_max"]]
 
-  # For each fishery, compute per-cell depth overlap with the species
   overlap_stack <- lapply(fishery_rasters, function(fr) {
     fi_presence <- !is.na(fr[["depth_min"]])
     both <- sp_presence & fi_presence
@@ -205,27 +187,22 @@ plot_cumulative_pressure <- function(species_rast, fishery_rasters,
     terra::ifel(has_overlap, 1, 0)
   })
 
-  # Sum across fisheries
   count_rast <- Reduce(`+`, overlap_stack)
-  # Mask to species presence and where at least one fishery overlaps
   count_rast <- terra::mask(count_rast, terra::ifel(sp_presence, 1, NA))
   count_rast <- terra::ifel(count_rast == 0, NA, count_rast)
-
-  df <- as.data.frame(count_rast, xy = TRUE)
-  names(df)[3] <- "n_fisheries"
-  df <- df[!is.na(df$n_fisheries), ]
+  names(count_rast) <- "n_fisheries"
 
   max_n <- length(fishery_rasters)
 
-  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$y,
-                                         fill = .data$n_fisheries)) +
-    ggplot2::geom_raster() +
+  p <- ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = count_rast) +
     ggplot2::scale_fill_viridis_c(
       name = "Overlapping\nFisheries",
       limits = c(0, max_n),
-      breaks = seq(0, max_n, by = 1)
+      breaks = seq(0, max_n, by = 1),
+      na.value = "transparent"
     ) +
-    ggplot2::coord_equal() +
+    ggplot2::coord_sf() +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),

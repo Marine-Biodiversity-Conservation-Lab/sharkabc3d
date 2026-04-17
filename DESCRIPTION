@@ -14,7 +14,8 @@ Imports:
     ggplot2,
     magrittr,
     stringr,
-    terra
+    terra,
+    tidyterra
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
