@@ -1,12 +1,21 @@
 # ---------------------------------------------------------------------------
 # Global Fishing Watch (GFW) apparent fishing effort utilities.
 #
-# GFW publishes AIS-derived fishing effort (Kroodsma et al. 2018, Science)
-# as CSVs of fishing hours per grid cell per day per flag state per gear
-# type. These helpers take the raw CSV product, turn it into a SpatRaster
-# stack indexed by flag / geartype, collapse the stack along user-chosen
-# groupings, and build a depth-stratified effort layer by combining gear-
-# class depth priors with bathymetry.
+# Ingest is delegated to the `gfwr` package, which queries the GFW 4Wings
+# API and returns a long-format tibble of apparent fishing hours per cell,
+# already aggregated server-side by the chosen `group_by`. The helpers
+# below cover the gap between that tibble and the package's depth-aware
+# pipeline:
+#
+#   - `gfw_effort_to_raster()` rasterises the gfwr tibble onto the study
+#     grid as a multi-layer SpatRaster (one layer per group level).
+#   - `gfw_gear_depth_bands()` extends a per-geartype effort raster into
+#     a depth-stratified stack using gear-class depth priors and
+#     bathymetry, producing layers in the package-standard
+#     `effort_<geartype>_depth=<value>` convention.
+#   - `gfw_default_depth_lookup()` is the gear → depth-band table used by
+#     `gfw_gear_depth_bands()`, compiled from the fisheries-gear
+#     literature.
 # ---------------------------------------------------------------------------
 
 #' Default gear-class depth-band lookup
@@ -37,118 +46,103 @@ gfw_default_depth_lookup <- function() {
       "drifting_longlines", "set_longlines", "set_gillnets",
       "trawlers", "pole_and_line", "trollers",
       "purse_seines", "squid_jigger", "pots_and_traps",
-      "fixed_gear", "fishing"
+      "fixed_gear", "fishing", "inconclusive"
     ),
-    depth_min = c(0,  NA,  0,  NA,   0,   0,   0,   0,  NA,  NA,  NA),
-    depth_max = c(400, NA, 140, NA,  20, 150, 200, 100, NA,  NA,  NA),
+    depth_min = c(0,  NA,  0,  NA,   0,   0,   0,   0,  NA,  NA,  NA, NA),
+    depth_max = c(400, NA, 140, NA,  20, 150, 200, 100, NA,  NA,  NA, NA),
     mode = c(
       "pelagic", "benthic", "pelagic",
       "benthic", "pelagic", "pelagic",
       "pelagic", "pelagic", "benthic",
-      "benthic", "unknown"
+      "benthic", "unknown", "unknown"
     ),
-    benthic_buffer = c(NA, 50, NA, 50, NA, NA, NA, NA, 50, 50, NA),
+    benthic_buffer = c(NA, 50, NA, 50, NA, NA, NA, NA, 50, 50, NA, NA),
     stringsAsFactors = FALSE
   )
 }
 
-#' Load GFW apparent fishing effort CSVs
+#' Rasterise a GFW effort tibble onto a target grid
 #'
-#' Read one or more Global Fishing Watch public fishing-effort CSVs
-#' (available from
-#' <https://globalfishingwatch.org/data-download/datasets/public-fishing-effort>)
-#' into a single long-format data frame. Expected columns include a cell
-#' centroid or lower-left lat/lon, a date field, `flag` (ISO3 flag state),
-#' `geartype`, and an effort metric (typically `fishing_hours`).
+#' Turn the long-format apparent-fishing-hours tibble returned by
+#' `gfwr::gfw_ais_fishing_hours()` (formerly `gfwr::get_raster()`) into a
+#' multi-layer SpatRaster on the package's canonical study grid. Each
+#' level of `layer_by` becomes its own layer, named
+#' `effort_<level>` (e.g. `effort_drifting_longlines`).
 #'
-#' @param paths Character vector. Paths to one or more GFW effort CSV files
-#'   (or a directory — all `.csv` files inside are read).
-#' @param date_range Length-2 Date vector. Optional filter on the CSV's
-#'   date field. Default `NULL` (no filter).
-#' @param geartypes Character vector. Optional filter on `geartype`.
-#'   Default `NULL` (keep all).
-#' @param flags Character vector. Optional ISO3 filter on `flag`. Default
-#'   `NULL` (keep all).
-#' @param resolution Numeric. Grid resolution of the input CSV in degrees.
-#'   GFW publishes 0.01 and 0.1 degree products. Default `0.01`.
+#' The input is expected to carry a cell centroid (`Lat`, `Lon`), a value
+#' column (default `"Apparent Fishing Hours"`), and one categorical column
+#' matching the API's `group_by` — for example `geartype` or `flag` (note
+#' lower-case; this is what `gfwr` actually returns). Records that fall
+#' into the same target cell × layer level are aggregated with `fun`.
 #'
-#' @returns A data frame with (at minimum) columns `lon`, `lat`, `date`,
-#'   `flag`, `geartype`, `fishing_hours`. Grid resolution is attached as
-#'   the `"resolution"` attribute.
-#' @export
-gfw_load_effort <- function(paths,
-                            date_range = NULL,
-                            geartypes = NULL,
-                            flags = NULL,
-                            resolution = 0.01) {
-  stop("Not yet implemented")
-}
-
-#' Turn GFW effort records into a SpatRaster stack
-#'
-#' Rasterise a long-format GFW effort table onto a target grid, producing a
-#' multi-layer SpatRaster where each layer corresponds to one combination of
-#' the grouping variables (e.g. one layer per `flag × geartype`). Layer
-#' names follow the package convention
-#' `effort_<group1>=<level>_<group2>=<level>` so downstream `terra`
-#' selection works with string patterns.
-#'
-#' @param effort Data frame returned by [gfw_load_effort()].
-#' @param grid SpatRaster. Target grid (extent, resolution, CRS). The GFW
-#'   CSV grid is rasterised onto this template.
-#' @param group_by Character vector. One or more of `"geartype"`, `"flag"`
-#'   (and any other categorical column in `effort`). One layer is produced
-#'   per unique combination. Default `c("geartype", "flag")`.
-#' @param value Character. Column in `effort` to aggregate (typically
-#'   `"fishing_hours"`). Default `"fishing_hours"`.
+#' @param effort Data frame. Output of `gfwr::gfw_ais_fishing_hours()` (a
+#'   long-format tibble with at minimum `Lat`, `Lon`, a value, and a
+#'   grouping column).
+#' @param grid SpatRaster. Target grid (extent, resolution, CRS) — typically
+#'   the same grid used for species ranges and WOA extraction.
+#' @param layer_by Character. Column in `effort` whose levels become layers.
+#'   `NULL` produces a single-layer total-effort raster. Default
+#'   `"geartype"`.
+#' @param value Character. Column in `effort` to aggregate. Default
+#'   `"Apparent Fishing Hours"`.
 #' @param fun Character or function. Aggregation applied to records that
-#'   fall into the same cell × group. Default `"sum"`.
+#'   fall into the same cell × layer level. Default `"sum"`.
 #'
-#' @returns A SpatRaster with one layer per group combination. A
-#'   `group_levels` attribute (data frame) records the mapping from layer
-#'   index to group levels.
+#' @returns A SpatRaster with one layer per `layer_by` level (or one layer
+#'   if `layer_by = NULL`). Layer names follow `effort_<level>`.
 #' @export
 gfw_effort_to_raster <- function(effort,
                                  grid,
-                                 group_by = c("geartype", "flag"),
-                                 value = "fishing_hours",
+                                 layer_by = "geartype",
+                                 value = "Apparent Fishing Hours",
                                  fun = "sum") {
-  stop("Not yet implemented")
-}
+  effort <- as.data.frame(effort)
+  required <- c("Lat", "Lon", value, layer_by)
+  missing_cols <- setdiff(required, names(effort))
+  if (length(missing_cols) > 0) {
+    stop(
+      "effort is missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
 
-#' Summarise a GFW effort raster stack along chosen groupings
-#'
-#' Collapse a flag × geartype (or similarly indexed) effort stack along a
-#' user-selected subset of the grouping axes. For example, starting from a
-#' stack indexed by both flag and geartype:
-#' \itemize{
-#'   \item `group_by = "geartype"` → one layer per geartype (summed across
-#'     flags).
-#'   \item `group_by = "flag"` → one layer per flag (summed across gears).
-#'   \item `group_by = NULL` → a single-layer raster of total effort.
-#' }
-#'
-#' Relies on the `group_levels` attribute set by [gfw_effort_to_raster()].
-#'
-#' @param effort_stack SpatRaster produced by [gfw_effort_to_raster()].
-#' @param group_by Character vector. Subset of the grouping axes to retain.
-#'   `NULL` collapses everything to a single total layer. Default `NULL`.
-#' @param fun Character or function. Aggregation across layers within each
-#'   retained group. Default `"sum"`.
-#'
-#' @returns A SpatRaster with one layer per retained group level (or one
-#'   layer if `group_by = NULL`).
-#' @export
-gfw_summarise_raster <- function(effort_stack,
-                                 group_by = NULL,
-                                 fun = "sum") {
-  stop("Not yet implemented")
+  pts_df <- data.frame(
+    x = effort$Lon,
+    y = effort$Lat,
+    v = effort[[value]]
+  )
+  if (!is.null(layer_by)) {
+    pts_df$grp <- effort[[layer_by]]
+  }
+
+  pts <- terra::vect(
+    pts_df,
+    geom = c("x", "y"),
+    crs = "EPSG:4326",
+    keepgeom = FALSE
+  )
+  if (!terra::same.crs(pts, grid)) {
+    pts <- terra::project(pts, terra::crs(grid))
+  }
+
+  if (is.null(layer_by)) {
+    out <- terra::rasterize(pts, grid, field = "v", fun = fun, background = NA)
+    names(out) <- "effort"
+  } else {
+    out <- terra::rasterize(
+      pts, grid,
+      field = "v", fun = fun, by = "grp", background = NA
+    )
+    names(out) <- paste0("effort_", names(out))
+  }
+  out
 }
 
 #' Build a depth-stratified fishing-effort stack
 #'
 #' Combine a per-geartype effort raster (one layer per gear class, e.g.
-#' from [gfw_summarise_raster()] with `group_by = "geartype"`) with a
+#' from [gfw_effort_to_raster()] with `layer_by = "Geartype"`) with a
 #' bathymetry layer and a gear → depth-band lookup to produce a stack of
 #' rasters representing *where effort occurs in the water column*.
 #'
@@ -163,12 +157,13 @@ gfw_summarise_raster <- function(effort_stack,
 #'
 #' The window is then intersected with `standard_depths` to decide which
 #' depth layers the gear's effort should be allocated to. The output uses
-#' the package-standard `effort_depth=<value>` naming so it can be combined
-#' with WOA layers and [rasterize_range()] outputs by [calc_volume_overlap()]
-#' et al.
+#' the package-standard `effort_<geartype>_depth=<value>` naming so it can
+#' be combined with WOA layers and [rasterize_range()] outputs by
+#' [calc_volume_overlap()] et al.
 #'
 #' @param effort_by_gear SpatRaster. One layer per GFW gear class; layer
-#'   names must match `depth_lookup$geartype`.
+#'   names must match `depth_lookup$geartype` (with or without an
+#'   `effort_` prefix from [gfw_effort_to_raster()]).
 #' @param bathymetry SpatRaster. Positive-down seafloor depth (m), aligned
 #'   to `effort_by_gear`.
 #' @param standard_depths Numeric vector. Depth levels (m, positive down)
