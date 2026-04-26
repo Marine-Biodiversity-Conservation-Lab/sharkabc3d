@@ -350,7 +350,7 @@ build_pelagic_stack <- function(layer, gear, depth_min, depth_max,
 #' @param bathymetry SpatRaster (single layer). Positive-down seafloor
 #'   depth, aligned to `layer`.
 #' @param standard_depths Numeric vector. Sorted, non-negative.
-#' @param allocation `"uniform"` or `"presence"` (see [build_pelagic_stack()]).
+#' @param allocation `"uniform"` or `"presence"` (see `build_pelagic_stack()`).
 #'
 #' @returns A SpatRaster with `length(standard_depths)` layers, named
 #'   `effort_<gear>_depth=<value>`. Cells outside a depth's per-cell band

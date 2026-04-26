@@ -36,13 +36,13 @@ test_that("fill_missing_depths rejects unsupported methods", {
   )
 })
 
-test_that("fill_missing_depths returns a tibble with expected columns", {
+test_that("fill_missing_depths returns a data frame with expected columns", {
   out <- fill_missing_depths(
     upper = c(0, 10),
     lower = c(100, 200),
     genus = c("A", "B")
   )
-  expect_s3_class(out, "tbl_df")
+  expect_s3_class(out, "data.frame")
   expect_named(out, c("upper_depth", "lower_depth"))
   expect_equal(nrow(out), 2)
 })

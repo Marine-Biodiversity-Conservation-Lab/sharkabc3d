@@ -13,6 +13,8 @@ Imports:
     curl,
     ggplot2,
     magrittr,
+    rlang,
+    sf (>= 1.1.0),
     stringr,
     terra,
     tidyterra
@@ -25,7 +27,7 @@ Suggests:
     here,
     knitr,
     rmarkdown,
-    sf,
+    rredlist,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

@@ -184,7 +184,7 @@ fill_missing_depths <- function(upper, lower, genus, method = "genus_mean") {
   genus_mean <- function(x) stats::ave(x, genus,
                                        FUN = function(v) mean(v, na.rm = TRUE))
 
-  tibble::tibble(
+  data.frame(
     upper_depth = ifelse(is.na(upper), genus_mean(upper), upper),
     lower_depth = ifelse(is.na(lower), genus_mean(lower), lower)
   )

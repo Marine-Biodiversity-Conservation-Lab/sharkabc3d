@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(rpkg)
+library(sharkabc3d)
 
-test_check("rpkg")
+test_check("sharkabc3d")
