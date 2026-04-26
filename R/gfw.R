@@ -10,56 +10,16 @@
 #   - `gfw_effort_to_raster()` rasterises the gfwr tibble onto the study
 #     grid as a multi-layer SpatRaster (one layer per group level).
 #   - `gfw_gear_depth_bands()` extends a per-geartype effort raster into
-#     a depth-stratified stack using gear-class depth priors and
-#     bathymetry, producing layers in the package-standard
-#     `effort_<geartype>_depth=<value>` convention.
-#   - `gfw_default_depth_lookup()` is the gear → depth-band table used by
-#     `gfw_gear_depth_bands()`, compiled from the fisheries-gear
-#     literature.
+#     a depth-stratified stack by combining a user-supplied gear →
+#     depth-band lookup with bathymetry, producing layers in the
+#     package-standard `effort_<geartype>_depth=<value>` convention.
+#
+# This package intentionally does not ship a built-in gear → depth-band
+# lookup. Operating depths vary by region, fleet, and time, and the
+# right values for any given analysis depend on assumptions the analyst
+# is responsible for. The vignette demonstrates the schema with
+# placeholder values; users should supply their own.
 # ---------------------------------------------------------------------------
-
-#' Default gear-class depth-band lookup
-#'
-#' Depth operating ranges for each Global Fishing Watch gear class, compiled
-#' from the fisheries-gear literature (see `presentation/fishing-gear-depth-bands.md`).
-#' Used as the default `depth_lookup` for [gfw_gear_depth_bands()].
-#'
-#' Columns:
-#' \itemize{
-#'   \item `geartype` — GFW gear class string (e.g. `"drifting_longlines"`).
-#'   \item `depth_min` — Shallowest operating depth (m, positive down).
-#'   \item `depth_max` — Deepest operating depth (m, positive down). May be
-#'     `NA` when gear tracks the seafloor (see `mode`).
-#'   \item `mode` — One of `"pelagic"` (fixed depth band in the water
-#'     column), `"benthic"` (band clamped to bathymetry ± `benthic_buffer`),
-#'     or `"midwater"` (variable, fixed band but audience should know it
-#'     may track prey).
-#'   \item `benthic_buffer` — For `mode = "benthic"`, metres above the
-#'     seafloor the gear is assumed to fish. `NA` otherwise.
-#' }
-#'
-#' @returns A data frame with one row per GFW gear class.
-#' @export
-gfw_default_depth_lookup <- function() {
-  data.frame(
-    geartype = c(
-      "drifting_longlines", "set_longlines", "set_gillnets",
-      "trawlers", "pole_and_line", "trollers",
-      "purse_seines", "squid_jigger", "pots_and_traps",
-      "fixed_gear", "fishing", "inconclusive"
-    ),
-    depth_min = c(0,  NA,  0,  NA,   0,   0,   0,   0,  NA,  NA,  NA, NA),
-    depth_max = c(400, NA, 140, NA,  20, 150, 200, 100, NA,  NA,  NA, NA),
-    mode = c(
-      "pelagic", "benthic", "pelagic",
-      "benthic", "pelagic", "pelagic",
-      "pelagic", "pelagic", "benthic",
-      "benthic", "unknown", "unknown"
-    ),
-    benthic_buffer = c(NA, 50, NA, 50, NA, NA, NA, NA, 50, 50, NA, NA),
-    stringsAsFactors = FALSE
-  )
-}
 
 #' Rasterise a GFW effort tibble onto a target grid
 #'
@@ -142,9 +102,10 @@ gfw_effort_to_raster <- function(effort,
 #' Build a depth-stratified fishing-effort stack
 #'
 #' Combine a per-geartype effort raster (one layer per gear class, e.g.
-#' from [gfw_effort_to_raster()] with `layer_by = "Geartype"`) with a
-#' bathymetry layer and a gear → depth-band lookup to produce a stack of
-#' rasters representing *where effort occurs in the water column*.
+#' from [gfw_effort_to_raster()] with `layer_by = "geartype"`) with a
+#' bathymetry layer and a user-supplied gear → depth-band lookup to
+#' produce a stack of rasters representing *where effort occurs in the
+#' water column*.
 #'
 #' For each gear type, the operating depth window is taken from
 #' `depth_lookup`:
@@ -167,12 +128,24 @@ gfw_effort_to_raster <- function(effort,
 #' @param bathymetry SpatRaster. Positive-down seafloor depth (m), aligned
 #'   to `effort_by_gear`.
 #' @param standard_depths Numeric vector. Depth levels (m, positive down)
-#'   at which the output stack is produced. Defaults to the WOA23 standard
-#'   depths via [woa_standard_depths()] (not yet exported; pass explicitly
-#'   for now).
-#' @param depth_lookup Data frame. Gear → depth-band mapping. See
-#'   [gfw_default_depth_lookup()] for the expected schema. Default uses
-#'   that lookup.
+#'   at which the output stack is produced (e.g. the WOA23 standard depth
+#'   levels).
+#' @param depth_lookup Data frame. User-supplied gear → depth-band mapping.
+#'   No default is provided: operating depths vary by region, fleet, and
+#'   time, and the appropriate values for any given analysis are the
+#'   analyst's call. Required columns:
+#'   \itemize{
+#'     \item `geartype` — GFW gear class string (e.g. `"drifting_longlines"`).
+#'     \item `depth_min` — Shallowest operating depth (m, positive down).
+#'       `NA` when `mode = "benthic"` or `"unknown"`.
+#'     \item `depth_max` — Deepest operating depth (m, positive down).
+#'       `NA` when `mode = "benthic"` or `"unknown"`.
+#'     \item `mode` — One of `"pelagic"` (fixed depth band in the water
+#'       column), `"benthic"` (band clamped to bathymetry ± `benthic_buffer`),
+#'       `"midwater"`, or `"unknown"`.
+#'     \item `benthic_buffer` — For `mode = "benthic"`, metres above the
+#'       seafloor the gear is assumed to fish. `NA` otherwise.
+#'   }
 #' @param allocation Character. How a gear's effort is distributed across
 #'   the depth layers inside its band. One of:
 #'   \itemize{
@@ -193,7 +166,7 @@ gfw_effort_to_raster <- function(effort,
 gfw_gear_depth_bands <- function(effort_by_gear,
                                  bathymetry,
                                  standard_depths,
-                                 depth_lookup = gfw_default_depth_lookup(),
+                                 depth_lookup,
                                  allocation = "uniform",
                                  fallback = "drop") {
   stop("Not yet implemented")
