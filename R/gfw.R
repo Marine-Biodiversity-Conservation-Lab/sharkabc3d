@@ -169,5 +169,225 @@ gfw_gear_depth_bands <- function(effort_by_gear,
                                  depth_lookup,
                                  allocation = "uniform",
                                  fallback = "drop") {
-  stop("Not yet implemented")
+  allocation <- match.arg(allocation, c("uniform", "presence"))
+  fallback <- match.arg(fallback, c("drop", "surface"))
+
+  required_cols <- c("geartype", "depth_min", "depth_max", "mode", "benthic_buffer")
+  missing_cols <- setdiff(required_cols, names(depth_lookup))
+  if (length(missing_cols) > 0) {
+    stop(
+      "depth_lookup is missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  if (terra::nlyr(bathymetry) != 1) {
+    stop("bathymetry must be a single-layer SpatRaster.", call. = FALSE)
+  }
+  if (!terra::compareGeom(bathymetry, effort_by_gear, stopOnError = FALSE)) {
+    stop(
+      "bathymetry must align (CRS, resolution, extent) with effort_by_gear.",
+      call. = FALSE
+    )
+  }
+
+  standard_depths <- sort(unique(standard_depths))
+  if (length(standard_depths) == 0) {
+    stop("standard_depths must be non-empty.", call. = FALSE)
+  }
+  if (any(standard_depths < 0)) {
+    stop("standard_depths must be non-negative (positive-down depth in m).",
+         call. = FALSE)
+  }
+
+  gear_layers <- names(effort_by_gear)
+  gear_names <- sub("^effort_", "", gear_layers)
+
+  unmatched <- setdiff(gear_names, depth_lookup$geartype)
+  if (length(unmatched) > 0) {
+    stop(
+      "no depth_lookup entry for gear(s): ",
+      paste(unmatched, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  bands_record <- list()
+  per_gear_stacks <- list()
+
+  for (i in seq_along(gear_names)) {
+    gear <- gear_names[i]
+    layer <- effort_by_gear[[gear_layers[i]]]
+    lookup <- depth_lookup[depth_lookup$geartype == gear, ]
+
+    if (nrow(lookup) > 1) {
+      stop("Multiple depth_lookup entries for gear: ", gear, call. = FALSE)
+    }
+
+    mode <- as.character(lookup$mode)
+
+    if (mode %in% c("pelagic", "midwater")) {
+      stack <- build_pelagic_stack(
+        layer, gear,
+        depth_min = lookup$depth_min,
+        depth_max = lookup$depth_max,
+        standard_depths = standard_depths,
+        allocation = allocation
+      )
+      bands_record[[gear]] <- data.frame(
+        geartype = gear,
+        depth_min_used = lookup$depth_min,
+        depth_max_used = lookup$depth_max,
+        mode = mode,
+        stringsAsFactors = FALSE
+      )
+    } else if (mode == "benthic") {
+      stack <- build_benthic_stack(
+        layer, gear,
+        buffer = lookup$benthic_buffer,
+        bathymetry = bathymetry,
+        standard_depths = standard_depths,
+        allocation = allocation
+      )
+      bands_record[[gear]] <- data.frame(
+        geartype = gear,
+        depth_min_used = NA_real_,
+        depth_max_used = NA_real_,
+        mode = "benthic",
+        stringsAsFactors = FALSE
+      )
+    } else if (mode == "unknown") {
+      if (fallback == "drop") next
+      stack <- build_pelagic_stack(
+        layer, gear,
+        depth_min = 0,
+        depth_max = 0,
+        standard_depths = standard_depths,
+        allocation = allocation
+      )
+      bands_record[[gear]] <- data.frame(
+        geartype = gear,
+        depth_min_used = 0,
+        depth_max_used = 0,
+        mode = "unknown(fallback=surface)",
+        stringsAsFactors = FALSE
+      )
+    } else {
+      stop("Unrecognised mode '", mode, "' for gear: ", gear, call. = FALSE)
+    }
+
+    per_gear_stacks[[gear]] <- stack
+  }
+
+  if (length(per_gear_stacks) == 0) {
+    stop(
+      "No gears produced output. Check depth_lookup modes and the `fallback` argument.",
+      call. = FALSE
+    )
+  }
+
+  out <- Reduce(c, per_gear_stacks)
+  attr(out, "depth_bands") <- do.call(rbind, bands_record)
+  out
+}
+
+#' Build a depth-stratified stack for a pelagic (fixed-band) gear
+#'
+#' Internal helper for [gfw_gear_depth_bands()]. Distributes a single
+#' gear's effort layer across the depth layers in `standard_depths` that
+#' fall within the fixed band `[depth_min, depth_max]`. Out-of-band
+#' depth layers are emitted as all-NA so the output stack has a
+#' predictable shape (one layer per `standard_depths` entry).
+#'
+#' @param layer SpatRaster (single layer). Per-cell effort for one gear.
+#' @param gear Character. Gear name (used only to construct layer names
+#'   and error messages).
+#' @param depth_min,depth_max Numeric scalars. Pelagic operating band, m,
+#'   positive down.
+#' @param standard_depths Numeric vector. Depth levels at which output
+#'   layers are produced. Must already be sorted and non-negative.
+#' @param allocation `"uniform"` (split evenly across in-band depths,
+#'   preserves total effort-hours) or `"presence"` (full value at every
+#'   in-band depth).
+#'
+#' @returns A SpatRaster with `length(standard_depths)` layers, named
+#'   `effort_<gear>_depth=<value>`. Layers outside the band are all-NA.
+#' @keywords internal
+#' @noRd
+build_pelagic_stack <- function(layer, gear, depth_min, depth_max,
+                                standard_depths, allocation) {
+  in_band <- standard_depths >= depth_min & standard_depths <= depth_max
+  n_in_band <- sum(in_band)
+  if (n_in_band == 0) {
+    stop(
+      "Gear '", gear, "' has no standard_depths within band [",
+      depth_min, ", ", depth_max, "].",
+      call. = FALSE
+    )
+  }
+  share <- if (allocation == "uniform") 1 / n_in_band else 1
+
+  layers <- lapply(seq_along(standard_depths), function(i) {
+    d <- standard_depths[i]
+    l <- if (in_band[i]) layer * share else layer * NA_real_
+    names(l) <- paste0("effort_", gear, "_depth=", d)
+    l
+  })
+  Reduce(c, layers)
+}
+
+#' Build a depth-stratified stack for a benthic (bathymetry-clamped) gear
+#'
+#' Internal helper for [gfw_gear_depth_bands()]. For each cell, the gear's
+#' band is `[max(bathymetry - buffer, 0), bathymetry]`. The cell's effort
+#' is allocated to those `standard_depths` that fall inside that per-cell
+#' band — uniformly (preserving total hours) or as full presence.
+#'
+#' @param layer SpatRaster (single layer). Per-cell effort for one gear.
+#' @param gear Character. Gear name (used only for layer names and errors).
+#' @param buffer Numeric scalar. Metres above the seafloor the gear is
+#'   assumed to fish.
+#' @param bathymetry SpatRaster (single layer). Positive-down seafloor
+#'   depth, aligned to `layer`.
+#' @param standard_depths Numeric vector. Sorted, non-negative.
+#' @param allocation `"uniform"` or `"presence"` (see [build_pelagic_stack()]).
+#'
+#' @returns A SpatRaster with `length(standard_depths)` layers, named
+#'   `effort_<gear>_depth=<value>`. Cells outside a depth's per-cell band
+#'   are NA.
+#' @keywords internal
+#' @noRd
+build_benthic_stack <- function(layer, gear, buffer, bathymetry,
+                                standard_depths, allocation) {
+  if (is.na(buffer)) {
+    stop("Gear '", gear, "' has mode='benthic' but benthic_buffer is NA.",
+         call. = FALSE)
+  }
+  L <- terra::clamp(bathymetry - buffer, lower = 0)
+  U <- bathymetry
+
+  ind_layers <- lapply(standard_depths, function(d) {
+    # Both comparisons must be raster-on-LHS — terra mishandles
+    # `scalar <op> raster` when the raster value equals the scalar.
+    (L <= d) & (U >= d)
+  })
+
+  if (allocation == "uniform") {
+    n_in_band <- Reduce(`+`, ind_layers)
+    n_in_band_safe <- terra::ifel(n_in_band > 0, n_in_band, NA)
+  }
+
+  layers <- lapply(seq_along(standard_depths), function(i) {
+    d <- standard_depths[i]
+    indicator <- ind_layers[[i]]
+    l <- if (allocation == "uniform") {
+      layer * indicator / n_in_band_safe
+    } else {
+      layer * indicator
+    }
+    l <- terra::ifel(indicator == 0, NA, l)
+    names(l) <- paste0("effort_", gear, "_depth=", d)
+    l
+  })
+  Reduce(c, layers)
 }
