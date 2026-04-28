@@ -377,37 +377,36 @@ make_lookup <- function() {
   )
 }
 
-test_that("gfw_gear_depth_bands: fallback='drop' omits unknown gears", {
-  m <- make_mixed_effort(list(
-    drifting_longlines = c(1, 1, 1, 1),
-    trawlers           = c(1, 1, 1, 1),
-    fishing            = c(1, 1, 1, 1)
-  ))
+test_that("gfw_gear_depth_bands: fallback='drop' returns NULL for unknown gear", {
+  m <- make_mixed_effort(list(fishing = c(1, 1, 1, 1)))
   bathy <- m$template; terra::values(bathy) <- c(100, 100, 100, 100)
 
   out <- gfw_gear_depth_bands(
-    m$effort, bathy, standard_depths = c(0, 50, 100, 200),
-    depth_lookup = make_lookup(), fallback = "drop"
+    effort_layer = m$effort[["effort_fishing"]],
+    gear = "fishing",
+    bathymetry = bathy,
+    standard_depths = c(0, 50, 100, 200),
+    depth_lookup = make_lookup(),
+    fallback = "drop"
   )
-  expect_false(any(grepl("^effort_fishing_", names(out))))
+  expect_null(out)
 })
 
 test_that("gfw_gear_depth_bands: fallback='surface' puts unknown effort at depth=0 only", {
-  m <- make_mixed_effort(list(
-    drifting_longlines = c(1, 1, 1, 1),
-    trawlers           = c(1, 1, 1, 1),
-    fishing            = c(2, 2, 2, 2)
-  ))
+  m <- make_mixed_effort(list(fishing = c(2, 2, 2, 2)))
   bathy <- m$template; terra::values(bathy) <- c(100, 100, 100, 100)
 
   out <- gfw_gear_depth_bands(
-    m$effort, bathy, standard_depths = c(0, 50, 100, 200),
-    depth_lookup = make_lookup(), fallback = "surface"
+    effort_layer = m$effort[["effort_fishing"]],
+    gear = "fishing",
+    bathymetry = bathy,
+    standard_depths = c(0, 50, 100, 200),
+    depth_lookup = make_lookup(),
+    fallback = "surface"
   )
 
-  fishing_layers <- out[[grep("^effort_fishing_depth=", names(out))]]
-  per_layer <- terra::global(fishing_layers, "sum", na.rm = TRUE)$sum
-  names(per_layer) <- names(fishing_layers)
+  per_layer <- terra::global(out, "sum", na.rm = TRUE)$sum
+  names(per_layer) <- names(out)
 
   expect_equal(per_layer[["effort_fishing_depth=0"]], 4 * 2)
   expect_true(is.na(per_layer[["effort_fishing_depth=50"]]))
@@ -415,27 +414,37 @@ test_that("gfw_gear_depth_bands: fallback='surface' puts unknown effort at depth
   expect_true(is.na(per_layer[["effort_fishing_depth=200"]]))
 })
 
-test_that("gfw_gear_depth_bands: depth_bands attribute records the per-gear band", {
+test_that("gfw_gear_depth_bands: depth_band attribute records the band used", {
   m <- make_mixed_effort(list(
     drifting_longlines = c(1, 1, 1, 1),
     trawlers           = c(1, 1, 1, 1)
   ))
   bathy <- m$template; terra::values(bathy) <- c(100, 100, 100, 100)
 
-  out <- gfw_gear_depth_bands(
-    m$effort, bathy, standard_depths = c(0, 50, 100),
-    depth_lookup = make_lookup()[1:2, ]
+  pelagic_out <- gfw_gear_depth_bands(
+    effort_layer = m$effort[["effort_drifting_longlines"]],
+    gear = "drifting_longlines",
+    bathymetry = bathy,
+    standard_depths = c(0, 50, 100),
+    depth_lookup = make_lookup()
+  )
+  benthic_out <- gfw_gear_depth_bands(
+    effort_layer = m$effort[["effort_trawlers"]],
+    gear = "trawlers",
+    bathymetry = bathy,
+    standard_depths = c(0, 50, 100),
+    depth_lookup = make_lookup()
   )
 
-  bands <- attr(out, "depth_bands")
-  expect_setequal(bands$geartype, c("drifting_longlines", "trawlers"))
-  pelagic <- bands[bands$geartype == "drifting_longlines", ]
-  benthic <- bands[bands$geartype == "trawlers", ]
-  expect_equal(pelagic$depth_min_used, 0)
-  expect_equal(pelagic$depth_max_used, 200)
-  expect_equal(pelagic$mode, "pelagic")
-  expect_true(is.na(benthic$depth_min_used))
-  expect_equal(benthic$mode, "benthic")
+  pelagic_band <- attr(pelagic_out, "depth_band")
+  benthic_band <- attr(benthic_out, "depth_band")
+  expect_equal(pelagic_band$geartype, "drifting_longlines")
+  expect_equal(pelagic_band$depth_min_used, 0)
+  expect_equal(pelagic_band$depth_max_used, 200)
+  expect_equal(pelagic_band$mode, "pelagic")
+  expect_equal(benthic_band$geartype, "trawlers")
+  expect_true(is.na(benthic_band$depth_min_used))
+  expect_equal(benthic_band$mode, "benthic")
 })
 
 test_that("gfw_gear_depth_bands errors when depth_lookup is missing required columns", {
@@ -443,30 +452,40 @@ test_that("gfw_gear_depth_bands errors when depth_lookup is missing required col
   bathy <- m$template; terra::values(bathy) <- 100
   bad <- data.frame(geartype = "trawlers", mode = "benthic")
   expect_error(
-    gfw_gear_depth_bands(m$effort, bathy, c(0, 50, 100), depth_lookup = bad),
+    gfw_gear_depth_bands(
+      effort_layer = m$effort[["effort_trawlers"]], gear = "trawlers",
+      bathymetry = bathy, standard_depths = c(0, 50, 100),
+      depth_lookup = bad
+    ),
     "depth_lookup is missing required columns"
   )
 })
 
-test_that("gfw_gear_depth_bands errors when an effort gear has no lookup entry", {
+test_that("gfw_gear_depth_bands errors when the gear has no lookup entry", {
   m <- make_mixed_effort(list(mystery_gear = c(1, 1, 1, 1)))
   bathy <- m$template; terra::values(bathy) <- 100
   expect_error(
-    gfw_gear_depth_bands(m$effort, bathy, c(0, 50, 100),
-                         depth_lookup = make_lookup()),
+    gfw_gear_depth_bands(
+      effort_layer = m$effort[["effort_mystery_gear"]], gear = "mystery_gear",
+      bathymetry = bathy, standard_depths = c(0, 50, 100),
+      depth_lookup = make_lookup()
+    ),
     "no depth_lookup entry for gear"
   )
 })
 
-test_that("gfw_gear_depth_bands errors when bathymetry doesn't align with effort_by_gear", {
+test_that("gfw_gear_depth_bands errors when bathymetry doesn't align with effort_layer", {
   m <- make_mixed_effort(list(trawlers = c(1, 1, 1, 1)))
   # Bathymetry on a different (smaller) grid
   bathy <- terra::rast(nrows = 3, ncols = 3, xmin = 0, xmax = 1,
                        ymin = 0, ymax = 1, crs = "EPSG:4326")
   terra::values(bathy) <- 100
   expect_error(
-    gfw_gear_depth_bands(m$effort, bathy, c(0, 50, 100),
-                         depth_lookup = make_lookup()[2, ]),
+    gfw_gear_depth_bands(
+      effort_layer = m$effort[["effort_trawlers"]], gear = "trawlers",
+      bathymetry = bathy, standard_depths = c(0, 50, 100),
+      depth_lookup = make_lookup()[2, ]
+    ),
     "bathymetry must align"
   )
 })
@@ -478,15 +497,17 @@ test_that("gfw_gear_depth_bands: full mass conservation across uniform pelagic +
   ))
   bathy <- m$template; terra::values(bathy) <- c(50, 100, 150, 200)
 
-  out <- gfw_gear_depth_bands(
-    m$effort, bathy, standard_depths = c(0, 25, 50, 75, 100, 150, 200),
-    depth_lookup = make_lookup()[1:2, ], allocation = "uniform"
-  )
-
   for (gear in c("drifting_longlines", "trawlers")) {
     orig <- terra::global(m$effort[[paste0("effort_", gear)]],
                           "sum", na.rm = TRUE)$sum
-    layers_3d <- out[[grep(paste0("^effort_", gear, "_depth="), names(out))]]
+    layers_3d <- gfw_gear_depth_bands(
+      effort_layer = m$effort[[paste0("effort_", gear)]],
+      gear = gear,
+      bathymetry = bathy,
+      standard_depths = c(0, 25, 50, 75, 100, 150, 200),
+      depth_lookup = make_lookup()[1:2, ],
+      allocation = "uniform"
+    )
     total_3d  <- sum(terra::global(layers_3d, "sum", na.rm = TRUE)$sum,
                      na.rm = TRUE)
     expect_equal(total_3d, orig, tolerance = 1e-9, info = gear)
