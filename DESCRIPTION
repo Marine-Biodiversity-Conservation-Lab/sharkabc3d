@@ -1,17 +1,33 @@
-Package: extractclimate3d
-Title: Extracts data from World Ocean Atlas 2023 by marine species area and depth range
+Package: sharkabc3d
+Title: Shark and Ray Abiotic Covariates in 3 Dimensions
 Version: 0.0.0.9000
 Authors@R: 
     person("Jay", "Matsushiba", , "jay.matsushiba@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-0496-9188"))
-Description: What the package does (one paragraph).
+Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
+    descriptions of habitat by depth and area. Provides tools for volume
+    calculation, environmental extraction, and spatial overlap analysis between
+    species ranges, fisheries, and protected areas.
 License: MIT + file LICENSE
+Imports:
+    curl,
+    ggplot2,
+    magrittr,
+    rlang,
+    sf (>= 1.1.0),
+    stringr,
+    terra,
+    tidyterra
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Suggests: 
+RoxygenNote: 7.3.3
+Suggests:
+    dplyr,
+    gfwr,
+    here,
     knitr,
     rmarkdown,
+    rredlist,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

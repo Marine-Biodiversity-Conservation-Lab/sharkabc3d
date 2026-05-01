@@ -2,4 +2,12 @@
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
 inst/doc
+
+/.quarto/
+/previous_projects/
+/data-processed/
+/data-raw/
+/output/
+example_data/*

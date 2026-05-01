@@ -1,0 +1,267 @@
+#' Plot environmental depth profile for a species
+#'
+#' Plot an environmental variable (e.g., temperature, dissolved oxygen) as a
+#' vertical depth profile within the species range. At each depth layer the
+#' spatial mean, min, and max are computed across cells where that depth
+#' falls inside the species' per-cell depth window (bathymetry-clamped). The
+#' mean is drawn as a line with points; the min-max range is shaded as a
+#' ribbon. Depth is on the y-axis (inverted).
+#'
+#' Uses [extract_rast_range()] to apply the per-cell depth window. Layers
+#' that end up all-NA (no cells where the species is present at that depth)
+#' are dropped from the plot.
+#'
+#' @param species_name Character. Species name used for the plot title.
+#' @param range_rast SpatRaster. Output of [rasterize_range()] with per-cell
+#'   `depth_min` and `depth_max` layers.
+#' @param rast_3d SpatRaster. Multi-depth environmental raster with layer
+#'   names following the `{variable}_depth={value}` convention.
+#'
+#' @returns A ggplot object.
+#' @export
+plot_depth_profile <- function(species_name, range_rast, rast_3d) {
+  masked <- extract_rast_range(range_rast, rast_3d)
+  depths <- .parse_depth_layers(masked)
+
+  summary_per_depth <- lapply(seq_len(terra::nlyr(masked)), function(i) {
+    v <- terra::values(masked[[i]])
+    if (all(is.na(v))) return(NULL)
+    data.frame(
+      depth = depths[i],
+      mean  = mean(v, na.rm = TRUE),
+      min   = min(v, na.rm = TRUE),
+      max   = max(v, na.rm = TRUE)
+    )
+  })
+  df <- do.call(rbind, Filter(Negate(is.null), summary_per_depth))
+  if (is.null(df) || nrow(df) == 0) {
+    stop("No cells overlap the species range and the raster's depth layers.",
+         call. = FALSE)
+  }
+
+  ggplot2::ggplot(df, ggplot2::aes(x = .data$mean, y = .data$depth)) +
+    ggplot2::geom_ribbon(
+      ggplot2::aes(xmin = .data$min, xmax = .data$max),
+      alpha = 0.2
+    ) +
+    ggplot2::geom_line() +
+    ggplot2::geom_point() +
+    ggplot2::scale_y_reverse() +
+    ggplot2::labs(
+      title = species_name,
+      x = "Value",
+      y = "Depth (m)"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "italic")
+    )
+}
+
+#' Plot species range at a specific depth layer
+#'
+#' Map view of a species range with environmental variable values at a specific
+#' depth layer.
+#'
+#' @param species_range sf or SpatVector. Species range polygon.
+#' @param depth Numeric. Depth (metres) at which to display environmental data.
+#' @param rast_3d SpatRaster. Multi-depth raster with layer names following the
+#'   `{variable}_depth={value}` convention.
+#'
+#' @returns A ggplot object.
+#' @export
+plot_range_at_depth <- function(species_range, depth, rast_3d) {
+  depths <- .parse_depth_layers(rast_3d)
+  idx <- which.min(abs(depths - depth))
+  layer <- rast_3d[[idx]]
+  actual_depth <- depths[idx]
+
+  if (inherits(species_range, "sf")) {
+    range_vect <- terra::vect(species_range)
+  } else {
+    range_vect <- species_range
+  }
+  if (terra::crs(range_vect) != terra::crs(layer) && terra::crs(range_vect) != "") {
+    range_vect <- terra::project(range_vect, terra::crs(layer))
+  }
+
+  cropped <- terra::crop(layer, range_vect, mask = TRUE, touches = TRUE)
+  range_sf <- if (inherits(species_range, "sf")) species_range else sf::st_as_sf(range_vect)
+
+  ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = cropped) +
+    ggplot2::geom_sf(data = range_sf, fill = NA, colour = "black",
+                     linewidth = 0.3) +
+    ggplot2::scale_fill_viridis_c(name = NULL, na.value = "transparent") +
+    ggplot2::coord_sf() +
+    ggplot2::labs(subtitle = paste0("Depth: ", actual_depth, " m")) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(axis.title = ggplot2::element_blank())
+}
+
+#' Plot 3D volume overlap between two ranges
+#'
+#' Map view of per-cell 3D volume overlap between two rasterized ranges.
+#' Cells are categorised as range A only (species), intersection (overlap),
+#' or range B only (fishery), matching the visualisation style of
+#' Haque et al. Requires the output of [calc_volume_overlap()].
+#'
+#' @param overlap_rast SpatRaster. Output of [calc_volume_overlap()], a
+#'   multi-layer raster with layers: volume_a, volume_b, volume_overlap.
+#' @param name_a Character. Label for range A (default `"Species"`).
+#' @param name_b Character. Label for range B (default `"Fishery"`).
+#'
+#' @returns A ggplot object.
+#' @importFrom ggplot2 ggplot aes scale_fill_manual coord_sf
+#'   theme_minimal theme labs element_text element_blank
+#' @export
+plot_volume_overlap <- function(overlap_rast, name_a = "Species",
+                                name_b = "Fishery") {
+  vol_a <- overlap_rast[["volume_a"]]
+  vol_b <- overlap_rast[["volume_b"]]
+  vol_ov <- overlap_rast[["volume_overlap"]]
+
+  has_a <- !is.na(vol_a) & vol_a > 0
+  has_b <- !is.na(vol_b) & vol_b > 0
+  has_ov <- !is.na(vol_ov) & vol_ov > 0
+
+  # Classify each cell: 1 = A only, 2 = B only, 3 = intersection, NA = neither
+  categ <- terra::ifel(has_ov, 3,
+    terra::ifel(has_a & has_b, 3,
+      terra::ifel(has_a, 1,
+        terra::ifel(has_b, 2, NA))))
+  categ <- terra::as.factor(categ)
+  levels(categ) <- data.frame(ID = 1:3, category = c(name_a, name_b, "Intersect"))
+  names(categ) <- "category"
+
+  # Viridis-inspired 3-colour palette matching Figure 1
+  pal <- stats::setNames(c("#440154", "#fde725", "#21918c"),
+                         c(name_a, name_b, "Intersect"))
+
+  ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = categ) +
+    ggplot2::scale_fill_manual(values = pal, name = NULL,
+                               na.value = "transparent",
+                               na.translate = FALSE) +
+    ggplot2::coord_sf() +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank(),
+      legend.position = "bottom",
+      plot.title = ggplot2::element_text(face = "italic")
+    )
+}
+
+#' Plot cumulative fishing pressure on a species
+#'
+#' Map showing cumulative fishing pressure from all sub-fisheries on a given
+#' species. Each cell is coloured by the number of fisheries whose depth range
+#' overlaps the species at that location. Reproduces the per-species
+#' cumulative pressure maps from Haque et al.
+#'
+#' @param species_rast SpatRaster. Rasterized species range from
+#'   [rasterize_range()].
+#' @param fishery_rasters List of SpatRasters. Rasterized fishery footprints
+#'   from [rasterize_range()].
+#' @param species_name Character. Optional species name for the plot title.
+#'
+#' @returns A ggplot object.
+#' @importFrom ggplot2 ggplot aes scale_fill_viridis_c coord_sf
+#'   theme_minimal theme labs element_text element_blank
+#' @export
+plot_cumulative_pressure <- function(species_rast, fishery_rasters,
+                                     species_name = NULL) {
+  sp_presence <- !is.na(species_rast[["depth_min"]])
+  sp_dmin <- species_rast[["depth_min"]]
+  sp_dmax <- species_rast[["depth_max"]]
+
+  overlap_stack <- lapply(fishery_rasters, function(fr) {
+    fi_presence <- !is.na(fr[["depth_min"]])
+    both <- sp_presence & fi_presence
+
+    # Depth overlap: max(min_a, min_b) < min(max_a, max_b)
+    ov_min <- terra::ifel(sp_dmin > fr[["depth_min"]], sp_dmin, fr[["depth_min"]])
+    ov_max <- terra::ifel(sp_dmax < fr[["depth_max"]], sp_dmax, fr[["depth_max"]])
+    has_overlap <- both & (ov_max > ov_min)
+
+    terra::ifel(has_overlap, 1, 0)
+  })
+
+  count_rast <- Reduce(`+`, overlap_stack)
+  count_rast <- terra::mask(count_rast, terra::ifel(sp_presence, 1, NA))
+  count_rast <- terra::ifel(count_rast == 0, NA, count_rast)
+  names(count_rast) <- "n_fisheries"
+
+  max_n <- length(fishery_rasters)
+
+  p <- ggplot2::ggplot() +
+    tidyterra::geom_spatraster(data = count_rast) +
+    ggplot2::scale_fill_viridis_c(
+      name = "Overlapping\nFisheries",
+      limits = c(0, max_n),
+      breaks = seq(0, max_n, by = 1),
+      na.value = "transparent"
+    ) +
+    ggplot2::coord_sf() +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank(),
+      plot.title = ggplot2::element_text(face = "italic")
+    )
+
+  if (!is.null(species_name)) {
+    p <- p + ggplot2::labs(title = species_name)
+  }
+
+  p
+}
+
+#' Plot overlap by depth across fisheries
+#'
+#' Horizontal bar chart showing per-depth-bin cell counts for the species
+#' range, fishery footprint, and their intersection. For a single species
+#' across multiple fisheries, this recreates the depth histogram panels from
+#' Haque et al. (Figure 1).
+#'
+#' @param species_name Character. Species name for the plot title.
+#' @param fishery_names Character vector. Names of the sub-fisheries.
+#' @param overlap_results Data frame or tibble with columns: species, fishery,
+#'   volume_species_km3, volume_fishery_km3, volume_overlap_km3.
+#'
+#' @returns A ggplot object.
+#' @importFrom ggplot2 ggplot aes geom_col scale_fill_manual coord_flip
+#'   facet_wrap theme_minimal theme labs element_text
+#' @export
+plot_overlap_by_depth <- function(species_name, fishery_names,
+                                  overlap_results) {
+  df <- overlap_results[overlap_results$species == species_name, ]
+
+  # Reshape to long format for grouped bar chart
+  plot_df <- data.frame(
+    fishery = rep(df$fishery, 3),
+    component = rep(c("Species", "Fishery", "Overlap"), each = nrow(df)),
+    volume_km3 = c(df$volume_species_km3, df$volume_fishery_km3,
+                    df$volume_overlap_km3)
+  )
+  plot_df$component <- factor(plot_df$component,
+                               levels = c("Species", "Fishery", "Overlap"))
+
+  # Viridis-inspired palette matching Figure 1
+  pal <- c("Species" = "#440154", "Fishery" = "#fde725",
+           "Overlap" = "#21918c")
+
+  ggplot2::ggplot(plot_df, ggplot2::aes(x = .data$fishery, y = .data$volume_km3,
+                                         fill = .data$component)) +
+    ggplot2::geom_col(position = "dodge") +
+    ggplot2::scale_fill_manual(values = pal, name = NULL) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(
+      title = species_name,
+      x = NULL,
+      y = expression(Volume~(km^3))
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "italic")
+    )
+}

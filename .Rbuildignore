@@ -1,5 +1,15 @@
+^renv$
+^renv\.lock$
 ^README\.Rmd$
 ^LICENSE\.md$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.claude$
 ^data-raw$
+^previous_projects$
+^presentation$
+^output$
+^example_data$
+^ABSTRACT\.md$
+^CLAUDE\.md$
+^SPEC\.md$
