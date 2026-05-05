@@ -141,6 +141,12 @@ usethis::edit_r_environ()
 - `plot_overlap_by_depth()` — per-depth-bin bar chart of species,
   fishery, and overlap cell counts across multiple sub-fisheries.
 
+## Acknowledgements
+
+Thank you to the people that have inspired and collaborated on this work! 
+
+Rachel Aitchison, Wade VanderWright, Amanda Arnold, Dr. Samm Sherman, Dr. Alifa Haque.
+
 ## Citation
 
 Matsushiba, J. H., & Dulvy, N. K. *SharkABC3D: An R Package for
