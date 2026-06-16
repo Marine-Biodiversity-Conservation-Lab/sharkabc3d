@@ -11,5 +11,10 @@ Facilitates the analysis of shark and ray habitat in 3D, enabling descriptions o
 \author{
 \strong{Maintainer}: Jay Matsushiba \email{jay.matsushiba@gmail.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
 
+Authors:
+\itemize{
+  \item Jay Matsushiba \email{jay.matsushiba@gmail.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
+}
+
 }
 \keyword{internal}

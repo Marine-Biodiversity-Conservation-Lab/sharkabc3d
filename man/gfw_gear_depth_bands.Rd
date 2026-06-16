@@ -2,10 +2,11 @@
 % Please edit documentation in R/gfw.R
 \name{gfw_gear_depth_bands}
 \alias{gfw_gear_depth_bands}
-\title{Build a depth-stratified fishing-effort stack}
+\title{Build a depth-stratified fishing-effort stack for one gear class}
 \usage{
 gfw_gear_depth_bands(
-  effort_by_gear,
+  effort_layer,
+  gear,
   bathymetry,
   standard_depths,
   depth_lookup,
@@ -14,16 +15,17 @@ gfw_gear_depth_bands(
 )
 }
 \arguments{
-\item{effort_by_gear}{SpatRaster. One layer per GFW gear class; layer
-names must match \code{depth_lookup$geartype} (with or without an
-\code{effort_} prefix from \code{\link[=gfw_effort_to_raster]{gfw_effort_to_raster()}}).}
+\item{effort_layer}{SpatRaster. Single-layer effort raster for one
+gear, e.g. \code{effort_by_gear[[paste0("effort_", gear)]]}.}
+
+\item{gear}{Character. Gear class label. Used to look up the depth band
+in \code{depth_lookup} and to construct output layer names.}
 
 \item{bathymetry}{SpatRaster. Positive-down seafloor depth (m), aligned
-to \code{effort_by_gear}.}
+to \code{effort_layer}.}
 
 \item{standard_depths}{Numeric vector. Depth levels (m, positive down)
-at which the output stack is produced (e.g. the WOA23 standard depth
-levels).}
+at which the output stack is produced (e.g. WOA23 standard depths).}
 
 \item{depth_lookup}{Data frame. User-supplied gear → depth-band mapping.
 No default is provided: operating depths vary by region, fleet, and
@@ -35,51 +37,50 @@ analyst's call. Required columns:
 \code{NA} when \code{mode = "benthic"} or \code{"unknown"}.
 \item \code{depth_max} — Deepest operating depth (m, positive down).
 \code{NA} when \code{mode = "benthic"} or \code{"unknown"}.
-\item \code{mode} — One of \code{"pelagic"} (fixed depth band in the water
-column), \code{"benthic"} (band clamped to bathymetry ± \code{benthic_buffer}),
-\code{"midwater"}, or \code{"unknown"}.
+\item \code{mode} — One of \code{"pelagic"}, \code{"benthic"}, \code{"midwater"}, or
+\code{"unknown"}.
 \item \code{benthic_buffer} — For \code{mode = "benthic"}, metres above the
 seafloor the gear is assumed to fish. \code{NA} otherwise.
-}}
-
-\item{allocation}{Character. How a gear's effort is distributed across
-the depth layers inside its band. One of:
-\itemize{
-\item \code{"uniform"} — split evenly across the depth layers the band
-intersects (preserves total effort-hours).
-\item \code{"presence"} — each intersecting layer gets the full value
-(effort-hours will be double-counted; use only for presence maps).
 }
+The single row whose \code{geartype} matches \code{gear} is selected.}
+
+\item{allocation}{Character. \code{"uniform"} (split evenly across in-band
+depths, preserves total effort-hours) or \code{"presence"} (full value at
+every in-band depth — double-counts; use only for footprint maps).
 Default \code{"uniform"}.}
 
-\item{fallback}{Character. Behaviour for gears with
-\code{mode = "unknown"}. One of \code{"drop"} (omit from the output) or
-\code{"surface"} (treat as 0-band surface effort). Default \code{"drop"}.}
+\item{fallback}{Character. Behaviour for \code{mode = "unknown"}:
+\code{"drop"} returns \code{NULL} (caller is expected to skip), \code{"surface"}
+treats the gear as 0-m surface effort. Default \code{"drop"}.}
 }
 \value{
-A SpatRaster stack of depth-stratified effort. Layer names
-follow the convention \verb{effort_<geartype>_depth=<value>}. A
-\code{depth_bands} attribute (data frame) records the per-gear band used.
+A SpatRaster with \code{length(standard_depths)} layers named
+\verb{effort_<gear>_depth=<value>}, or \code{NULL} when \code{mode = "unknown"}
+and \code{fallback = "drop"}. A \code{depth_band} attribute (single-row data
+frame) records the band actually used.
 }
 \description{
-Combine a per-geartype effort raster (one layer per gear class, e.g.
-from \code{\link[=gfw_effort_to_raster]{gfw_effort_to_raster()}} with \code{layer_by = "geartype"}) with a
-bathymetry layer and a user-supplied gear → depth-band lookup to
-produce a stack of rasters representing \emph{where effort occurs in the
-water column}.
+Combine a single-gear effort raster (one layer, e.g. one slice of the
+output of \code{\link[=gfw_effort_to_raster]{gfw_effort_to_raster()}}) with a bathymetry layer and a
+user-supplied gear → depth-band lookup to produce a stack of rasters
+representing \emph{where this gear's effort occurs in the water column}.
 }
 \details{
-For each gear type, the operating depth window is taken from
-\code{depth_lookup}:
+Processes one gear at a time so peak memory scales with a single
+gear's depth-stratified stack rather than every gear at once. To build
+the full multi-gear \code{effort_3d} stack, call this in a loop and combine
+(e.g. \code{do.call(c, unname(list_of_stacks))}); writing intermediate
+results to disk between iterations keeps a large analysis bounded —
+see the vignette \verb{gfw-fishing-effort-3d} for the standard pattern.
+
+For the operating depth window:
 \itemize{
 \item \code{mode = "pelagic"} — constant \verb{[depth_min, depth_max]} from the lookup.
 \item \code{mode = "benthic"} — window is \verb{[max(bathymetry - benthic_buffer, 0), bathymetry]} per cell, i.e. a thin band riding the seafloor.
 \item \code{mode = "midwater"} / \code{"unknown"} — handled per \code{fallback}.
 }
 
-The window is then intersected with \code{standard_depths} to decide which
-depth layers the gear's effort should be allocated to. The output uses
-the package-standard \verb{effort_<geartype>_depth=<value>} naming so it can
-be combined with WOA layers and \code{\link[=rasterize_range]{rasterize_range()}} outputs by
-\code{\link[=calc_volume_overlap]{calc_volume_overlap()}} et al.
+The window is intersected with \code{standard_depths} to decide which depth
+layers receive effort. Output layer names follow the package-standard
+\verb{effort_<gear>_depth=<value>} convention.
 }

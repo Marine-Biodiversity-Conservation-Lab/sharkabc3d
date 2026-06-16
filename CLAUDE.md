@@ -68,11 +68,10 @@ woa_load_nc() → extract_rast_volume() → summarise_species_environment()
 
 ### Key directories
 
-- `R/` — Package functions. Stub functions use `stop("Not yet implemented")`
-- `data-raw/` — Raw data files (WOA NetCDFs, Bangladesh study data, processing scripts). Excluded from package build
-- `data-processed/` — Pre-computed rasters (WOA min/max/diff across months)
-- `previous_projects/` — Reference implementations being refactored into this package
-- `vignettes/` — Three analysis vignettes reproducing past papers (Bangladesh fisheries 3D, MPA overlap, WOA extraction)
+- `R/` — Package functions (`extract.R`, `gfw.R`, `load_data.R`, `plot.R`, `volume.R`, `woa.R`). Stub functions use `stop("Not yet implemented")`
+- `man/` — Roxygen2-generated documentation (auto-generated, do not edit manually)
+- `tests/testthat/` — Test files mirroring `R/` (one file per source file)
+- `renv/` — Reproducible environment lockfile managed by `renv`
 
 ### Coding conventions
 

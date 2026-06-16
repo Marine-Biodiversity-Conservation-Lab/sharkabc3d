@@ -17,17 +17,19 @@ Imports:
     sf (>= 1.1.0),
     stringr,
     terra,
-    tidyterra
+    tidyterra,
+    rredlist,
+    dplyr,
+    gfwr (>= 3.0),
+    here
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Suggests:
-    dplyr,
-    gfwr,
-    here,
     knitr,
     rmarkdown,
-    rredlist,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
+Remotes: 
+    GlobalFishingWatch/gfwr
+Config/roxygen2/version: 8.0.0

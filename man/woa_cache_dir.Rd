@@ -11,6 +11,6 @@ Character. Path to cache directory (created if missing).
 }
 \description{
 Returns the path to the package's persistent cache directory for downloaded
-WOA NetCDF files. Uses \code{\link[tools:userdir]{tools::R_user_dir()}} so the location survives across
+WOA NetCDF files. Uses \code{\link[tools:R_user_dir]{tools::R_user_dir()}} so the location survives across
 sessions and follows platform conventions.
 }

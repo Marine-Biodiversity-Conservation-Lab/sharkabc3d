@@ -11,3 +11,6 @@ inst/doc
 /data-raw/
 /output/
 example_data/*
+.httr-oauth
+.DS_Store
+.quarto
