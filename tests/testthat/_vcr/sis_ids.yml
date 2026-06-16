@@ -1,0 +1,1144 @@
+http_interactions:
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/taxa/sis/44584
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:41 GMT
+      content-type: application/json
+      content-length: '822'
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"9b335fc0caa10219dfb82fdb8e42d53b"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: 15eea3fd-a756-4fa4-98e2-73c6ad16dae3
+      x-runtime: '0.056624'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=jYzMomP2vZo01jv7NnuiElyMjs%2FJ3aM3UEq1jgwXkHCz0%2BPqeYIcHlbacF1p8hmsib6omk5IsRIKLI%2BcK1tv%2BhC314kNoYQ%2B8CZ3wiBZ7KMHBiyWWIgKT7qvDft%2F6gvsa8ceKMUjYRUncK%2FS%2F1uod3Y%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f980c970d753-NRT
+    body:
+      string: '{"sis_id":44584,"taxon":{"sis_id":44584,"scientific_name":"Pseudobatos
+        planiceps","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"RHINOPRISTIFORMES","family_name":"RHINOBATIDAE","genus_name":"Pseudobatos","species_name":"planiceps","subpopulation_name":null,"infra_name":null,"authority":"(Garman,
+        1880)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":true,"name":"Pacific
+        Guitarfish","language":"eng"}],"synonyms":[{"name":"Rhinobatos planiceps Garman,
+        1880","status":"NEW","genus_name":"Rhinobatos","species_name":"planiceps","species_author":"Garman,
+        1880","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"assessments":[{"assessment_date":"2020-02-24T00:00:00.000+00:00","year_published":"2020","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":44584,"criteria":"A2d","url":"https://www.iucnredlist.org/species/44584/124433864","taxon_scientific_name":"Pseudobatos
+        planiceps","red_list_category_code":"VU","assessment_id":124433864,"scopes":[{"description":{"en":"Global"},"code":"1"}]},{"assessment_date":"2004-05-02T01:00:00.000+01:00","year_published":"2016","latest":false,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":44584,"criteria":null,"url":"https://www.iucnredlist.org/species/44584/104001215","taxon_scientific_name":"Pseudobatos
+        planiceps","red_list_category_code":"DD","assessment_id":104001215,"scopes":[{"description":{"en":"Global"},"code":"1"}]},{"assessment_date":"2004-04-30T01:00:00.000+01:00","year_published":"2004","latest":false,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":44584,"criteria":null,"url":"https://www.iucnredlist.org/species/44584/10908941","taxon_scientific_name":"Pseudobatos
+        planiceps","red_list_category_code":"DD","assessment_id":10908941,"scopes":[{"description":{"en":"Global"},"code":"1"}]}]}'
+  recorded_at: 2026-06-16 10:01:41
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/assessment/124433864
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:41 GMT
+      content-type: application/json
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"1a79549f777935d80064b41594d76a8e"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: 5db9c871-7e42-4292-921e-98f00670a8d2
+      x-runtime: '0.080961'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=WhNXmzetjhzRQ%2FfgM5v2OIpk7n74D%2Fb%2FENxmAFTN%2B8wz0oXkXCN30PUfxkbUxZbWEg7X6uglFqIXQnUw56fqH%2BWzLqfa7LsJZba04l74NnwU3Ou9N4Qi7xyd6SrebZuMtu78rNUtJTXlCXVVxk2rzPQ%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f98338a6d753-NRT
+    body:
+      string: '{"assessment_date":"2020-02-24T00:00:00.000+00:00","year_published":"2020","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":44584,"criteria":"A2d","url":"https://www.iucnredlist.org/species/44584/124433864","citation":"Kyne,
+        P.M., Charvet, P., Areano, E.M., Cevallos, A., Espinoza, M., González, A.,
+        Gonzalez-Pestana, A., Herman, K., Mejía-Falla, P.A., Morales-Saldaña, J.M.,
+        Navia, A.F. \u0026 Velez-Zuazo, X. 2020. Pseudobatos planiceps. The IUCN Red
+        List of Threatened Species 2020: e.T44584A124433864. Accessed on 16 June 2026.","assessment_id":124433864,"assessment_points":false,"assessment_ranges":true,"taxon":{"sis_id":44584,"scientific_name":"Pseudobatos
+        planiceps","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"RHINOPRISTIFORMES","family_name":"RHINOBATIDAE","genus_name":"Pseudobatos","species_name":"planiceps","subpopulation_name":null,"infra_name":null,"authority":"(Garman,
+        1880)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":true,"name":"Pacific
+        Guitarfish","language":"eng"}],"synonyms":[{"name":"Rhinobatos planiceps Garman,
+        1880","status":"NEW","genus_name":"Rhinobatos","species_name":"planiceps","species_author":"Garman,
+        1880","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"population_trend":{"description":{"en":"Decreasing"},"code":"1"},"red_list_category":{"version":"3.1","description":{"en":"Vulnerable"},"code":"VU"},"supplementary_info":{"area_restricted_is_restricted":null,"number_of_locations":null,"upper_elevation_limit":null,"lower_elevation_limit":null,"lower_depth_limit":50,"upper_depth_limit":1,"population_size":null,"population_severely_fragmented":null,"population_continuing_decline":null,"generational_length":"5","congregatory":null,"movement_patterns":null,"continuing_decline_in_area":null,"conservation_actions_in_place":[{"name":"In-place
+        research and monitoring","actions":[{"name":"Action Recovery Plan","value":"No"},{"name":"Systematic
+        monitoring scheme","value":"No"}]},{"name":"In-place land/water protection","actions":[{"name":"Conservation
+        sites identified","value":"No"},{"name":"Area based regional management plan","value":"No"},{"name":"Occurs
+        in at least one protected area","value":"Yes"},{"name":"Invasive species control
+        or prevention","value":"Not Applicable"}]},{"name":"In-place species management","actions":[{"name":"Harvest
+        management plan","value":"No"},{"name":"Successfully reintroduced or introduced
+        benignly","value":"No"},{"name":"Subject to ex-situ conservation","value":"No"}]},{"name":"In-place
+        education","actions":[{"name":"Subject to recent education and awareness programmes","value":"No"},{"name":"Included
+        in international legislation","value":"No"},{"name":"Subject to any international
+        management / trade controls","value":"No"}]}],"identification_information":null,"extreme_fluctuations":null,"no_of_subpopulations":null,"continuing_decline_in_subpopulations":null,"extreme_fluctuations_in_subpopulations":null,"all_individuals_in_one_subpopulation":null,"no_of_individuals_in_largest_subpopulation":null,"estimated_area_of_occupancy":null,"continuing_decline_in_area_of_occupancy":null,"extreme_fluctuations_in_area_of_occupancy":null,"estimated_extent_of_occurence":null,"continuing_decline_in_extent_of_occurence":null,"extreme_fluctuations_in_extent_of_occurence":null,"continuing_decline_in_number_of_locations":null,"extreme_fluctuations_in_number_of_locations":null},"documentation":{"range":"The
+        Pacific Guitarfish occurs from southern Mexico to northern Chile including
+        the Galápagos\u0026#160;Islands (Ecuador) in the Eastern Central and Southeast
+        Pacific (Last \u003cem\u003eet al.\u003c/em\u003e 2016b).","population":"\u003cp\u003eThere
+        are no available data on population trend of the Pacific Guitarfish. In some
+        areas it appears to be rare or in low abundance (e.g., El Salvador, Costa
+        Rica, Colombia), but in others it is a common target or bycatch species (e.g.,
+        Ecuador, Peru), suggesting that its core distribution is in southern areas
+        of its range. Inshore guitarfishes are susceptible to population reduction
+        and overexploitation where they are heavily fished (Moore 2017). The Pacific
+        Guitarfish is subjected to intense and largely unmanaged fishing pressure
+        throughout most of its range (including targeted fishing), with little refuge
+        (except in some remote areas).\u003cbr/\u003e\u003cbr/\u003eOverall, due to
+        levels of exploitation from its exposure to inadequately managed fisheries
+        throughout much of its range, it is suspected that the Pacific Guitarfish
+        has undergone a population reduction of 30–49% over the last three generations
+        (15 years).\u003c/p\u003e","habitats":"\u003cp\u003e\u003cspan lang=\"EN-US\"\u003eThe
+        Pacific Guitarfish inhabits shallow inshore and continental shelf waters to
+        a depth of 50 m (Weigmann 2016). It reaches a maximum size of 125 cm total
+        length (Silva-Garay \u003cem\u003eet al. \u003c/em\u003e2018).\u0026#160;Reproduction
+        is viviparous but nothing else is known of its biology.\u0026#160;\u003cspan
+        lang=\"EN-US\"\u003eAge data are not available for this species, but generation
+        length is inferred to be 5 years based on a generation length of 9 years for
+        the larger\u0026#160;Shovelnose Guitarfish (\u003cem\u003ePseudobatos productus\u003c/em\u003e)
+        (170 cm TL) (Timmons and Bray 1997).\u003c/span\u003e\u003c/p\u003e","threats":"This
+        species is targeted either directly or as part of multi-species fisheries
+        using gillnet, longline, and beach-seine. It is also a bycatch of large-scale
+        and small-scale shrimp trawl fisheries and small-scale gillnet fisheries and
+        is usually retained for its meat. There is little information available on
+        catches in northern parts of its range and it is only irregularly recorded
+        in El Salvador (Fuentes and Hernández 2004), Costa Rica (Clarke \u003cem\u003eet
+        al. \u003c/em\u003e2016, Espinoza \u003cem\u003eet al. \u003c/em\u003e2018),
+        and Colombia (Mejía-Falla and Navia 2019). Catches are higher in Ecuador and
+        Peru where it is a regular bycatch in the former (Tenelema-Delgado \u003cem\u003eet
+        al. \u003c/em\u003e2014), and a target species in the latter. The most important
+        landing areas are northern and central Peru where between 1997 and 2015, catches
+        fluctuated with declines from 2002 to 2006 before catches increased and peaked
+        in 2007–2008, were then low between 2009 and 2013, before peaking again in
+        2014–2015; this species is the third most landed ray species in Peru as estimated
+        from government landing reports (A. Gonzalez-Pestana unpubl. data 2020).\u0026#160;In
+        Chile, this species it is caught incidentally in multi-species fisheries and
+        beach-seines in the north of the country (Lamilla \u003cem\u003eet al. \u003c/em\u003e2010).\u003cbr/\u003e\u003cbr/\u003eOverall,
+        there is high spatial overlap with fisheries (which generally lack management
+        or effective enforcement of regulations across most of its range) and the
+        species has little refuge from fishing activities that operate across its
+        range.\u003cp\u003e\u003cbr/\u003e\u003c/p\u003e","measures":"There are no
+        species-specific measures in place for the Pacific Guitarfish.\u0026#160;In
+        the Mexican Pacific, there is a closed season for targeted elasmobranch fishing
+        from May 1st to July 31st, but enforcement is inadequate (O. Sosa-Nishizaki
+        pers. comm. 2019).\u0026#160;\u003cspan class=\"msoins0\"\u003eA temporal
+        ban of shrimp trawl fisheries is established in Colombia (January to March)
+        but enforcement is also inadequate (Mejía-Falla and Navia 2017). Additionally,
+        targeted industrial fishing of sharks and rays is prohibited in Colombia,
+        with set bycatch limits (up to 35% of bycatch in the national territory; Resolution
+        1743 of 2017); however, surveillance and compliance requires strengthening.
+        Benthic trawling and mechanized beach seines have been prohibited in the coastal
+        zone of Peru (to 5 nm from shore) since 2001 (Regulation: DS-012-2001-PE)
+        and manual beach seines from 2009 (Regulation: RM-112-2009-PRODUCE ). This
+        has likely reduced the catch of inshore elasmobranchs in Peruvian coastal
+        waters. The Galápagos Archipelago is covered by the 133,000 km² Galápagos\u0026#160;Marine
+        Reserve which prohibits industrial fishing but allows artisanal fishing (Davos\u0026#160;\u003cem\u003eet
+        al.\u003c/em\u003e\u0026#160;2007). The enforcement of regulations is limited
+        and illegal fishing is prevalent, particularly for sharks (Hearn\u0026#160;\u003cem\u003eet
+        al.\u0026#160;\u003c/em\u003e2014, Schiller\u0026#160;\u003cem\u003eet al.\u0026#160;\u003c/em\u003e2015),
+        and artisanal fishing pressure continues.\u003cspan class=\"msoins0\"\u003e\u003cbr/\u003e\u003cspan
+        class=\"msoins0\"\u003e\u003cbr/\u003e\u003cspan class=\"msoins0\"\u003eFurther
+        research is needed on life history, the level of mortality due to fisheries,
+        and population size and trend.\u0026#160;Both small- and large-scale fisheries
+        should be monitored for bycatch at the species level.\u003c/span\u003e\u003c/span\u003e","use_trade":"This
+        guitarfish is retained and the meat is consumed or sold locally.","rationale":"\u003cp\u003eThe
+        Pacific Guitarfish (\u003cem\u003ePseudobatos planiceps\u003c/em\u003e) is
+        a small (to at least 125 cm total length) shark-like ray which occurs from
+        southern Mexico to northern Chile and the Galápagos\u0026#160;Islands (Ecuador)
+        in the Eastern Central and Southeast Pacific. It inhabits shallow inshore
+        and continental shelf waters to a depth of 50 m. This species is targeted
+        either directly (e.g., in Peru) or as part of multi-species fisheries using
+        gillnet, longline, and beach-seine. It is also a bycatch of large-scale and
+        small-scale shrimp trawl fisheries and small-scale gillnet fisheries and is
+        usually retained for its meat. Fisheries operate throughout most of the range
+        of the species with inadequate management or enforcement and the species has
+        little refuge from fishing activities. It is under particularly heavy fishing
+        pressure in Peru where it is the third most landed ray species. Overall, given
+        the intensity of fishing pressure throughout its range and its susceptibility
+        to capture, it is suspected that the Pacific Guitarfish\u0026#160;has undergone
+        a population reduction of 30–49% over the last three generation lengths (15
+        years) due to levels of exploitation, and it is assessed as Vulnerable A2d.\u003cspan
+        style=\"\"\u003e\u003c/span\u003e\u003c/p\u003e","trend_justification":null,"taxonomic_notes":"Last
+        \u003cem\u003eet al\u003c/em\u003e. (2016a) revised the genus \u003cem\u003eRhinobatos\u003c/em\u003e,
+        transferring \u003cem\u003eglaucostigma\u003c/em\u003e, \u003cem\u003ehorkelii\u003c/em\u003e,
+        \u003cem\u003elentiginosus\u003c/em\u003e, \u003cem\u003eleucorhynchus\u003c/em\u003e,
+        \u003cem\u003epercellens\u003c/em\u003e, \u003cem\u003eplaniceps\u003c/em\u003e,
+        \u003cem\u003eprahli\u003c/em\u003e, and \u003cem\u003eproductus\u003c/em\u003e
+        to the new genus \u003cem\u003ePseudobatos\u003c/em\u003e.\u003cbr/\u003e\u003cbr/\u003eIn
+        Chile, a second rhinobatid species is known from just a dried head:\u0026#160;\u003cem\u003eTarsistes
+        philippi\u003c/em\u003e Jordan, 1918. The taxonomic situation of this species
+        is not clear."},"biogeographical_realms":[],"conservation_actions":[{"note":"","code":"5_4_2","description":{"en":"National
+        level"}},{"note":"","code":"5_1_2","description":{"en":"National level"}},{"note":"","code":"1_1","description":{"en":"Site/area
+        protection"}},{"note":"","code":"3_2","description":{"en":"Species recovery"}},{"note":"","code":"3_1_2","description":{"en":"Trade
+        management"}},{"note":"","code":"3_1_1","description":{"en":"Harvest management"}}],"faos":[{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - eastern central"},"code":"77"},{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - southeast"},"code":"87"}],"habitats":[{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy"},"code":"9_4"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy-Mud"},"code":"9_5"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Muddy"},"code":"9_6"}],"locations":[{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Chile"},"code":"CL"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Peru"},"code":"PE"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Ecuador"},"code":"EC"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Nicaragua"},"code":"NI"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Galápagos"},"code":"GAL-OO"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Costa
+        Rica"},"code":"CR"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"El
+        Salvador"},"code":"SV"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Guatemala"},"code":"GT"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Honduras"},"code":"HN"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Mexico"},"code":"MX"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Panama"},"code":"PA"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Ecuador
+        (mainland)"},"code":"ECU-OO"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Colombia"},"code":"CO"}],"researches":[{"note":"","code":"3_1","description":{"en":"Population
+        trends"}},{"note":"","code":"3_2","description":{"en":"Harvest level trends"}},{"note":"","code":"3_3","description":{"en":"Trade
+        trends"}},{"note":"","code":"1_2","description":{"en":"Population size, distribution
+        \u0026 trends"}},{"note":"","code":"1_3","description":{"en":"Life history
+        \u0026 ecology"}},{"note":"","code":"1_4","description":{"en":"Harvest, use
+        \u0026 livelihoods"}},{"note":"","code":"2_1","description":{"en":"Species
+        Action/Recovery Plan"}}],"use_and_trade":[{"international":null,"national":true,"other":null,"subsistence":true,"description":{"en":"Food
+        - human"},"code":"1"}],"threats":[{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium
+        Impact: 6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (subsistence/small scale) [harvest]"},"code":"5_4_3"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Intentional
+        use: (subsistence/small scale) [harvest]"},"code":"5_4_1"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (large scale) [harvest]"},"code":"5_4_4"}],"credits":[{"credit_type_name":"assessor","full":"Kyne,
+        P.M., Charvet, P., Areano, E.M., Cevallos, A., Espinoza, M., González, A.,
+        Gonzalez-Pestana, A., Herman, K., Mejía-Falla, P.A., Morales-Saldaña, J.M.,
+        Navia, A.F. \u0026 Velez-Zuazo, X.","value":["Paola A. Mejía-Falla (Squalus
+        Foundation (Wildlife Conservation Society))","Adriana Cevallos","Ximena Velez-Zuazo","Jorge
+        Manuel Morales-Saldaña","Elisa Areano","Peter Kyne (Charles Darwin University,
+        Australia / IUCN SSC Shark RLA Coordinator)","Patricia Charvet (SENAI-Paraná)","Mario
+        Espinoza (James Cook University, Queensland, Australia)","Katelyn Herman (Georgia
+        Aquarium, Atlanta, Georgia / IUCN SSC Shark Specialist Group)","Alberto González","Adriana
+        Gonzalez-Pestana","Andrés F. Navia (Squalus Foundation)"]},{"credit_type_name":"evaluator","full":"Moore,
+        A. \u0026 Rigby, C.L.","value":["Cassandra Rigby (James Cook University, Queensland,
+        Australia)","Alec Moore (RSK Environment Ltd)"]},{"credit_type_name":"facilitators","full":"Kyne,
+        P.M., Charvet, P., Mejía-Falla, P.A., Navia, A.F., Pollom, R. \u0026 Dulvy,
+        N.K.","value":["Peter Kyne (Charles Darwin University, Australia / IUCN SSC
+        Shark RLA Coordinator)","Patricia Charvet (SENAI-Paraná)","Riley Pollom (Project
+        Seahorse)","Nicholas Dulvy (Simon Fraser University, Canada / IUCN SSC Shark
+        Specialist Group)","Andrés F. Navia (Squalus Foundation)","Paola A. Mejía-Falla
+        (Squalus Foundation (Wildlife Conservation Society))"]}],"errata":[],"references":[{"citation":"Weigmann,
+        S. 2016. Annotated checklist of the living sharks, batoids and chimaeras (Chondrichthyes)
+        of the world, with a focus on biogeographical diversity. \u003ci\u003eJournal
+        of Fish Biology\u003c/i\u003e 88(3): 837-1037.","year":"2016","title":"Annotated
+        checklist of the living sharks, batoids and chimaeras (Chondrichthyes) of
+        the world, with a focus on biogeographical diversity","author":"Weigmann,
+        S.","citation_short":""},{"citation":"Last, P.R., Séret, B. and Naylor, G.J.P.
+        2016a. A new species of guitarfish, \u003ci\u003eRhinobatos borneensis\u003c/i\u003e
+        sp. nov. with a redefinition of the family-level classification in the order
+        Rhinopristiformes (Chondrichthyes: Batoidea). \u003ci\u003eZootaxa\u003c/i\u003e
+        4117(4): 451-475.","year":"2016a","title":"A new species of guitarfish, \u003ci\u003eRhinobatos
+        borneensis\u003c/i\u003e sp. nov. with a redefinition of the family-level
+        classification in the order Rhinopristiformes (Chondrichthyes: Batoidea)","author":"Last,
+        P.R., Séret, B. and Naylor, G.J.P.","citation_short":""},{"citation":"Last,
+        P., White, W., de Carvalho, M., Séret, B., Stehmann, M. and Naylor, G. 2016b.
+        \u003ci\u003eRays of the World\u003c/i\u003e. CSIRO Publishing, Clayton.","year":"2016b","title":"Rays
+        of the World","author":"Last, P., White, W., de Carvalho, M., Séret, B., Stehmann,
+        M. and Naylor, G.","citation_short":""},{"citation":"Timmons, M. and Bray,
+        R.N. 1997. Age, growth, and sexual maturity of shovelnose guitarfish, \u003ci\u003eRhinobatos
+        productus\u003c/i\u003e (Ayres). \u003ci\u003eFishery Bulletin\u003c/i\u003e
+        95:349–359.","year":"1997","title":"Age, growth, and sexual maturity of shovelnose
+        guitarfish, \u003ci\u003eRhinobatos productus\u003c/i\u003e (Ayres)","author":"Timmons,
+        M. and Bray, R.N.","citation_short":null},{"citation":"Clarke, T.M., Espinoza,
+        M., Ahrens, R. and Wehrtmann, I.S. 2016. Elasmobranch bycatch associated with
+        the shrimp trawl fishery off the Pacific coast of Costa Rica, Central America.
+        \u003ci\u003eFishery Bulletin\u003c/i\u003e 114(1).","year":"2016","title":"Elasmobranch
+        bycatch associated with the shrimp trawl fishery off the Pacific coast of
+        Costa Rica, Central America.","author":"Clarke, T.M., Espinoza, M., Ahrens,
+        R. and Wehrtmann, I.S.","citation_short":null},{"citation":"Moore, A.B.M.
+        2017. Are guitarfishes the next sawfishes? Extinction risk and an urgent call
+        for conservation action. \u003ci\u003eEndangered Species Research\u003c/i\u003e
+        34: 75–88.","year":"2017","title":"Are guitarfishes the next sawfishes? Extinction
+        risk and an urgent call for conservation action","author":"Moore, A.B.M.","citation_short":""},{"citation":"Schiller.
+        L., Alava, J.J., Grove, J., Reck, G. and Pauly, D. 2015. The demise of Darwin''s
+        fishes: evidence of fishing down and illegal shark finning in the Galápagos
+        Islands. \u003ci\u003eAquatic Conservation: Marine and Freshwater Ecosystems\u003c/i\u003e
+        25: 431-446.","year":"2015","title":"The demise of Darwin''s fishes: evidence
+        of fishing down and illegal shark finning in the Galápagos Islands","author":"Schiller.
+        L., Alava, J.J., Grove, J., Reck, G. and Pauly, D.","citation_short":null},{"citation":"Davos,
+        C.A., Siakavara, K., Santorineou, A., Side, J., Taylor, M. and Barriga, P.
+        2007. Zoning of marine protected areas: Conflicts and cooperation options
+        in the Galapagos and San Andres archipelagos. \u003ci\u003eOcean \u0026 Coastal
+        Management\u003c/i\u003e 50(3-4): 223–252.","year":"2007","title":"Zoning
+        of marine protected areas: Conflicts and cooperation options in the Galapagos
+        and San Andres archipelagos","author":"Davos, C.A., Siakavara, K., Santorineou,
+        A., Side, J., Taylor, M. and Barriga, P.","citation_short":""},{"citation":"Hearn,
+        A.R., Acuna, D., Ketchum, J.T., Penaherrera, C., Green, J., Marshall, A.,
+        Guerrero, M. and Shillinger, G. 2014. Elasmobranchs of the Galapagos Marine
+        Reserve. In: Denkinger, J. and Vinueza, L. (eds), \u003ci\u003eThe Galapagos
+        Marine Reserve, Social and Ecological Interactions in the Galapagos Islands\u003c/i\u003e,
+        pp. 23–59. Springer Science+Business Media, New York.","year":"2014","title":"Elasmobranchs
+        of the Galapagos Marine Reserve","author":"Hearn, A.R., Acuna, D., Ketchum,
+        J.T., Penaherrera, C., Green, J., Marshall, A., Guerrero, M. and Shillinger,
+        G.","citation_short":""},{"citation":"Lamilla, J., Bustamante, C., Roa, R.,
+        Acuña, E., Concha, F., Meléndez, R., López, S., Aedo, G., Flores, H. and Vargas-Caro,
+        C. 2010. Estimación del descarte de condrictios en pesquerías artesanales.
+        Informe Final, Proyecto FIP Nº2008-60. Subsecretaría de Pesca. Universidad
+        Austral de Chile, Valdivia, Chile.","year":"2010","title":"Estimación del
+        descarte de condrictios en pesquerías artesanales. Informe Final, Proyecto
+        FIP Nº2008-60. Subsecretaría de Pesca","author":"Lamilla, J., Bustamante,
+        C., Roa, R., Acuña, E., Concha, F., Meléndez, R., López, S., Aedo, G., Flores,
+        H. and Vargas-Caro, C.","citation_short":""},{"citation":"IUCN. 2020. The
+        IUCN Red List of Threatened Species. Version 2020-3. Available at: \u003ca
+        href=\"www.iucnredlist.org\"\u003ewww.iucnredlist.org\u003c/a\u003e. (Accessed:
+        10 December 2020).","year":"2020","title":"The IUCN Red List of Threatened
+        Species. Version 2020-3","author":"IUCN","citation_short":"IUCN 2020-3"},{"citation":"Mejía-Falla,
+        P.A. and Navia, A.F. 2017. The fisheries of the Colombian Pacific: towards
+        sustainable fisheries or simple exploitation for survival? Informe técnico
+        Fundación SQUALUS.","year":"2017","title":"The fisheries of the Colombian
+        Pacific: towards sustainable fisheries or simple exploitation for survival?
+        Informe técnico Fundación SQUALUS","author":"Mejía-Falla, P.A. and Navia,
+        A.F.","citation_short":""},{"citation":"Mejía-Falla, P.A. and Navia, A.F.
+        2019. Checklist of marine elasmobranchs of Colombia. \u003ci\u003eUniversitas
+        Scientiarum\u003c/i\u003e 24(1): 241–276.","year":"2019","title":"Checklist
+        of marine elasmobranchs of Colombia","author":"Mejía-Falla, P.A. and Navia,
+        A.F.","citation_short":""},{"citation":"Espinoza, M., Díaz, E., Angulo, A.,
+        Hernández, S. and Clarke, T.M. 2018. Chondrichthyan diversity, conservation
+        status, and management challenges in Costa Rica. \u003ci\u003eFrontiers in
+        Marine Science\u003c/i\u003e 5: Article 85.","year":"2018","title":"Chondrichthyan
+        diversity, conservation status, and management challenges in Costa Rica","author":"Espinoza,
+        M., Díaz, E., Angulo, A., Hernández, S. and Clarke, T.M. ","citation_short":""},{"citation":"Fuentes,
+        C.I. and Hernández, N.R. 2004. Distribución y abundancia de la íctiofauna
+        con importancia comercial asociada a la pesca de arrastre de camarones peneidos
+        (\u003ci\u003ePenaeus stylirrostris\u003c/i\u003e, \u003ci\u003eP. vannamei\u003c/i\u003e,
+        \u003ci\u003eP. occidentalis\u003c/i\u003e, \u003ci\u003eP. californiensis\u003c/i\u003e
+        y \u003ci\u003eP. brevirrostris\u003c/i\u003e) en la costa salvadoreña. B.s.
+        Thesis. Universidad de El Salvador.","year":"2004","title":"Distribución y
+        abundancia de la íctiofauna con importancia comercial asociada a la pesca
+        de arrastre de camarones peneidos (\u003ci\u003ePenaeus stylirrostris\u003c/i\u003e,
+        \u003ci\u003eP. vannamei\u003c/i\u003e, \u003ci\u003eP. occidentalis\u003c/i\u003e,
+        \u003ci\u003eP. californiensis\u003c/i\u003e y \u003ci\u003eP. brevirrostris\u003c/i\u003e)
+        en la costa salvadoreña. B.s. Thesis","author":"Fuentes, C.I. and Hernández,
+        N.R. ","citation_short":""},{"citation":"Silva-Garay, L., Pacheco, A.S. and
+        Vélez-Zuazo, X. 2018. First assessment of the diet composition and trophic
+        level of an assemblage of poorly known chondrichthyans off the central coast
+        of Peru. \u003ci\u003eEnvironmental Biology of Fishes \u003c/i\u003e 101:
+        1525–1536.","year":"2018","title":"First assessment of the diet composition
+        and trophic level of an assemblage of poorly known chondrichthyans off the
+        central coast of Peru","author":"Silva-Garay, L., Pacheco, A.S. and Vélez-Zuazo,
+        X.","citation_short":null},{"citation":"Tenelema-Delgado C.M., Arcentales-Delgado,
+        J.M., Vélez-Tacuri, J.R. and Carrera-Fernández, M. 2014. Especies de Batoideos
+        presentes en la costa del Pacífico ecuatoriano. \u003ci\u003eVI Simposium
+        Nacional de Tiburones y Rayas, Mazatlán, México\u003c/i\u003e.","year":"2014","title":"Especies
+        de Batoideos presentes en la costa del Pacífico ecuatoriano","author":"Tenelema-Delgado
+        C.M., Arcentales-Delgado, J.M., Vélez-Tacuri, J.R. and Carrera-Fernández,
+        M. ","citation_short":""}],"growth_forms":[],"lmes":[],"scopes":[{"description":{"en":"Global"},"code":"1"}],"stresses":[{"description":{"en":"Species
+        mortality"},"code":"2_1"},{"description":{"en":"Species mortality"},"code":"2_1"},{"description":{"en":"Species
+        mortality"},"code":"2_1"}],"systems":[{"description":{"en":"Marine"},"code":"2"}]}'
+  recorded_at: 2026-06-16 10:01:41
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/taxa/sis/60191
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:42 GMT
+      content-type: application/json
+      content-length: '873'
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"4252db569ac9611a7a0c1b3234fd2884"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: 436ceb7d-8e3f-4ab2-a76f-2e1523d3ae9d
+      x-runtime: '0.040980'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ozx4hztUEf%2BqWuKQPI%2FZlxRlLFE5mHOhJv1kwESoFMgeIlRZC4dlu34kQ%2BVzkyT4dfZB4IZrf%2FLi6NPOcoBSrOXvV4e7mJUhZDUA%2BgfG6GdR5zHl19ySWqIpy7%2BOdWQLf0QwOg4KoeguJZ6sR9WEzcA%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f986699ad753-NRT
+    body:
+      string: '{"sis_id":60191,"taxon":{"sis_id":60191,"scientific_name":"Hydrolagus
+        colliei","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"CHIMAERIFORMES","family_name":"CHIMAERIDAE","genus_name":"Hydrolagus","species_name":"colliei","subpopulation_name":null,"infra_name":null,"authority":"(Lay
+        \u0026amp; Bennett, 1839)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":false,"name":"Spotted
+        Ratfish","language":"eng"},{"main":true,"name":"White-spotted Ratfish","language":"eng"}],"synonyms":[{"name":"Chimaera
+        media Garman, 1911","status":"ACCEPTED","genus_name":"Chimaera","species_name":"media","species_author":"Garman,
+        1911","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null},{"name":"Chimaera
+        colliei Lay \u0026 Bennett, 1839","status":"ACCEPTED","genus_name":"Chimaera","species_name":"colliei","species_author":"Lay
+        \u0026 Bennett, 1839","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"assessments":[{"assessment_date":"2024-05-04T01:00:00.000+01:00","year_published":"2024","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":60191,"criteria":null,"url":"https://www.iucnredlist.org/species/60191/124449845","taxon_scientific_name":"Hydrolagus
+        colliei","red_list_category_code":"LC","assessment_id":124449845,"scopes":[{"description":{"en":"Global"},"code":"1"}]},{"assessment_date":"2014-12-05T00:00:00.000+00:00","year_published":"2015","latest":false,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":60191,"criteria":null,"url":"https://www.iucnredlist.org/species/60191/80678052","taxon_scientific_name":"Hydrolagus
+        colliei","red_list_category_code":"LC","assessment_id":80678052,"scopes":[{"description":{"en":"Global"},"code":"1"}]},{"assessment_date":"2006-01-31T00:00:00.000+00:00","year_published":"2006","latest":false,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":60191,"criteria":null,"url":"https://www.iucnredlist.org/species/60191/12307381","taxon_scientific_name":"Hydrolagus
+        colliei","red_list_category_code":"LC","assessment_id":12307381,"scopes":[{"description":{"en":"Global"},"code":"1"}]}]}'
+  recorded_at: 2026-06-16 10:01:42
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/assessment/124449845
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:42 GMT
+      content-type: application/json
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"291af5952d05c96aa82541bcb138e316"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: f83c93c1-e954-45b5-8150-f48e764ca4bd
+      x-runtime: '0.079574'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=VE7Jp%2BaiYNd5FYU3mDkatg%2BXCBdcxiORvqoM%2FOJbAHqqoWpYLlLL4%2FqnN5Eaxh81s79engYblGNVe63tlGq3PQZrWR1E7x4dMVx84FWmCbe5qhJxh%2FKnO%2BttZA9m%2FF9MrFnbHHbblZjkVbrAnCzAJDs%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f989095ad753-NRT
+    body:
+      string: '{"assessment_date":"2024-05-04T01:00:00.000+01:00","year_published":"2024","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":60191,"criteria":null,"url":"https://www.iucnredlist.org/species/60191/124449845","citation":"Finucci,
+        B., Ebert, D.A., Didier, D. \u0026 Rohner, C.A. 2024. Hydrolagus colliei.
+        The IUCN Red List of Threatened Species 2024: e.T60191A124449845. Accessed
+        on 16 June 2026.","assessment_id":124449845,"assessment_points":false,"assessment_ranges":true,"taxon":{"sis_id":60191,"scientific_name":"Hydrolagus
+        colliei","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"CHIMAERIFORMES","family_name":"CHIMAERIDAE","genus_name":"Hydrolagus","species_name":"colliei","subpopulation_name":null,"infra_name":null,"authority":"(Lay
+        \u0026amp; Bennett, 1839)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":false,"name":"Spotted
+        Ratfish","language":"eng"},{"main":true,"name":"White-spotted Ratfish","language":"eng"}],"synonyms":[{"name":"Chimaera
+        media Garman, 1911","status":"ACCEPTED","genus_name":"Chimaera","species_name":"media","species_author":"Garman,
+        1911","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null},{"name":"Chimaera
+        colliei Lay \u0026 Bennett, 1839","status":"ACCEPTED","genus_name":"Chimaera","species_name":"colliei","species_author":"Lay
+        \u0026 Bennett, 1839","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"population_trend":{"description":{"en":"Stable"},"code":"2"},"red_list_category":{"version":"3.1","description":{"en":"Least
+        Concern"},"code":"LC"},"supplementary_info":{"area_restricted_is_restricted":"No","number_of_locations":null,"upper_elevation_limit":null,"lower_elevation_limit":null,"lower_depth_limit":1463,"upper_depth_limit":0,"population_size":null,"population_severely_fragmented":null,"population_continuing_decline":null,"generational_length":null,"congregatory":null,"movement_patterns":null,"continuing_decline_in_area":null,"conservation_actions_in_place":[{"name":"In-place
+        research and monitoring","actions":[{"name":"Action Recovery Plan","value":"No"},{"name":"Systematic
+        monitoring scheme","value":"No"}]},{"name":"In-place land/water protection","actions":[{"name":"Conservation
+        sites identified","value":"No"},{"name":"Area based regional management plan","value":"No"},{"name":"Occurs
+        in at least one protected area","value":"Unknown"},{"name":"Invasive species
+        control or prevention","value":"Not Applicable"}]},{"name":"In-place species
+        management","actions":[{"name":"Harvest management plan","value":"No"},{"name":"Successfully
+        reintroduced or introduced benignly","value":"No"},{"name":"Subject to ex-situ
+        conservation","value":"No"}]},{"name":"In-place education","actions":[{"name":"Subject
+        to recent education and awareness programmes","value":"No"},{"name":"Included
+        in international legislation","value":"No"},{"name":"Subject to any international
+        management / trade controls","value":"No"}]}],"identification_information":null,"extreme_fluctuations":null,"no_of_subpopulations":null,"continuing_decline_in_subpopulations":null,"extreme_fluctuations_in_subpopulations":null,"all_individuals_in_one_subpopulation":null,"no_of_individuals_in_largest_subpopulation":null,"estimated_area_of_occupancy":null,"continuing_decline_in_area_of_occupancy":null,"extreme_fluctuations_in_area_of_occupancy":null,"estimated_extent_of_occurence":null,"continuing_decline_in_extent_of_occurence":null,"extreme_fluctuations_in_extent_of_occurence":null,"continuing_decline_in_number_of_locations":null,"extreme_fluctuations_in_number_of_locations":null},"documentation":{"range":"The
+        White-spotted Ratfish is known along the western coast of North America, from
+        southeast Alaska (at least Cape Fairweather) to the Gulf of California, with
+        some scattered records to Cape Blanco, Costa Rica, in the Eastern Pacific
+        Ocean (Ebert and Dando 2024).","population":"Global population size is unknown,
+        but there appears to be discrete populations across the White-Spotted Ratfish''s
+        range. The species is considered abundant throughout its range from British
+        Columbia to central Baja California and is amongst the most frequently reported
+        species in fishery-independent surveys operating along the western coasts
+        of Canada and the United States (e.g., Keller \u003cem\u003eet al\u003c/em\u003e.
+        2017, Cornthwaite \u003cem\u003eet al\u003c/em\u003e. 2020, Essington \u003cem\u003eet
+        al\u003c/em\u003e. 2021). A comparison of historical (1948–1977) and contemporary
+        (1990–2016) trawl data sets in Puget Sound found the White-spotted Ratfish
+        to dominate catch rates in both time periods, accounting for 70% of the total
+        catch with no trend over time (Essington \u003cem\u003eet al\u003c/em\u003e.
+        2021). Global population trend is suspected to be stable based on abundance
+        data.","habitats":"The White-spotted Ratfish occurs from the intertidal zone
+        to a depth of 1,463 m (Ebert and Dando 2024). It is common in bays and sounds
+        in the northern part of its range but is found in progressively deeper water
+        in the southern portions of its range. Maximum size is 28 cm snout-to-vent
+        length (SVL; ~60 cm total length, TL), males mature at 14–16 cm SVL (30–35
+        cm TL), females mature at 19–20 cm SVL (40–45 cm TL), and size-at-birth is
+        4–5 cm SVL (Ebert and Dando 2024, D. Didier, unpubl. data). Reproduction is
+        oviparous and fecundity is 20–29 eggs per year.","threats":"The Spotted Ratfish
+        is taken as bycatch in industrial demersal trawl and longline fisheries across
+        its range (Barnett \u003cem\u003eet al\u003c/em\u003e. 2012, Santana-Morales
+        \u003cem\u003eet al\u003c/em\u003e. 2021, Espino Leal 2022). In the northern
+        Gulf of California, the species is taken as bycatch in trawl fisheries targeting
+        Pacific Hake (\u003cem\u003eMerluccius productus\u003c/em\u003e) at depths
+        of 110–320 m (Zamora–García \u003cem\u003eet al\u003c/em\u003e. 2017, Espino
+        Leal 2022). The species has little to no commercial value and is discarded.
+        Post-release mortality is suspected to be high (Barnett \u003cem\u003eet al\u003c/em\u003e.
+        2012). The species appears to be able to withstand fishing activity in Canada
+        and the United States; expansion of fisheries in Mexico and Central America
+        should be closely monitored.\u003cbr/\u003e\u003cbr/\u003eThe White-spotted
+        Ratfish may be affected by future climate change impacts. The distribution
+        of White-spotted Ratfish along the California Current was reported to shift
+        northward between 1977 and 2013, and this response was suggested to be a response
+        to long-term warming of the environment (Tolimieri \u003cem\u003eet al\u003c/em\u003e.
+        2020).","measures":"The White-spotted Ratfish is designated as an Ecosystem
+        Component (EC) Species in the Pacific Coast Groundfish Fishery (FMP Amendment
+        24, PFMC 2022). Harvest specifications or management reference points are
+        not required for EC species, but monitoring of EC species'' status or their
+        vulnerability to the fishery is required (PFMC 2022). Further information
+        is required on the species'' interactions with fisheries in Mexico and Central
+        America.","use_trade":"In Canada and the United States, the White-spotted
+        Ratfish has little to no commercial value and is discarded. In Mexico, incidental
+        catch may be used as bait for traps (Santana-Morales \u003cem\u003eet al\u003c/em\u003e.
+        2021).","rationale":"The White-spotted Ratfish (\u003cem\u003eHydrolagus colliei\u003c/em\u003e)
+        is a medium-sized (to 28 cm snout-to-vent length or ~60 cm total length) deepwater
+        chimaera known from the western coast of North America, from southeast Alaska
+        (at least Cape Fairweather) to the Gulf of California, with some scattered
+        records to Cape Blanco, Costa Rica, in the Eastern Pacific Ocean. It is recorded
+        from the intertidal zones to depths of 1,463 m. The species is considered
+        abundant throughout its range from British Columbia to central Baja California
+        and is amongst the most frequently reported species in fishery-independent
+        surveys operating along the western coasts of Canada and the United States.
+        The White-spotted Ratfish is taken as bycatch in industrial bottom trawl and
+        longline fisheries across its range, including trawl fisheries targeting Pacific
+        Hake (\u003cem\u003eMerluccius productus\u003c/em\u003e) in the northern Gulf
+        of Mexico. The species has little to no commercial value and is mostly discarded.
+        At this time, global population trend is suspected to be stable based on abundance
+        data and the White-spotted Ratfish is assessed as Least Concern.","trend_justification":null,"taxonomic_notes":null},"biogeographical_realms":[],"conservation_actions":[],"faos":[{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - eastern central"},"code":"77"},{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - northeast"},"code":"67"}],"habitats":[{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Oceanic - Epipelagic (0-200m)"},"code":"10_1"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Hard
+        Substrate"},"code":"11_1_1"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Soft
+        Substrate"},"code":"11_1_2"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Rock and Rocky Reefs"},"code":"9_2"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy"},"code":"9_4"}],"locations":[{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Costa
+        Rica"},"code":"CR"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Canada"},"code":"CA"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Nicaragua"},"code":"NI"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"United
+        States"},"code":"US"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Guatemala"},"code":"GT"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"El
+        Salvador"},"code":"SV"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Mexico"},"code":"MX"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Honduras"},"code":"HN"}],"researches":[{"note":"","code":"1_3","description":{"en":"Life
+        history \u0026 ecology"}},{"note":"","code":"1_2","description":{"en":"Population
+        size, distribution \u0026 trends"}},{"note":"","code":"3_1","description":{"en":"Population
+        trends"}},{"note":"","code":"3_2","description":{"en":"Harvest level trends"}}],"use_and_trade":[{"international":null,"national":null,"other":null,"subsistence":true,"description":{"en":"Food
+        - animal"},"code":"2"}],"threats":[{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium
+        Impact: 6","severity":"Causing/Could cause fluctuations","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (subsistence/small scale) [harvest]"},"code":"5_4_3"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Causing/Could cause fluctuations","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (large scale) [harvest]"},"code":"5_4_4"},{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Unknown","severity":"Unknown","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Habitat
+        shifting \u0026 alteration"},"code":"11_1"}],"credits":[{"credit_type_name":"assessor","full":"Finucci,
+        B., Ebert, D.A., Didier, D. \u0026 Rohner, C.A.","value":["Christoph Rohner","Dave
+        Ebert (Moss Landing Marine Labs, Pacific Shark Research Center)","Brit Finucci
+        (IUCN SSC Shark Specialist Group)","Dominique Didier"]},{"credit_type_name":"evaluator","full":"Kemper,
+        J. \u0026 Rigby, C.L.","value":["Jenny Kemper (Moss Landing Marine Laboratories;
+        Pacific Shark Research Center)","Cassandra Rigby (James Cook University, Queensland,
+        Australia)"]},{"credit_type_name":"contributor","full":"Barnett, L.A.K.","value":["Lewis
+        Barnett (University of California Davis)"]},{"credit_type_name":"facilitators","full":"Finucci,
+        B.","value":["Brit Finucci (IUCN SSC Shark Specialist Group)"]}],"errata":[],"references":[{"citation":"Barnett,
+        L.A.K., Ebert, D.A. and Cailliet, G.M. 2012. Evidence of stability in a chondrichthyan
+        population: case study of the spotted ratfish Hydrolagus colliei (Chondrichthyes:
+        Chimaeridae). \u003ci\u003eJournal of Fish Biology \u003c/i\u003e 80(5): 1765-1788.","year":"2012","title":"Evidence
+        of stability in a chondrichthyan population: case study of the spotted ratfish
+        Hydrolagus colliei (Chondrichthyes: Chimaeridae)","author":"Barnett, L.A.K.,
+        Ebert, D.A. and Cailliet, G.M. ","citation_short":null},{"citation":"IUCN.
+        2024. The IUCN Red List of Threatened Species. Version 2024-2. Available at:
+        \u003ca href=\"www.iucnredlist.org\"\u003ewww.iucnredlist.org\u003c/a\u003e.
+        (Accessed: 28 October 2024).","year":"2024","title":"The IUCN Red List of
+        Threatened Species. Version 2024-2","author":"IUCN","citation_short":"IUCN
+        2024-2"},{"citation":"Cornthwaite, M., Granum, L. and Haggarty, D. 2020. British
+        Columbia Groundfish Fisheries and Their Investigations in 2019. Fisheries
+        and Oceans Canada, Science Branch, Pacific Biological Station, Nanaimo, British
+        Columbia.","year":"2020","title":"British Columbia Groundfish Fisheries and
+        Their Investigations in 2019","author":"Cornthwaite, M., Granum, L. and Haggarty,
+        D.","citation_short":null},{"citation":"Ebert, D.A. and Dando, M. 2024. \u003ci\u003eField
+        Guide to Sharks, Rays and Chimaeras of the East Coast of North America\u003c/i\u003e.
+        Wild Nature Press.","year":"2024","title":"Field Guide to Sharks, Rays and
+        Chimaeras of the East Coast of North America","author":"Ebert, D.A. and Dando,
+        M.","citation_short":null},{"citation":"Espino Leal, C. 2022. Estructura de
+        la población de dos condrictios de profundidad (\u003ci\u003eHydrolagus colliei\u003c/i\u003e
+        y \u003ci\u003eGaleus piperatus\u003c/i\u003e) capturados en la pesquería
+        de merluza en el norte del Golfo de California, México. Universidad Autónoma
+        de Sinaloa.","year":"2022","title":"Estructura de la población de dos condrictios
+        de profundidad (\u003ci\u003eHydrolagus colliei\u003c/i\u003e y \u003ci\u003eGaleus
+        piperatus\u003c/i\u003e) capturados en la pesquería de merluza en el norte
+        del Golfo de California, México","author":"Espino Leal, C.","citation_short":""},{"citation":"Essington,
+        T., Ward, E.J., Francis, T.B., Greene, C., Kuehne, L. and Lowry, D. 2021.
+        Historical reconstruction of the Puget Sound (USA) groundfish community. \u003ci\u003eMarine
+        Ecology Progress Series\u003c/i\u003e 657: 173–189.","year":"2021","title":"Historical
+        reconstruction of the Puget Sound (USA) groundfish community.","author":"Essington,
+        T., Ward, E.J., Francis, T.B., Greene, C., Kuehne, L. and Lowry, D.","citation_short":null},{"citation":"Keller,
+        A.A., Wallace, J.R. and Methot, R.D. 2017. The Northwest Fisheries Science
+        Center’s West Coast Groundfish Bottom Trawl Survey: History, Design, and Description.
+        U.S. Department of Commerce, NOAA Technical Memorandum NMFS-NWFSC-136.","year":"2017","title":"The
+        Northwest Fisheries Science Center’s West Coast Groundfish Bottom Trawl Survey:
+        History, Design, and Description","author":"Keller, A.A., Wallace, J.R. and
+        Methot, R.D.","citation_short":""},{"citation":"PFMC. 2022. Status of the
+        Pacific Coast Groundfish Fishery. Pacific Fishery Management Council, Portland,
+        Oregon.","year":"2022","title":"Status of the Pacific Coast Groundfish Fishery","author":"PFMC","citation_short":null},{"citation":"Santana-Morales,
+        O., Cartamil, D., Sosa-Nishizaki, O., Zertuche-Chanes, R., Hernández-Gutiérrez,
+        E. and Graham, J. 2021. Artisanal elasmobranch fisheries of northwestern Baja
+        California, Mexico. \u003ci\u003eCiencias marinas\u003c/i\u003e 46(1): 1–18.","year":"2021","title":"Artisanal
+        elasmobranch fisheries of northwestern Baja California, Mexico","author":"Santana-Morales,
+        O., Cartamil, D., Sosa-Nishizaki, O., Zertuche-Chanes, R., Hernández-Gutiérrez,
+        E. and Graham, J.","citation_short":""},{"citation":"Tolimieri, N., Wallace,
+        J. and Haltuch, M. 2020. Spatio-temporal patterns in juvenile habitat for
+        13 groundfishes in the California Current Ecosystem. \u003ci\u003ePloS one\u003c/i\u003e
+        15(8): p.e0237996.","year":"2020","title":"Spatio-temporal patterns in juvenile
+        habitat for 13 groundfishes in the California Current Ecosystem","author":"Tolimieri,
+        N., Wallace, J. and Haltuch, M.","citation_short":null},{"citation":"Zamora–García,
+        O.G., Parra-Alaniz, J.C. and Stavrinaky–Suárez, A. 2017. Informe final del
+        programa de técnicos a bordo de la pesquería de merluza en el Golfo de California
+        en 2017. Environmental Defense Fund de México.","year":"2017","title":"Informe
+        final del programa de técnicos a bordo de la pesquería de merluza en el Golfo
+        de California en 2017","author":"Zamora–García, O.G., Parra-Alaniz, J.C. and
+        Stavrinaky–Suárez, A.","citation_short":null}],"growth_forms":[],"lmes":[],"scopes":[{"description":{"en":"Global"},"code":"1"}],"stresses":[{"description":{"en":"Species
+        mortality"},"code":"2_1"},{"description":{"en":"Species mortality"},"code":"2_1"},{"description":{"en":"Species
+        disturbance"},"code":"2_2"}],"systems":[{"description":{"en":"Marine"},"code":"2"}]}'
+  recorded_at: 2026-06-16 10:01:42
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/assessment/124433864
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:43 GMT
+      content-type: application/json
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"1a79549f777935d80064b41594d76a8e"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: 71f67d8b-a5e4-4b75-b434-e3b962ee0829
+      x-runtime: '0.089191'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Si%2BUG2Rwlr3sY7mXxzGbzgsi94aDdmVA1HmWdl%2BpcMjcuOkST0z0W%2FdDI7purD3KFymsUy2KjF9a5fIDxYhyvVdnVIj3eSaoq2sRREMwP%2BOtzq%2BZSqBox4zsjNLVKo0CF9gNg%2FD4zJl%2BIyoZAbFVSVQ%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f98eba7bd753-NRT
+    body:
+      string: '{"assessment_date":"2020-02-24T00:00:00.000+00:00","year_published":"2020","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":44584,"criteria":"A2d","url":"https://www.iucnredlist.org/species/44584/124433864","citation":"Kyne,
+        P.M., Charvet, P., Areano, E.M., Cevallos, A., Espinoza, M., González, A.,
+        Gonzalez-Pestana, A., Herman, K., Mejía-Falla, P.A., Morales-Saldaña, J.M.,
+        Navia, A.F. \u0026 Velez-Zuazo, X. 2020. Pseudobatos planiceps. The IUCN Red
+        List of Threatened Species 2020: e.T44584A124433864. Accessed on 16 June 2026.","assessment_id":124433864,"assessment_points":false,"assessment_ranges":true,"taxon":{"sis_id":44584,"scientific_name":"Pseudobatos
+        planiceps","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"RHINOPRISTIFORMES","family_name":"RHINOBATIDAE","genus_name":"Pseudobatos","species_name":"planiceps","subpopulation_name":null,"infra_name":null,"authority":"(Garman,
+        1880)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":true,"name":"Pacific
+        Guitarfish","language":"eng"}],"synonyms":[{"name":"Rhinobatos planiceps Garman,
+        1880","status":"NEW","genus_name":"Rhinobatos","species_name":"planiceps","species_author":"Garman,
+        1880","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"population_trend":{"description":{"en":"Decreasing"},"code":"1"},"red_list_category":{"version":"3.1","description":{"en":"Vulnerable"},"code":"VU"},"supplementary_info":{"area_restricted_is_restricted":null,"number_of_locations":null,"upper_elevation_limit":null,"lower_elevation_limit":null,"lower_depth_limit":50,"upper_depth_limit":1,"population_size":null,"population_severely_fragmented":null,"population_continuing_decline":null,"generational_length":"5","congregatory":null,"movement_patterns":null,"continuing_decline_in_area":null,"conservation_actions_in_place":[{"name":"In-place
+        research and monitoring","actions":[{"name":"Action Recovery Plan","value":"No"},{"name":"Systematic
+        monitoring scheme","value":"No"}]},{"name":"In-place land/water protection","actions":[{"name":"Conservation
+        sites identified","value":"No"},{"name":"Area based regional management plan","value":"No"},{"name":"Occurs
+        in at least one protected area","value":"Yes"},{"name":"Invasive species control
+        or prevention","value":"Not Applicable"}]},{"name":"In-place species management","actions":[{"name":"Harvest
+        management plan","value":"No"},{"name":"Successfully reintroduced or introduced
+        benignly","value":"No"},{"name":"Subject to ex-situ conservation","value":"No"}]},{"name":"In-place
+        education","actions":[{"name":"Subject to recent education and awareness programmes","value":"No"},{"name":"Included
+        in international legislation","value":"No"},{"name":"Subject to any international
+        management / trade controls","value":"No"}]}],"identification_information":null,"extreme_fluctuations":null,"no_of_subpopulations":null,"continuing_decline_in_subpopulations":null,"extreme_fluctuations_in_subpopulations":null,"all_individuals_in_one_subpopulation":null,"no_of_individuals_in_largest_subpopulation":null,"estimated_area_of_occupancy":null,"continuing_decline_in_area_of_occupancy":null,"extreme_fluctuations_in_area_of_occupancy":null,"estimated_extent_of_occurence":null,"continuing_decline_in_extent_of_occurence":null,"extreme_fluctuations_in_extent_of_occurence":null,"continuing_decline_in_number_of_locations":null,"extreme_fluctuations_in_number_of_locations":null},"documentation":{"range":"The
+        Pacific Guitarfish occurs from southern Mexico to northern Chile including
+        the Galápagos\u0026#160;Islands (Ecuador) in the Eastern Central and Southeast
+        Pacific (Last \u003cem\u003eet al.\u003c/em\u003e 2016b).","population":"\u003cp\u003eThere
+        are no available data on population trend of the Pacific Guitarfish. In some
+        areas it appears to be rare or in low abundance (e.g., El Salvador, Costa
+        Rica, Colombia), but in others it is a common target or bycatch species (e.g.,
+        Ecuador, Peru), suggesting that its core distribution is in southern areas
+        of its range. Inshore guitarfishes are susceptible to population reduction
+        and overexploitation where they are heavily fished (Moore 2017). The Pacific
+        Guitarfish is subjected to intense and largely unmanaged fishing pressure
+        throughout most of its range (including targeted fishing), with little refuge
+        (except in some remote areas).\u003cbr/\u003e\u003cbr/\u003eOverall, due to
+        levels of exploitation from its exposure to inadequately managed fisheries
+        throughout much of its range, it is suspected that the Pacific Guitarfish
+        has undergone a population reduction of 30–49% over the last three generations
+        (15 years).\u003c/p\u003e","habitats":"\u003cp\u003e\u003cspan lang=\"EN-US\"\u003eThe
+        Pacific Guitarfish inhabits shallow inshore and continental shelf waters to
+        a depth of 50 m (Weigmann 2016). It reaches a maximum size of 125 cm total
+        length (Silva-Garay \u003cem\u003eet al. \u003c/em\u003e2018).\u0026#160;Reproduction
+        is viviparous but nothing else is known of its biology.\u0026#160;\u003cspan
+        lang=\"EN-US\"\u003eAge data are not available for this species, but generation
+        length is inferred to be 5 years based on a generation length of 9 years for
+        the larger\u0026#160;Shovelnose Guitarfish (\u003cem\u003ePseudobatos productus\u003c/em\u003e)
+        (170 cm TL) (Timmons and Bray 1997).\u003c/span\u003e\u003c/p\u003e","threats":"This
+        species is targeted either directly or as part of multi-species fisheries
+        using gillnet, longline, and beach-seine. It is also a bycatch of large-scale
+        and small-scale shrimp trawl fisheries and small-scale gillnet fisheries and
+        is usually retained for its meat. There is little information available on
+        catches in northern parts of its range and it is only irregularly recorded
+        in El Salvador (Fuentes and Hernández 2004), Costa Rica (Clarke \u003cem\u003eet
+        al. \u003c/em\u003e2016, Espinoza \u003cem\u003eet al. \u003c/em\u003e2018),
+        and Colombia (Mejía-Falla and Navia 2019). Catches are higher in Ecuador and
+        Peru where it is a regular bycatch in the former (Tenelema-Delgado \u003cem\u003eet
+        al. \u003c/em\u003e2014), and a target species in the latter. The most important
+        landing areas are northern and central Peru where between 1997 and 2015, catches
+        fluctuated with declines from 2002 to 2006 before catches increased and peaked
+        in 2007–2008, were then low between 2009 and 2013, before peaking again in
+        2014–2015; this species is the third most landed ray species in Peru as estimated
+        from government landing reports (A. Gonzalez-Pestana unpubl. data 2020).\u0026#160;In
+        Chile, this species it is caught incidentally in multi-species fisheries and
+        beach-seines in the north of the country (Lamilla \u003cem\u003eet al. \u003c/em\u003e2010).\u003cbr/\u003e\u003cbr/\u003eOverall,
+        there is high spatial overlap with fisheries (which generally lack management
+        or effective enforcement of regulations across most of its range) and the
+        species has little refuge from fishing activities that operate across its
+        range.\u003cp\u003e\u003cbr/\u003e\u003c/p\u003e","measures":"There are no
+        species-specific measures in place for the Pacific Guitarfish.\u0026#160;In
+        the Mexican Pacific, there is a closed season for targeted elasmobranch fishing
+        from May 1st to July 31st, but enforcement is inadequate (O. Sosa-Nishizaki
+        pers. comm. 2019).\u0026#160;\u003cspan class=\"msoins0\"\u003eA temporal
+        ban of shrimp trawl fisheries is established in Colombia (January to March)
+        but enforcement is also inadequate (Mejía-Falla and Navia 2017). Additionally,
+        targeted industrial fishing of sharks and rays is prohibited in Colombia,
+        with set bycatch limits (up to 35% of bycatch in the national territory; Resolution
+        1743 of 2017); however, surveillance and compliance requires strengthening.
+        Benthic trawling and mechanized beach seines have been prohibited in the coastal
+        zone of Peru (to 5 nm from shore) since 2001 (Regulation: DS-012-2001-PE)
+        and manual beach seines from 2009 (Regulation: RM-112-2009-PRODUCE ). This
+        has likely reduced the catch of inshore elasmobranchs in Peruvian coastal
+        waters. The Galápagos Archipelago is covered by the 133,000 km² Galápagos\u0026#160;Marine
+        Reserve which prohibits industrial fishing but allows artisanal fishing (Davos\u0026#160;\u003cem\u003eet
+        al.\u003c/em\u003e\u0026#160;2007). The enforcement of regulations is limited
+        and illegal fishing is prevalent, particularly for sharks (Hearn\u0026#160;\u003cem\u003eet
+        al.\u0026#160;\u003c/em\u003e2014, Schiller\u0026#160;\u003cem\u003eet al.\u0026#160;\u003c/em\u003e2015),
+        and artisanal fishing pressure continues.\u003cspan class=\"msoins0\"\u003e\u003cbr/\u003e\u003cspan
+        class=\"msoins0\"\u003e\u003cbr/\u003e\u003cspan class=\"msoins0\"\u003eFurther
+        research is needed on life history, the level of mortality due to fisheries,
+        and population size and trend.\u0026#160;Both small- and large-scale fisheries
+        should be monitored for bycatch at the species level.\u003c/span\u003e\u003c/span\u003e","use_trade":"This
+        guitarfish is retained and the meat is consumed or sold locally.","rationale":"\u003cp\u003eThe
+        Pacific Guitarfish (\u003cem\u003ePseudobatos planiceps\u003c/em\u003e) is
+        a small (to at least 125 cm total length) shark-like ray which occurs from
+        southern Mexico to northern Chile and the Galápagos\u0026#160;Islands (Ecuador)
+        in the Eastern Central and Southeast Pacific. It inhabits shallow inshore
+        and continental shelf waters to a depth of 50 m. This species is targeted
+        either directly (e.g., in Peru) or as part of multi-species fisheries using
+        gillnet, longline, and beach-seine. It is also a bycatch of large-scale and
+        small-scale shrimp trawl fisheries and small-scale gillnet fisheries and is
+        usually retained for its meat. Fisheries operate throughout most of the range
+        of the species with inadequate management or enforcement and the species has
+        little refuge from fishing activities. It is under particularly heavy fishing
+        pressure in Peru where it is the third most landed ray species. Overall, given
+        the intensity of fishing pressure throughout its range and its susceptibility
+        to capture, it is suspected that the Pacific Guitarfish\u0026#160;has undergone
+        a population reduction of 30–49% over the last three generation lengths (15
+        years) due to levels of exploitation, and it is assessed as Vulnerable A2d.\u003cspan
+        style=\"\"\u003e\u003c/span\u003e\u003c/p\u003e","trend_justification":null,"taxonomic_notes":"Last
+        \u003cem\u003eet al\u003c/em\u003e. (2016a) revised the genus \u003cem\u003eRhinobatos\u003c/em\u003e,
+        transferring \u003cem\u003eglaucostigma\u003c/em\u003e, \u003cem\u003ehorkelii\u003c/em\u003e,
+        \u003cem\u003elentiginosus\u003c/em\u003e, \u003cem\u003eleucorhynchus\u003c/em\u003e,
+        \u003cem\u003epercellens\u003c/em\u003e, \u003cem\u003eplaniceps\u003c/em\u003e,
+        \u003cem\u003eprahli\u003c/em\u003e, and \u003cem\u003eproductus\u003c/em\u003e
+        to the new genus \u003cem\u003ePseudobatos\u003c/em\u003e.\u003cbr/\u003e\u003cbr/\u003eIn
+        Chile, a second rhinobatid species is known from just a dried head:\u0026#160;\u003cem\u003eTarsistes
+        philippi\u003c/em\u003e Jordan, 1918. The taxonomic situation of this species
+        is not clear."},"biogeographical_realms":[],"conservation_actions":[{"note":"","code":"5_4_2","description":{"en":"National
+        level"}},{"note":"","code":"5_1_2","description":{"en":"National level"}},{"note":"","code":"1_1","description":{"en":"Site/area
+        protection"}},{"note":"","code":"3_2","description":{"en":"Species recovery"}},{"note":"","code":"3_1_2","description":{"en":"Trade
+        management"}},{"note":"","code":"3_1_1","description":{"en":"Harvest management"}}],"faos":[{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - eastern central"},"code":"77"},{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - southeast"},"code":"87"}],"habitats":[{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy"},"code":"9_4"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy-Mud"},"code":"9_5"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Muddy"},"code":"9_6"}],"locations":[{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Chile"},"code":"CL"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Peru"},"code":"PE"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Ecuador"},"code":"EC"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Nicaragua"},"code":"NI"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Galápagos"},"code":"GAL-OO"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Costa
+        Rica"},"code":"CR"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"El
+        Salvador"},"code":"SV"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Guatemala"},"code":"GT"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Honduras"},"code":"HN"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Mexico"},"code":"MX"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Panama"},"code":"PA"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Ecuador
+        (mainland)"},"code":"ECU-OO"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Colombia"},"code":"CO"}],"researches":[{"note":"","code":"3_1","description":{"en":"Population
+        trends"}},{"note":"","code":"3_2","description":{"en":"Harvest level trends"}},{"note":"","code":"3_3","description":{"en":"Trade
+        trends"}},{"note":"","code":"1_2","description":{"en":"Population size, distribution
+        \u0026 trends"}},{"note":"","code":"1_3","description":{"en":"Life history
+        \u0026 ecology"}},{"note":"","code":"1_4","description":{"en":"Harvest, use
+        \u0026 livelihoods"}},{"note":"","code":"2_1","description":{"en":"Species
+        Action/Recovery Plan"}}],"use_and_trade":[{"international":null,"national":true,"other":null,"subsistence":true,"description":{"en":"Food
+        - human"},"code":"1"}],"threats":[{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium
+        Impact: 6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (subsistence/small scale) [harvest]"},"code":"5_4_3"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Intentional
+        use: (subsistence/small scale) [harvest]"},"code":"5_4_1"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Slow, Significant Declines","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (large scale) [harvest]"},"code":"5_4_4"}],"credits":[{"credit_type_name":"assessor","full":"Kyne,
+        P.M., Charvet, P., Areano, E.M., Cevallos, A., Espinoza, M., González, A.,
+        Gonzalez-Pestana, A., Herman, K., Mejía-Falla, P.A., Morales-Saldaña, J.M.,
+        Navia, A.F. \u0026 Velez-Zuazo, X.","value":["Paola A. Mejía-Falla (Squalus
+        Foundation (Wildlife Conservation Society))","Adriana Cevallos","Ximena Velez-Zuazo","Jorge
+        Manuel Morales-Saldaña","Elisa Areano","Peter Kyne (Charles Darwin University,
+        Australia / IUCN SSC Shark RLA Coordinator)","Patricia Charvet (SENAI-Paraná)","Mario
+        Espinoza (James Cook University, Queensland, Australia)","Katelyn Herman (Georgia
+        Aquarium, Atlanta, Georgia / IUCN SSC Shark Specialist Group)","Alberto González","Adriana
+        Gonzalez-Pestana","Andrés F. Navia (Squalus Foundation)"]},{"credit_type_name":"evaluator","full":"Moore,
+        A. \u0026 Rigby, C.L.","value":["Cassandra Rigby (James Cook University, Queensland,
+        Australia)","Alec Moore (RSK Environment Ltd)"]},{"credit_type_name":"facilitators","full":"Kyne,
+        P.M., Charvet, P., Mejía-Falla, P.A., Navia, A.F., Pollom, R. \u0026 Dulvy,
+        N.K.","value":["Peter Kyne (Charles Darwin University, Australia / IUCN SSC
+        Shark RLA Coordinator)","Patricia Charvet (SENAI-Paraná)","Riley Pollom (Project
+        Seahorse)","Nicholas Dulvy (Simon Fraser University, Canada / IUCN SSC Shark
+        Specialist Group)","Andrés F. Navia (Squalus Foundation)","Paola A. Mejía-Falla
+        (Squalus Foundation (Wildlife Conservation Society))"]}],"errata":[],"references":[{"citation":"Weigmann,
+        S. 2016. Annotated checklist of the living sharks, batoids and chimaeras (Chondrichthyes)
+        of the world, with a focus on biogeographical diversity. \u003ci\u003eJournal
+        of Fish Biology\u003c/i\u003e 88(3): 837-1037.","year":"2016","title":"Annotated
+        checklist of the living sharks, batoids and chimaeras (Chondrichthyes) of
+        the world, with a focus on biogeographical diversity","author":"Weigmann,
+        S.","citation_short":""},{"citation":"Last, P.R., Séret, B. and Naylor, G.J.P.
+        2016a. A new species of guitarfish, \u003ci\u003eRhinobatos borneensis\u003c/i\u003e
+        sp. nov. with a redefinition of the family-level classification in the order
+        Rhinopristiformes (Chondrichthyes: Batoidea). \u003ci\u003eZootaxa\u003c/i\u003e
+        4117(4): 451-475.","year":"2016a","title":"A new species of guitarfish, \u003ci\u003eRhinobatos
+        borneensis\u003c/i\u003e sp. nov. with a redefinition of the family-level
+        classification in the order Rhinopristiformes (Chondrichthyes: Batoidea)","author":"Last,
+        P.R., Séret, B. and Naylor, G.J.P.","citation_short":""},{"citation":"Last,
+        P., White, W., de Carvalho, M., Séret, B., Stehmann, M. and Naylor, G. 2016b.
+        \u003ci\u003eRays of the World\u003c/i\u003e. CSIRO Publishing, Clayton.","year":"2016b","title":"Rays
+        of the World","author":"Last, P., White, W., de Carvalho, M., Séret, B., Stehmann,
+        M. and Naylor, G.","citation_short":""},{"citation":"Timmons, M. and Bray,
+        R.N. 1997. Age, growth, and sexual maturity of shovelnose guitarfish, \u003ci\u003eRhinobatos
+        productus\u003c/i\u003e (Ayres). \u003ci\u003eFishery Bulletin\u003c/i\u003e
+        95:349–359.","year":"1997","title":"Age, growth, and sexual maturity of shovelnose
+        guitarfish, \u003ci\u003eRhinobatos productus\u003c/i\u003e (Ayres)","author":"Timmons,
+        M. and Bray, R.N.","citation_short":null},{"citation":"Clarke, T.M., Espinoza,
+        M., Ahrens, R. and Wehrtmann, I.S. 2016. Elasmobranch bycatch associated with
+        the shrimp trawl fishery off the Pacific coast of Costa Rica, Central America.
+        \u003ci\u003eFishery Bulletin\u003c/i\u003e 114(1).","year":"2016","title":"Elasmobranch
+        bycatch associated with the shrimp trawl fishery off the Pacific coast of
+        Costa Rica, Central America.","author":"Clarke, T.M., Espinoza, M., Ahrens,
+        R. and Wehrtmann, I.S.","citation_short":null},{"citation":"Moore, A.B.M.
+        2017. Are guitarfishes the next sawfishes? Extinction risk and an urgent call
+        for conservation action. \u003ci\u003eEndangered Species Research\u003c/i\u003e
+        34: 75–88.","year":"2017","title":"Are guitarfishes the next sawfishes? Extinction
+        risk and an urgent call for conservation action","author":"Moore, A.B.M.","citation_short":""},{"citation":"Schiller.
+        L., Alava, J.J., Grove, J., Reck, G. and Pauly, D. 2015. The demise of Darwin''s
+        fishes: evidence of fishing down and illegal shark finning in the Galápagos
+        Islands. \u003ci\u003eAquatic Conservation: Marine and Freshwater Ecosystems\u003c/i\u003e
+        25: 431-446.","year":"2015","title":"The demise of Darwin''s fishes: evidence
+        of fishing down and illegal shark finning in the Galápagos Islands","author":"Schiller.
+        L., Alava, J.J., Grove, J., Reck, G. and Pauly, D.","citation_short":null},{"citation":"Davos,
+        C.A., Siakavara, K., Santorineou, A., Side, J., Taylor, M. and Barriga, P.
+        2007. Zoning of marine protected areas: Conflicts and cooperation options
+        in the Galapagos and San Andres archipelagos. \u003ci\u003eOcean \u0026 Coastal
+        Management\u003c/i\u003e 50(3-4): 223–252.","year":"2007","title":"Zoning
+        of marine protected areas: Conflicts and cooperation options in the Galapagos
+        and San Andres archipelagos","author":"Davos, C.A., Siakavara, K., Santorineou,
+        A., Side, J., Taylor, M. and Barriga, P.","citation_short":""},{"citation":"Hearn,
+        A.R., Acuna, D., Ketchum, J.T., Penaherrera, C., Green, J., Marshall, A.,
+        Guerrero, M. and Shillinger, G. 2014. Elasmobranchs of the Galapagos Marine
+        Reserve. In: Denkinger, J. and Vinueza, L. (eds), \u003ci\u003eThe Galapagos
+        Marine Reserve, Social and Ecological Interactions in the Galapagos Islands\u003c/i\u003e,
+        pp. 23–59. Springer Science+Business Media, New York.","year":"2014","title":"Elasmobranchs
+        of the Galapagos Marine Reserve","author":"Hearn, A.R., Acuna, D., Ketchum,
+        J.T., Penaherrera, C., Green, J., Marshall, A., Guerrero, M. and Shillinger,
+        G.","citation_short":""},{"citation":"Lamilla, J., Bustamante, C., Roa, R.,
+        Acuña, E., Concha, F., Meléndez, R., López, S., Aedo, G., Flores, H. and Vargas-Caro,
+        C. 2010. Estimación del descarte de condrictios en pesquerías artesanales.
+        Informe Final, Proyecto FIP Nº2008-60. Subsecretaría de Pesca. Universidad
+        Austral de Chile, Valdivia, Chile.","year":"2010","title":"Estimación del
+        descarte de condrictios en pesquerías artesanales. Informe Final, Proyecto
+        FIP Nº2008-60. Subsecretaría de Pesca","author":"Lamilla, J., Bustamante,
+        C., Roa, R., Acuña, E., Concha, F., Meléndez, R., López, S., Aedo, G., Flores,
+        H. and Vargas-Caro, C.","citation_short":""},{"citation":"IUCN. 2020. The
+        IUCN Red List of Threatened Species. Version 2020-3. Available at: \u003ca
+        href=\"www.iucnredlist.org\"\u003ewww.iucnredlist.org\u003c/a\u003e. (Accessed:
+        10 December 2020).","year":"2020","title":"The IUCN Red List of Threatened
+        Species. Version 2020-3","author":"IUCN","citation_short":"IUCN 2020-3"},{"citation":"Mejía-Falla,
+        P.A. and Navia, A.F. 2017. The fisheries of the Colombian Pacific: towards
+        sustainable fisheries or simple exploitation for survival? Informe técnico
+        Fundación SQUALUS.","year":"2017","title":"The fisheries of the Colombian
+        Pacific: towards sustainable fisheries or simple exploitation for survival?
+        Informe técnico Fundación SQUALUS","author":"Mejía-Falla, P.A. and Navia,
+        A.F.","citation_short":""},{"citation":"Mejía-Falla, P.A. and Navia, A.F.
+        2019. Checklist of marine elasmobranchs of Colombia. \u003ci\u003eUniversitas
+        Scientiarum\u003c/i\u003e 24(1): 241–276.","year":"2019","title":"Checklist
+        of marine elasmobranchs of Colombia","author":"Mejía-Falla, P.A. and Navia,
+        A.F.","citation_short":""},{"citation":"Espinoza, M., Díaz, E., Angulo, A.,
+        Hernández, S. and Clarke, T.M. 2018. Chondrichthyan diversity, conservation
+        status, and management challenges in Costa Rica. \u003ci\u003eFrontiers in
+        Marine Science\u003c/i\u003e 5: Article 85.","year":"2018","title":"Chondrichthyan
+        diversity, conservation status, and management challenges in Costa Rica","author":"Espinoza,
+        M., Díaz, E., Angulo, A., Hernández, S. and Clarke, T.M. ","citation_short":""},{"citation":"Fuentes,
+        C.I. and Hernández, N.R. 2004. Distribución y abundancia de la íctiofauna
+        con importancia comercial asociada a la pesca de arrastre de camarones peneidos
+        (\u003ci\u003ePenaeus stylirrostris\u003c/i\u003e, \u003ci\u003eP. vannamei\u003c/i\u003e,
+        \u003ci\u003eP. occidentalis\u003c/i\u003e, \u003ci\u003eP. californiensis\u003c/i\u003e
+        y \u003ci\u003eP. brevirrostris\u003c/i\u003e) en la costa salvadoreña. B.s.
+        Thesis. Universidad de El Salvador.","year":"2004","title":"Distribución y
+        abundancia de la íctiofauna con importancia comercial asociada a la pesca
+        de arrastre de camarones peneidos (\u003ci\u003ePenaeus stylirrostris\u003c/i\u003e,
+        \u003ci\u003eP. vannamei\u003c/i\u003e, \u003ci\u003eP. occidentalis\u003c/i\u003e,
+        \u003ci\u003eP. californiensis\u003c/i\u003e y \u003ci\u003eP. brevirrostris\u003c/i\u003e)
+        en la costa salvadoreña. B.s. Thesis","author":"Fuentes, C.I. and Hernández,
+        N.R. ","citation_short":""},{"citation":"Silva-Garay, L., Pacheco, A.S. and
+        Vélez-Zuazo, X. 2018. First assessment of the diet composition and trophic
+        level of an assemblage of poorly known chondrichthyans off the central coast
+        of Peru. \u003ci\u003eEnvironmental Biology of Fishes \u003c/i\u003e 101:
+        1525–1536.","year":"2018","title":"First assessment of the diet composition
+        and trophic level of an assemblage of poorly known chondrichthyans off the
+        central coast of Peru","author":"Silva-Garay, L., Pacheco, A.S. and Vélez-Zuazo,
+        X.","citation_short":null},{"citation":"Tenelema-Delgado C.M., Arcentales-Delgado,
+        J.M., Vélez-Tacuri, J.R. and Carrera-Fernández, M. 2014. Especies de Batoideos
+        presentes en la costa del Pacífico ecuatoriano. \u003ci\u003eVI Simposium
+        Nacional de Tiburones y Rayas, Mazatlán, México\u003c/i\u003e.","year":"2014","title":"Especies
+        de Batoideos presentes en la costa del Pacífico ecuatoriano","author":"Tenelema-Delgado
+        C.M., Arcentales-Delgado, J.M., Vélez-Tacuri, J.R. and Carrera-Fernández,
+        M. ","citation_short":""}],"growth_forms":[],"lmes":[],"scopes":[{"description":{"en":"Global"},"code":"1"}],"stresses":[{"description":{"en":"Species
+        mortality"},"code":"2_1"},{"description":{"en":"Species mortality"},"code":"2_1"},{"description":{"en":"Species
+        mortality"},"code":"2_1"}],"systems":[{"description":{"en":"Marine"},"code":"2"}]}'
+  recorded_at: 2026-06-16 10:01:43
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/assessment/124449845
+  response:
+    status: 200
+    headers:
+      status: 'HTTP/2 200 '
+      date: Tue, 16 Jun 2026 10:01:44 GMT
+      content-type: application/json
+      cache-control: max-age=0, private, must-revalidate
+      content-encoding: gzip
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      etag: W/"291af5952d05c96aa82541bcb138e316"
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: d024f353-4087-4b27-9176-60284eb5ddf0
+      x-runtime: '0.107902'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=l71PAxg6BfGzYyCeUBULUpn%2FAwkq9asmXIXk8NqjZeqC4z4m10blvd2q8f0AsLZokYYgA24dC2RjmtURb4eN%2FR2zPtRzhpzgIA%2BWTNnujCQRjORZZ0TiaHgLiI9fxPxPrFHY1fZxn446vHIvpY7eomg%3D"}]}'
+      server: cloudflare
+      cf-ray: a0c8f9947d19d753-NRT
+    body:
+      string: '{"assessment_date":"2024-05-04T01:00:00.000+01:00","year_published":"2024","latest":true,"possibly_extinct":false,"possibly_extinct_in_the_wild":false,"sis_taxon_id":60191,"criteria":null,"url":"https://www.iucnredlist.org/species/60191/124449845","citation":"Finucci,
+        B., Ebert, D.A., Didier, D. \u0026 Rohner, C.A. 2024. Hydrolagus colliei.
+        The IUCN Red List of Threatened Species 2024: e.T60191A124449845. Accessed
+        on 16 June 2026.","assessment_id":124449845,"assessment_points":false,"assessment_ranges":true,"taxon":{"sis_id":60191,"scientific_name":"Hydrolagus
+        colliei","species_taxa":[],"subpopulation_taxa":[],"infrarank_taxa":[],"kingdom_name":"ANIMALIA","phylum_name":"CHORDATA","class_name":"CHONDRICHTHYES","order_name":"CHIMAERIFORMES","family_name":"CHIMAERIDAE","genus_name":"Hydrolagus","species_name":"colliei","subpopulation_name":null,"infra_name":null,"authority":"(Lay
+        \u0026amp; Bennett, 1839)","species":true,"subpopulation":false,"infrarank":false,"ssc_groups":[{"name":"IUCN
+        SSC Shark Specialist Group (sharks and rays)","url":"https://www.iucnssg.org","description":"Chair:
+        Rima Jabado (email: rimajabado@hotmail.com)\nRed List Authority Coordinator:
+        Cassie Rigby (email: crigby@westnet.com.au)"}],"common_names":[{"main":false,"name":"Spotted
+        Ratfish","language":"eng"},{"main":true,"name":"White-spotted Ratfish","language":"eng"}],"synonyms":[{"name":"Chimaera
+        media Garman, 1911","status":"ACCEPTED","genus_name":"Chimaera","species_name":"media","species_author":"Garman,
+        1911","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null},{"name":"Chimaera
+        colliei Lay \u0026 Bennett, 1839","status":"ACCEPTED","genus_name":"Chimaera","species_name":"colliei","species_author":"Lay
+        \u0026 Bennett, 1839","infrarank_author":null,"subpopulation_name":null,"infra_type":null,"infra_name":null}]},"population_trend":{"description":{"en":"Stable"},"code":"2"},"red_list_category":{"version":"3.1","description":{"en":"Least
+        Concern"},"code":"LC"},"supplementary_info":{"area_restricted_is_restricted":"No","number_of_locations":null,"upper_elevation_limit":null,"lower_elevation_limit":null,"lower_depth_limit":1463,"upper_depth_limit":0,"population_size":null,"population_severely_fragmented":null,"population_continuing_decline":null,"generational_length":null,"congregatory":null,"movement_patterns":null,"continuing_decline_in_area":null,"conservation_actions_in_place":[{"name":"In-place
+        research and monitoring","actions":[{"name":"Action Recovery Plan","value":"No"},{"name":"Systematic
+        monitoring scheme","value":"No"}]},{"name":"In-place land/water protection","actions":[{"name":"Conservation
+        sites identified","value":"No"},{"name":"Area based regional management plan","value":"No"},{"name":"Occurs
+        in at least one protected area","value":"Unknown"},{"name":"Invasive species
+        control or prevention","value":"Not Applicable"}]},{"name":"In-place species
+        management","actions":[{"name":"Harvest management plan","value":"No"},{"name":"Successfully
+        reintroduced or introduced benignly","value":"No"},{"name":"Subject to ex-situ
+        conservation","value":"No"}]},{"name":"In-place education","actions":[{"name":"Subject
+        to recent education and awareness programmes","value":"No"},{"name":"Included
+        in international legislation","value":"No"},{"name":"Subject to any international
+        management / trade controls","value":"No"}]}],"identification_information":null,"extreme_fluctuations":null,"no_of_subpopulations":null,"continuing_decline_in_subpopulations":null,"extreme_fluctuations_in_subpopulations":null,"all_individuals_in_one_subpopulation":null,"no_of_individuals_in_largest_subpopulation":null,"estimated_area_of_occupancy":null,"continuing_decline_in_area_of_occupancy":null,"extreme_fluctuations_in_area_of_occupancy":null,"estimated_extent_of_occurence":null,"continuing_decline_in_extent_of_occurence":null,"extreme_fluctuations_in_extent_of_occurence":null,"continuing_decline_in_number_of_locations":null,"extreme_fluctuations_in_number_of_locations":null},"documentation":{"range":"The
+        White-spotted Ratfish is known along the western coast of North America, from
+        southeast Alaska (at least Cape Fairweather) to the Gulf of California, with
+        some scattered records to Cape Blanco, Costa Rica, in the Eastern Pacific
+        Ocean (Ebert and Dando 2024).","population":"Global population size is unknown,
+        but there appears to be discrete populations across the White-Spotted Ratfish''s
+        range. The species is considered abundant throughout its range from British
+        Columbia to central Baja California and is amongst the most frequently reported
+        species in fishery-independent surveys operating along the western coasts
+        of Canada and the United States (e.g., Keller \u003cem\u003eet al\u003c/em\u003e.
+        2017, Cornthwaite \u003cem\u003eet al\u003c/em\u003e. 2020, Essington \u003cem\u003eet
+        al\u003c/em\u003e. 2021). A comparison of historical (1948–1977) and contemporary
+        (1990–2016) trawl data sets in Puget Sound found the White-spotted Ratfish
+        to dominate catch rates in both time periods, accounting for 70% of the total
+        catch with no trend over time (Essington \u003cem\u003eet al\u003c/em\u003e.
+        2021). Global population trend is suspected to be stable based on abundance
+        data.","habitats":"The White-spotted Ratfish occurs from the intertidal zone
+        to a depth of 1,463 m (Ebert and Dando 2024). It is common in bays and sounds
+        in the northern part of its range but is found in progressively deeper water
+        in the southern portions of its range. Maximum size is 28 cm snout-to-vent
+        length (SVL; ~60 cm total length, TL), males mature at 14–16 cm SVL (30–35
+        cm TL), females mature at 19–20 cm SVL (40–45 cm TL), and size-at-birth is
+        4–5 cm SVL (Ebert and Dando 2024, D. Didier, unpubl. data). Reproduction is
+        oviparous and fecundity is 20–29 eggs per year.","threats":"The Spotted Ratfish
+        is taken as bycatch in industrial demersal trawl and longline fisheries across
+        its range (Barnett \u003cem\u003eet al\u003c/em\u003e. 2012, Santana-Morales
+        \u003cem\u003eet al\u003c/em\u003e. 2021, Espino Leal 2022). In the northern
+        Gulf of California, the species is taken as bycatch in trawl fisheries targeting
+        Pacific Hake (\u003cem\u003eMerluccius productus\u003c/em\u003e) at depths
+        of 110–320 m (Zamora–García \u003cem\u003eet al\u003c/em\u003e. 2017, Espino
+        Leal 2022). The species has little to no commercial value and is discarded.
+        Post-release mortality is suspected to be high (Barnett \u003cem\u003eet al\u003c/em\u003e.
+        2012). The species appears to be able to withstand fishing activity in Canada
+        and the United States; expansion of fisheries in Mexico and Central America
+        should be closely monitored.\u003cbr/\u003e\u003cbr/\u003eThe White-spotted
+        Ratfish may be affected by future climate change impacts. The distribution
+        of White-spotted Ratfish along the California Current was reported to shift
+        northward between 1977 and 2013, and this response was suggested to be a response
+        to long-term warming of the environment (Tolimieri \u003cem\u003eet al\u003c/em\u003e.
+        2020).","measures":"The White-spotted Ratfish is designated as an Ecosystem
+        Component (EC) Species in the Pacific Coast Groundfish Fishery (FMP Amendment
+        24, PFMC 2022). Harvest specifications or management reference points are
+        not required for EC species, but monitoring of EC species'' status or their
+        vulnerability to the fishery is required (PFMC 2022). Further information
+        is required on the species'' interactions with fisheries in Mexico and Central
+        America.","use_trade":"In Canada and the United States, the White-spotted
+        Ratfish has little to no commercial value and is discarded. In Mexico, incidental
+        catch may be used as bait for traps (Santana-Morales \u003cem\u003eet al\u003c/em\u003e.
+        2021).","rationale":"The White-spotted Ratfish (\u003cem\u003eHydrolagus colliei\u003c/em\u003e)
+        is a medium-sized (to 28 cm snout-to-vent length or ~60 cm total length) deepwater
+        chimaera known from the western coast of North America, from southeast Alaska
+        (at least Cape Fairweather) to the Gulf of California, with some scattered
+        records to Cape Blanco, Costa Rica, in the Eastern Pacific Ocean. It is recorded
+        from the intertidal zones to depths of 1,463 m. The species is considered
+        abundant throughout its range from British Columbia to central Baja California
+        and is amongst the most frequently reported species in fishery-independent
+        surveys operating along the western coasts of Canada and the United States.
+        The White-spotted Ratfish is taken as bycatch in industrial bottom trawl and
+        longline fisheries across its range, including trawl fisheries targeting Pacific
+        Hake (\u003cem\u003eMerluccius productus\u003c/em\u003e) in the northern Gulf
+        of Mexico. The species has little to no commercial value and is mostly discarded.
+        At this time, global population trend is suspected to be stable based on abundance
+        data and the White-spotted Ratfish is assessed as Least Concern.","trend_justification":null,"taxonomic_notes":null},"biogeographical_realms":[],"conservation_actions":[],"faos":[{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - eastern central"},"code":"77"},{"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Pacific
+        - northeast"},"code":"67"}],"habitats":[{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Oceanic - Epipelagic (0-200m)"},"code":"10_1"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Hard
+        Substrate"},"code":"11_1_1"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Soft
+        Substrate"},"code":"11_1_2"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Rock and Rocky Reefs"},"code":"9_2"},{"majorImportance":"Yes","season":"Resident","suitability":"Suitable","description":{"en":"Marine
+        Neritic - Subtidal Sandy"},"code":"9_4"}],"locations":[{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Costa
+        Rica"},"code":"CR"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Canada"},"code":"CA"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Nicaragua"},"code":"NI"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"United
+        States"},"code":"US"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Guatemala"},"code":"GT"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"El
+        Salvador"},"code":"SV"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Mexico"},"code":"MX"},{"is_endemic":false,"formerlyBred":null,"origin":"Native","presence":"Extant","seasonality":["Resident"],"description":{"en":"Honduras"},"code":"HN"}],"researches":[{"note":"","code":"1_3","description":{"en":"Life
+        history \u0026 ecology"}},{"note":"","code":"1_2","description":{"en":"Population
+        size, distribution \u0026 trends"}},{"note":"","code":"3_1","description":{"en":"Population
+        trends"}},{"note":"","code":"3_2","description":{"en":"Harvest level trends"}}],"use_and_trade":[{"international":null,"national":null,"other":null,"subsistence":true,"description":{"en":"Food
+        - animal"},"code":"2"}],"threats":[{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium
+        Impact: 6","severity":"Causing/Could cause fluctuations","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (subsistence/small scale) [harvest]"},"code":"5_4_3"},{"scope":"Majority
+        (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Medium Impact:
+        6","severity":"Causing/Could cause fluctuations","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Unintentional
+        effects: (large scale) [harvest]"},"code":"5_4_4"},{"scope":"Majority (50-90%)","timing":"Ongoing","internationalTrade":null,"score":"Unknown","severity":"Unknown","ancestry":null,"virus":null,"ias":null,"text":null,"description":{"en":"Habitat
+        shifting \u0026 alteration"},"code":"11_1"}],"credits":[{"credit_type_name":"assessor","full":"Finucci,
+        B., Ebert, D.A., Didier, D. \u0026 Rohner, C.A.","value":["Christoph Rohner","Dave
+        Ebert (Moss Landing Marine Labs, Pacific Shark Research Center)","Brit Finucci
+        (IUCN SSC Shark Specialist Group)","Dominique Didier"]},{"credit_type_name":"evaluator","full":"Kemper,
+        J. \u0026 Rigby, C.L.","value":["Jenny Kemper (Moss Landing Marine Laboratories;
+        Pacific Shark Research Center)","Cassandra Rigby (James Cook University, Queensland,
+        Australia)"]},{"credit_type_name":"contributor","full":"Barnett, L.A.K.","value":["Lewis
+        Barnett (University of California Davis)"]},{"credit_type_name":"facilitators","full":"Finucci,
+        B.","value":["Brit Finucci (IUCN SSC Shark Specialist Group)"]}],"errata":[],"references":[{"citation":"Barnett,
+        L.A.K., Ebert, D.A. and Cailliet, G.M. 2012. Evidence of stability in a chondrichthyan
+        population: case study of the spotted ratfish Hydrolagus colliei (Chondrichthyes:
+        Chimaeridae). \u003ci\u003eJournal of Fish Biology \u003c/i\u003e 80(5): 1765-1788.","year":"2012","title":"Evidence
+        of stability in a chondrichthyan population: case study of the spotted ratfish
+        Hydrolagus colliei (Chondrichthyes: Chimaeridae)","author":"Barnett, L.A.K.,
+        Ebert, D.A. and Cailliet, G.M. ","citation_short":null},{"citation":"IUCN.
+        2024. The IUCN Red List of Threatened Species. Version 2024-2. Available at:
+        \u003ca href=\"www.iucnredlist.org\"\u003ewww.iucnredlist.org\u003c/a\u003e.
+        (Accessed: 28 October 2024).","year":"2024","title":"The IUCN Red List of
+        Threatened Species. Version 2024-2","author":"IUCN","citation_short":"IUCN
+        2024-2"},{"citation":"Cornthwaite, M., Granum, L. and Haggarty, D. 2020. British
+        Columbia Groundfish Fisheries and Their Investigations in 2019. Fisheries
+        and Oceans Canada, Science Branch, Pacific Biological Station, Nanaimo, British
+        Columbia.","year":"2020","title":"British Columbia Groundfish Fisheries and
+        Their Investigations in 2019","author":"Cornthwaite, M., Granum, L. and Haggarty,
+        D.","citation_short":null},{"citation":"Ebert, D.A. and Dando, M. 2024. \u003ci\u003eField
+        Guide to Sharks, Rays and Chimaeras of the East Coast of North America\u003c/i\u003e.
+        Wild Nature Press.","year":"2024","title":"Field Guide to Sharks, Rays and
+        Chimaeras of the East Coast of North America","author":"Ebert, D.A. and Dando,
+        M.","citation_short":null},{"citation":"Espino Leal, C. 2022. Estructura de
+        la población de dos condrictios de profundidad (\u003ci\u003eHydrolagus colliei\u003c/i\u003e
+        y \u003ci\u003eGaleus piperatus\u003c/i\u003e) capturados en la pesquería
+        de merluza en el norte del Golfo de California, México. Universidad Autónoma
+        de Sinaloa.","year":"2022","title":"Estructura de la población de dos condrictios
+        de profundidad (\u003ci\u003eHydrolagus colliei\u003c/i\u003e y \u003ci\u003eGaleus
+        piperatus\u003c/i\u003e) capturados en la pesquería de merluza en el norte
+        del Golfo de California, México","author":"Espino Leal, C.","citation_short":""},{"citation":"Essington,
+        T., Ward, E.J., Francis, T.B., Greene, C., Kuehne, L. and Lowry, D. 2021.
+        Historical reconstruction of the Puget Sound (USA) groundfish community. \u003ci\u003eMarine
+        Ecology Progress Series\u003c/i\u003e 657: 173–189.","year":"2021","title":"Historical
+        reconstruction of the Puget Sound (USA) groundfish community.","author":"Essington,
+        T., Ward, E.J., Francis, T.B., Greene, C., Kuehne, L. and Lowry, D.","citation_short":null},{"citation":"Keller,
+        A.A., Wallace, J.R. and Methot, R.D. 2017. The Northwest Fisheries Science
+        Center’s West Coast Groundfish Bottom Trawl Survey: History, Design, and Description.
+        U.S. Department of Commerce, NOAA Technical Memorandum NMFS-NWFSC-136.","year":"2017","title":"The
+        Northwest Fisheries Science Center’s West Coast Groundfish Bottom Trawl Survey:
+        History, Design, and Description","author":"Keller, A.A., Wallace, J.R. and
+        Methot, R.D.","citation_short":""},{"citation":"PFMC. 2022. Status of the
+        Pacific Coast Groundfish Fishery. Pacific Fishery Management Council, Portland,
+        Oregon.","year":"2022","title":"Status of the Pacific Coast Groundfish Fishery","author":"PFMC","citation_short":null},{"citation":"Santana-Morales,
+        O., Cartamil, D., Sosa-Nishizaki, O., Zertuche-Chanes, R., Hernández-Gutiérrez,
+        E. and Graham, J. 2021. Artisanal elasmobranch fisheries of northwestern Baja
+        California, Mexico. \u003ci\u003eCiencias marinas\u003c/i\u003e 46(1): 1–18.","year":"2021","title":"Artisanal
+        elasmobranch fisheries of northwestern Baja California, Mexico","author":"Santana-Morales,
+        O., Cartamil, D., Sosa-Nishizaki, O., Zertuche-Chanes, R., Hernández-Gutiérrez,
+        E. and Graham, J.","citation_short":""},{"citation":"Tolimieri, N., Wallace,
+        J. and Haltuch, M. 2020. Spatio-temporal patterns in juvenile habitat for
+        13 groundfishes in the California Current Ecosystem. \u003ci\u003ePloS one\u003c/i\u003e
+        15(8): p.e0237996.","year":"2020","title":"Spatio-temporal patterns in juvenile
+        habitat for 13 groundfishes in the California Current Ecosystem","author":"Tolimieri,
+        N., Wallace, J. and Haltuch, M.","citation_short":null},{"citation":"Zamora–García,
+        O.G., Parra-Alaniz, J.C. and Stavrinaky–Suárez, A. 2017. Informe final del
+        programa de técnicos a bordo de la pesquería de merluza en el Golfo de California
+        en 2017. Environmental Defense Fund de México.","year":"2017","title":"Informe
+        final del programa de técnicos a bordo de la pesquería de merluza en el Golfo
+        de California en 2017","author":"Zamora–García, O.G., Parra-Alaniz, J.C. and
+        Stavrinaky–Suárez, A.","citation_short":null}],"growth_forms":[],"lmes":[],"scopes":[{"description":{"en":"Global"},"code":"1"}],"stresses":[{"description":{"en":"Species
+        mortality"},"code":"2_1"},{"description":{"en":"Species mortality"},"code":"2_1"},{"description":{"en":"Species
+        disturbance"},"code":"2_2"}],"systems":[{"description":{"en":"Marine"},"code":"2"}]}'
+  recorded_at: 2026-06-16 10:01:44
+recorded_with: VCR-vcr/2.1.0

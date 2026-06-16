@@ -1,0 +1,40 @@
+http_interactions:
+- request:
+    method: GET
+    uri: https://api.iucnredlist.org/api/v4/taxa/sis/99999999
+  response:
+    status: 404
+    headers:
+      status: 'HTTP/2 404 '
+      date: Tue, 16 Jun 2026 22:09:14 GMT
+      content-type: application/json
+      content-length: '21'
+      cache-control: no-cache
+      content-security-policy: 'default-src ''self''; script-src ''self'' https://static.cloudflareinsights.com
+        https://cloud.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run https://d1bxh8uas1mnw7.cloudfront.net
+        https://embed.altmetric.com https://api.altmetric.com ''unsafe-inline'' ''unsafe-eval'';
+        style-src ''self'' https://unpkg.com ''unsafe-inline''; img-src ''self'' data:
+        https://iucnredlist.org https://*.iucnredlist.org https://*.digitaloceanspaces.com
+        https://*.tile.openstreetmap.org https://static.inaturalist.org https://www.inaturalist.org
+        https://*.amazonaws.com https://server.arcgisonline.com https://badges.altmetric.com;
+        font-src ''self''; object-src ''none''; connect-src ''self'' https://api-gateway.umami.dev
+        https://gateway.umami.is https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-src https://www.youtube.com https://www.youtube-nocookie.com https://ksbk62v4jgjkcqo3vmgzxqvu.agents.do-ai.run;
+        frame-ancestors ''none''; form-action ''self'''
+      feature-policy: camera 'none'; gyroscope 'none'; microphone 'none'; usb 'none';
+        fullscreen 'none'; payment 'none'
+      strict-transport-security: max-age=31556952; includeSubDomains
+      vary: Accept-Encoding
+      x-cache: miss
+      x-request-id: 39a79b83-a5ce-44b1-beea-0e9f76ac988c
+      x-runtime: '0.015839'
+      nel: '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      cf-cache-status: DYNAMIC
+      speculation-rules: '"/cdn-cgi/speculation"'
+      report-to: '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=IwG6hL72iBvEm%2FMtGpYQBpH%2FHYIntV2h4m5WZH4CAoQ9ggJTPDk4r5CTSaqtFsdvqGi67I23fI%2Bq41hhGAvGegx8l0y2yIvt4eekW%2FqKrE20oJfnC5UZvETfgeoGSOuC1OV2Tjv6c7XvywbkopAA0iM%3D"}]}'
+      server: cloudflare
+      cf-ray: a0cd233d79384f3d-NRT
+    body:
+      string: '{"error":"Not found"}'
+  recorded_at: 2026-06-16 22:09:14
+recorded_with: VCR-vcr/2.1.0
