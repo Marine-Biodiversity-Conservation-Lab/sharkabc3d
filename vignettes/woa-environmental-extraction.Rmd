@@ -191,29 +191,41 @@ do_annual <- align_to_grid(do_annual, study_grid)
 ### 5a: Quick look — sea surface temperature in a species' range
 
 Before the full pipeline, here is the simplest possible extraction: the sea
-surface temperature (depth = 0) values where a single species' range overlaps
+surface temperature (depth = 0) values where a species' range overlaps
 the WOA temperature raster. `extract_rast_range()` masks `t_annual` to the
 cells and depths the species occupies; selecting the `t_an_depth=0` layer
 leaves just the surface.
 
+We loop over every species and save its surface temperature values, keyed by
+SIS id. Each element of `sst_values` is the vector of non-`NA` SST cells
+falling inside that species' range.
+
 ```{r sst-overlap}
-i <- 1
-sp_id <- depth_table_complete$sis_id[i]
-sp_range <- species_ranges[species_ranges$id_no == sp_id, ]
-sp_depths <- depth_table_complete[i, ]
+sst_values <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
+  sp_id <- depth_table_complete$sis_id[i]
+  sp_range <- species_ranges[species_ranges$id_no == sp_id, ]
+  sp_depths <- depth_table_complete[i, ]
 
-# Per-cell depth window for this species, clamped to the seafloor.
-range_rast <- rasterize_range(
-  polygons = sp_range,
-  grid = study_grid,
-  bathymetry = seafloor,
-  depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
-)
+  # Per-cell depth window for this species, clamped to the seafloor.
+  range_rast <- rasterize_range(
+    polygons = sp_range,
+    grid = study_grid,
+    bathymetry = seafloor,
+    depth_min = sp_depths$upper_depth,
+    depth_max = sp_depths$lower_depth
+  )
 
-# Surface temperature across the species/WOA overlap.
-sst <- extract_rast_range(range_rast, t_annual)[["t_an_depth=0"]]
-summary(terra::values(sst, na.rm = TRUE))
+  # Surface temperature across the species/WOA overlap.
+  sst <- extract_rast_range(range_rast, t_annual)[["t_an_depth=0"]]
+  terra::values(sst, na.rm = TRUE)[, 1]
+})
+names(sst_values) <- depth_table_complete$sis_id
+
+# Persist the per-species surface temperatures for use outside the vignette.
+saveRDS(sst_values, "sst_values.rds")
+
+# Per-species summary of the saved surface temperatures.
+lapply(sst_values, summary)
 ```
 
 ### 5b: Summarise monthly extremes and assemble the raster list
