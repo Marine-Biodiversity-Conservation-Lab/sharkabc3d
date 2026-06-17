@@ -4,6 +4,7 @@
 .Ruserdata
 .Renviron
 inst/doc
+/tmp/
 
 /.quarto/
 /previous_projects/
