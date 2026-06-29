@@ -42,7 +42,7 @@ Rscript -e 'devtools::build_vignettes()'
 ### Core spatial approach
 
 All 3D analysis uses a **stacked raster** approach built on `terra` and `sf`:
-1. Polygons (species ranges, fishery footprints) are rasterized onto a GEBCO bathymetry grid via `rasterize_range()`
+1. Polygons (species ranges, fishery footprints) are rasterized onto a GEBCO bathymetry grid via `voxelize_range()`
 2. Each cell stores presence + depth_min/depth_max (clamped to seafloor)
 3. Volume overlap between two rasterized ranges is computed per-cell via raster algebra in `calc_volume_overlap()`
 4. Environmental extraction uses multi-depth rasters (e.g., WOA temperature at 57 depth layers)
@@ -56,7 +56,7 @@ All multi-depth SpatRasters **must** use `{variable}_depth={value}` layer names 
 ```
 fetch_species_assessments() → fill_missing_depths()
                                         ↓
-load_bathymetry() + species polygons → rasterize_range() → calc_volume() / calc_volume_overlap()
+load_bathymetry() + species polygons → voxelize_range() → calc_volume() / calc_volume_overlap()
                                         ↓
 woa_load_nc() → extract_rast_volume() → summarise_species_environment()
 ```

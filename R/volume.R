@@ -33,20 +33,23 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
   terra::rast(combined, res = res, crs = crs)
 }
 
-#' Rasterize a species range or fishery footprint onto a study grid
+#' Voxelize a species range or fishery footprint onto a study grid
 #'
-#' Rasterize polygons onto a study grid and assign depth limits per cell.
+#' Rasterize polygons onto a study grid and assign per-cell depth limits,
+#' producing the voxel-model representation used throughout the package.
 #' The maximum depth is clamped to the bathymetry (seafloor) so it never
 #' exceeds the actual depth at each cell. Cells where the minimum depth is
 #' deeper than the seafloor are set to NA (species not present).
 #'
 #' @param polygons sf or SpatVector. Species range or fishery footprint
 #'   polygons.
-#' @param grid SpatRaster. Study area raster grid (e.g., from
-#'   [create_study_raster()]).
+#' @param voxel SpatRaster. The voxel grid that defines the study area: an
+#'   empty raster template (e.g., from [create_study_raster()]) whose cells
+#'   become the horizontal footprint of each voxel column. This is the voxel
+#'   model that the package builds all 3D operations on.
 #' @param bathymetry SpatRaster. Seafloor depth raster with positive values
-#'   in metres, matching the CRS and resolution of `grid`. Pre-prepare from
-#'   GEBCO with: `seafloor <- terra::clamp(-terra::project(bathy, grid), lower = 0)`.
+#'   in metres, matching the CRS and resolution of `voxel`. Pre-prepare from
+#'   GEBCO with: `seafloor <- terra::clamp(-terra::project(bathy, voxel), lower = 0)`.
 #' @param depth_min Numeric. Minimum (shallowest) depth in metres.
 #' @param depth_max Numeric. Maximum (deepest) depth in metres.
 #'
@@ -54,21 +57,21 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'   Cells where the species/fishery is absent or the seafloor is shallower
 #'   than depth_min are NA.
 #' @export
-rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
-  if (!terra::same.crs(bathymetry, grid)) {
-    stop("bathymetry CRS does not match grid. Pre-project bathymetry onto the study grid.")
+voxelize_range <- function(polygons, voxel, bathymetry, depth_min, depth_max) {
+  if (!terra::same.crs(bathymetry, voxel)) {
+    stop("bathymetry CRS does not match voxel grid. Pre-project bathymetry onto the voxel grid.")
   }
-  if (!all(terra::res(bathymetry) == terra::res(grid))) {
-    stop("bathymetry resolution does not match grid. Pre-project bathymetry onto the study grid.")
+  if (!all(terra::res(bathymetry) == terra::res(voxel))) {
+    stop("bathymetry resolution does not match voxel grid. Pre-project bathymetry onto the voxel grid.")
   }
 
   if (inherits(polygons, "sf") || inherits(polygons, "sfc")) {
     polygons <- terra::vect(polygons)
   }
-  polygons <- terra::project(polygons, grid)
+  polygons <- terra::project(polygons, voxel)
 
-  # Rasterize presence onto the study grid
-  presence <- terra::rasterize(polygons, grid, field = 1, background = NA)
+  # Rasterize presence onto the voxel grid
+  presence <- terra::rasterize(polygons, voxel, field = 1, background = NA)
 
   seafloor <- bathymetry
 
@@ -91,14 +94,15 @@ rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
   c(dmin_rast, dmax_rast)
 }
 
-#' Rasterize multiple ranges onto a study grid
+#' Voxelize multiple ranges onto a study grid
 #'
-#' Wrapper around [rasterize_range()] that processes multiple rows of an sf
+#' Wrapper around [voxelize_range()] that processes multiple rows of an sf
 #' object, each with its own depth limits. Displays a progress bar.
 #'
 #' @param sf_data sf object. Each row is a separate range to rasterize.
-#' @param grid SpatRaster. Study area raster grid (e.g., from
-#'   [create_study_raster()]).
+#' @param voxel SpatRaster. The voxel grid that defines the study area: an
+#'   empty raster template (e.g., from [create_study_raster()]) whose cells
+#'   become the horizontal footprint of each voxel column.
 #' @param bathymetry SpatRaster. Bathymetry raster with negative values for
 #'   depth below sea level (e.g., from [load_bathymetry()]).
 #' @param depth_min_col Character. Column name in `sf_data` containing the
@@ -109,9 +113,9 @@ rasterize_range <- function(polygons, grid, bathymetry, depth_min, depth_max) {
 #'   output list. Default `NULL` (unnamed).
 #'
 #' @returns Named list of multi-layer SpatRasters (output of
-#'   [rasterize_range()]).
+#'   [voxelize_range()]).
 #' @export
-rasterize_ranges <- function(sf_data, grid, bathymetry,
+voxelize_ranges <- function(sf_data, voxel, bathymetry,
                              depth_min_col, depth_max_col,
                              name_col = NULL) {
   n <- nrow(sf_data)
@@ -120,9 +124,9 @@ rasterize_ranges <- function(sf_data, grid, bathymetry,
 
   results <- lapply(seq_len(n), function(i) {
     row <- sf_data[i, ]
-    result <- rasterize_range(
+    result <- voxelize_range(
       polygons = row,
-      grid = grid,
+      voxel = voxel,
       bathymetry = bathymetry,
       depth_min = row[[depth_min_col]],
       depth_max = row[[depth_max_col]]
@@ -144,7 +148,7 @@ rasterize_ranges <- function(sf_data, grid, bathymetry,
 #' Volume = sum of (cell_area x (depth_max - depth_min)) across all present
 #' cells.
 #'
-#' @param range_rast SpatRaster. Output from [rasterize_range()], with layers:
+#' @param range_rast SpatRaster. Output from [voxelize_range()], with layers:
 #'   depth_min, depth_max.
 #'
 #' @returns Numeric. Total volume in km³.
@@ -170,9 +174,9 @@ calc_volume <- function(range_rast) {
 #' layers are NA where the two depth intervals do not overlap.
 #'
 #' @param range_rast_a SpatRaster. First rasterized range (output of
-#'   [rasterize_range()]).
+#'   [voxelize_range()]).
 #' @param range_rast_b SpatRaster. Second rasterized range (output of
-#'   [rasterize_range()]).
+#'   [voxelize_range()]).
 #'
 #' @returns Multi-layer SpatRaster with 9 layers:
 #'   \describe{
@@ -240,9 +244,9 @@ calc_volume_overlap <- function(range_rast_a, range_rast_b) {
 #' overlap volume is not needed.
 #'
 #' @param range_rast_a SpatRaster. First rasterized range (output of
-#'   [rasterize_range()]).
+#'   [voxelize_range()]).
 #' @param range_rast_b SpatRaster. Second rasterized range (output of
-#'   [rasterize_range()]).
+#'   [voxelize_range()]).
 #'
 #' @returns Single-layer SpatRaster (`1` where the two ranges overlap in 3D,
 #'   `NA` elsewhere).

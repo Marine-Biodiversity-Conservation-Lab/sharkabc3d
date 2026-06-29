@@ -9,7 +9,7 @@ plot_depth_profile(species_name, range_rast, rast_3d)
 \arguments{
 \item{species_name}{Character. Species name used for the plot title.}
 
-\item{range_rast}{SpatRaster. Output of \code{\link[=rasterize_range]{rasterize_range()}} with per-cell
+\item{range_rast}{SpatRaster. Output of \code{\link[=voxelize_range]{voxelize_range()}} with per-cell
 \code{depth_min} and \code{depth_max} layers.}
 
 \item{rast_3d}{SpatRaster. Multi-depth environmental raster with layer

@@ -144,7 +144,7 @@ do_annual <- woa_load_nc(do_annual_path, field = "an")
 
 ### 4c: Prepare the study grid and bathymetry
 
-Per-cell depth windows are computed by `rasterize_range()`, which clamps the
+Per-cell depth windows are computed by `voxelize_range()`, which clamps the
 species' nominal depth limits to the seafloor at each cell. We pick one
 environmental raster as the canonical study grid; every other raster
 (bathymetry and all WOA variables at other resolutions) gets projected onto
@@ -207,9 +207,9 @@ sst_values <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   # Per-cell depth window for this species, clamped to the seafloor.
-  range_rast <- rasterize_range(
+  range_rast <- voxelize_range(
     polygons = sp_range,
-    grid = study_grid,
+    voxel = study_grid,
     bathymetry = seafloor,
     depth_min = sp_depths$upper_depth,
     depth_max = sp_depths$lower_depth
@@ -271,9 +271,9 @@ sp_id <- depth_table_complete$sis_id[i]
 sp_range <- species_ranges[species_ranges$id_no == sp_id, ]
 sp_depths <- depth_table_complete[i, ]
 
-range_rast <- rasterize_range(
+range_rast <- voxelize_range(
   polygons = sp_range,
-  grid = study_grid,
+  voxel = study_grid,
   bathymetry = seafloor,
   depth_min = sp_depths$upper_depth,
   depth_max = sp_depths$lower_depth
@@ -300,9 +300,9 @@ results <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   row <- tryCatch({
-    range_rast <- rasterize_range(
+    range_rast <- voxelize_range(
       polygons = sp_range,
-      grid = study_grid,
+      voxel = study_grid,
       bathymetry = seafloor,
       depth_min = sp_depths$upper_depth,
       depth_max = sp_depths$lower_depth
@@ -339,10 +339,10 @@ results.
 
 ```{r plot-depth-profile, fig.width=6, fig.height=4}
 # Temperature depth profile within the white shark's range.
-# Reuse the per-species rasterize_range() output from step 5d.
+# Reuse the per-species voxelize_range() output from step 5d.
 sp_range <- species_ranges[species_ranges$sci_name == "Carcharhinus longimanus", ]
-sp_range_rast <- rasterize_range(
-  polygons = sp_range, grid = study_grid, bathymetry = seafloor,
+sp_range_rast <- voxelize_range(
+  polygons = sp_range, voxel = study_grid, bathymetry = seafloor,
   depth_min = 0, depth_max = 1200
 )
 
@@ -378,9 +378,9 @@ sp_depths <- depth_table_complete[
   depth_table_complete$scientific_name == sp_name, ]
 
 # Per-cell depth window, clamped to bathymetry.
-range_rast <- rasterize_range(
+range_rast <- voxelize_range(
   polygons = sp_range,
-  grid = study_grid,
+  voxel = study_grid,
   bathymetry = seafloor,
   depth_min = sp_depths$upper_depth,
   depth_max = sp_depths$lower_depth

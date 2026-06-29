@@ -7,7 +7,7 @@
 summarise_species_environment(range_rast, raster_list)
 }
 \arguments{
-\item{range_rast}{SpatRaster. Output of \code{\link[=rasterize_range]{rasterize_range()}} with
+\item{range_rast}{SpatRaster. Output of \code{\link[=voxelize_range]{voxelize_range()}} with
 \code{depth_min} and \code{depth_max} layers.}
 
 \item{raster_list}{Named list of multi-depth SpatRasters following the
@@ -17,7 +17,7 @@ summarise_species_environment(range_rast, raster_list)
 Single-row data frame of summary statistics across all rasters.
 }
 \description{
-Takes a rasterized species range (output of \code{\link[=rasterize_range]{rasterize_range()}} with
+Takes a rasterized species range (output of \code{\link[=voxelize_range]{voxelize_range()}} with
 per-cell \code{depth_min}/\code{depth_max} clamped to bathymetry) and a named list
 of multi-depth environmental rasters. For each environmental raster,
 values are restricted to cells + depths inside the species' per-cell

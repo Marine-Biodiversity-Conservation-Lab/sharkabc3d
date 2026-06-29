@@ -8,10 +8,10 @@ calc_volume_overlap(range_rast_a, range_rast_b)
 }
 \arguments{
 \item{range_rast_a}{SpatRaster. First rasterized range (output of
-\code{\link[=rasterize_range]{rasterize_range()}}).}
+\code{\link[=voxelize_range]{voxelize_range()}}).}
 
 \item{range_rast_b}{SpatRaster. Second rasterized range (output of
-\code{\link[=rasterize_range]{rasterize_range()}}).}
+\code{\link[=voxelize_range]{voxelize_range()}}).}
 }
 \value{
 Multi-layer SpatRaster with 9 layers:

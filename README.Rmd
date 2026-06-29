@@ -87,10 +87,10 @@ usethis::edit_r_environ()
 
 - `create_study_raster()` — build an empty study-area `SpatRaster`
   covering the combined extent of one or more spatial inputs.
-- `rasterize_range()` — rasterize a single species range or fishery
+- `voxelize_range()` — rasterize a single species range or fishery
   footprint and assign per-cell `depth_min` / `depth_max` clamped to the
   seafloor.
-- `rasterize_ranges()` — vectorised wrapper that rasterizes every row of
+- `voxelize_ranges()` — vectorised wrapper that rasterizes every row of
   an `sf` object with its own depth limits.
 
 ### 3D volume and overlap

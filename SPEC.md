@@ -99,9 +99,9 @@ Reusable spatial geometry operations used across species ranges, MPAs, and other
 Functions that compute 3D volumes using a stacked raster approach. The bathymetry raster serves as the common grid — species ranges and fishery footprints are rasterized onto it with `terra::rasterize()`, and depth overlap is computed via raster algebra. This avoids creating intermediate hex/vector grids and leverages terra's optimized operations. Approach developed for the Bangladesh fisheries analysis (Haque et al.) and generalized here.
 
 - [x] `create_study_raster(layers, res, crs)` — Build an empty raster covering the combined extent of one or more spatial objects. Helper for defining the common grid before rasterizing. *(Not originally spec'd; added during implementation.)*
-- [x] **(P1)** `rasterize_range(polygons, grid, bathymetry, depth_min, depth_max)` — Rasterize species range or fishery footprint onto a study grid. Returns two-layer SpatRaster (depth_min, depth_max) clamped to bathymetry; cells shallower than depth_min are NA.
+- [x] **(P1)** `voxelize_range(polygons, voxel, bathymetry, depth_min, depth_max)` — Rasterize species range or fishery footprint onto a study grid. Returns two-layer SpatRaster (depth_min, depth_max) clamped to bathymetry; cells shallower than depth_min are NA.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Methods section
-- [x] `rasterize_ranges(sf_data, grid, bathymetry, depth_min_col, depth_max_col, name_col)` — Batch wrapper around `rasterize_range()` with progress bar. *(Not originally spec'd; added during implementation.)*
+- [x] `voxelize_ranges(sf_data, voxel, bathymetry, depth_min_col, depth_max_col, name_col)` — Batch wrapper around `voxelize_range()` with progress bar. *(Not originally spec'd; added during implementation.)*
 - [x] **(P1)** `calc_volume(range_rast)` — Calculate total 3D volume of a rasterized range. Volume = sum of (cell_area × (depth_max - depth_min)) across all present cells. Returns numeric in km³.
 - [x] **(P1)** `calc_volume_overlap(range_rast_a, range_rast_b)` — Calculate 3D volume overlap between two rasterized ranges. Returns 9-layer SpatRaster with per-cell depth limits and volumes for A, B, and their intersection.
   - Source: `previous_projects/V1_Manuscript_ABH.docx` Methods section — generalized from hex grid to raster algebra

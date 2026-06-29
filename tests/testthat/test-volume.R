@@ -1,4 +1,4 @@
-# Helper: create a rasterize_range-like output (depth_min, depth_max layers)
+# Helper: create a voxelize_range-like output (depth_min, depth_max layers)
 make_range_rast <- function(depth_min_vals, depth_max_vals, ncol = 3, nrow = 3) {
   dmin <- terra::rast(nrows = nrow, ncols = ncol,
                       xmin = 0, xmax = ncol * 1000,

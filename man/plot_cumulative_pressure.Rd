@@ -8,10 +8,10 @@ plot_cumulative_pressure(species_rast, fishery_rasters, species_name = NULL)
 }
 \arguments{
 \item{species_rast}{SpatRaster. Rasterized species range from
-\code{\link[=rasterize_range]{rasterize_range()}}.}
+\code{\link[=voxelize_range]{voxelize_range()}}.}
 
 \item{fishery_rasters}{List of SpatRasters. Rasterized fishery footprints
-from \code{\link[=rasterize_range]{rasterize_range()}}.}
+from \code{\link[=voxelize_range]{voxelize_range()}}.}
 
 \item{species_name}{Character. Optional species name for the plot title.}
 }

@@ -12,7 +12,7 @@
 #' are dropped from the plot.
 #'
 #' @param species_name Character. Species name used for the plot title.
-#' @param range_rast SpatRaster. Output of [rasterize_range()] with per-cell
+#' @param range_rast SpatRaster. Output of [voxelize_range()] with per-cell
 #'   `depth_min` and `depth_max` layers.
 #' @param rast_3d SpatRaster. Multi-depth environmental raster with layer
 #'   names following the `{variable}_depth={value}` convention.
@@ -160,9 +160,9 @@ plot_volume_overlap <- function(overlap_rast, name_a = "Species",
 #' cumulative pressure maps from Haque et al.
 #'
 #' @param species_rast SpatRaster. Rasterized species range from
-#'   [rasterize_range()].
+#'   [voxelize_range()].
 #' @param fishery_rasters List of SpatRasters. Rasterized fishery footprints
-#'   from [rasterize_range()].
+#'   from [voxelize_range()].
 #' @param species_name Character. Optional species name for the plot title.
 #'
 #' @returns A ggplot object.

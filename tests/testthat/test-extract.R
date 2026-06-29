@@ -27,7 +27,7 @@ make_area_polygon <- function() {
   ) |> sf::st_sf(geometry = _)
 }
 
-# Build a rasterize_range-style stack (depth_min + depth_max layers) directly
+# Build a voxelize_range-style stack (depth_min + depth_max layers) directly
 # from a vector of per-cell depth_min and depth_max values. Aligned to the
 # grid used by make_env_rast(), so extract_rast_range() doesn't have to
 # resample.
