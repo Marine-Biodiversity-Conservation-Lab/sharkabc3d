@@ -4,20 +4,23 @@
 \alias{voxelize_range}
 \title{Voxelize a species range or fishery footprint onto a study grid}
 \usage{
-voxelize_range(polygons, voxel, bathymetry, depth_min, depth_max)
+voxelize_range(polygons, voxel, bathymetry = NULL, depth_min, depth_max)
 }
 \arguments{
 \item{polygons}{sf or SpatVector. Species range or fishery footprint
 polygons.}
 
-\item{voxel}{SpatRaster. The voxel grid that defines the study area: an
-empty raster template (e.g., from \code{\link[=create_study_raster]{create_study_raster()}}) whose cells
-become the horizontal footprint of each voxel column. This is the voxel
-model that the package builds all 3D operations on.}
+\item{voxel}{The voxel grid that defines the study area. Either a
+\code{study_voxel} object (from \code{\link[=create_study_voxel]{create_study_voxel()}}), which carries both the
+horizontal grid and the seafloor, or a plain SpatRaster template (e.g.,
+from \code{\link[=create_study_raster]{create_study_raster()}}) whose cells become the horizontal footprint
+of each voxel column. This is the voxel model that the package builds all
+3D operations on.}
 
 \item{bathymetry}{SpatRaster. Seafloor depth raster with positive values
 in metres, matching the CRS and resolution of \code{voxel}. Pre-prepare from
-GEBCO with: \code{seafloor <- terra::clamp(-terra::project(bathy, voxel), lower = 0)}.}
+GEBCO with: \code{seafloor <- terra::clamp(-terra::project(bathy, voxel), lower = 0)}.
+Optional and ignored when \code{voxel} is a \code{study_voxel} (its seafloor is used).}
 
 \item{depth_min}{Numeric. Minimum (shallowest) depth in metres.}
 

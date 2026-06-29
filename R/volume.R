@@ -33,6 +33,69 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
   terra::rast(combined, res = res, crs = crs)
 }
 
+#' Create a study voxel: the 3D voxel grid space for an analysis
+#'
+#' Bundle the three things every 3D operation in the package needs into one
+#' `study_voxel` object: a horizontal grid template, the seafloor depth on that
+#' grid, and the standard depth levels that define the vertical resolution of
+#' the voxel model. The supplied bathymetry is projected onto the template and
+#' converted to a positive seafloor depth (land clamped to 0), so callers no
+#' longer prepare the seafloor by hand. [voxelize_range()] and
+#' [voxelize_ranges()] accept the returned object directly via their `voxel`
+#' argument.
+#'
+#' @param template SpatRaster. Empty raster defining the horizontal grid
+#'   (extent, resolution, CRS) whose cells become the footprint of each voxel
+#'   column, e.g. from [create_study_raster()].
+#' @param bathymetry SpatRaster. GEBCO-style elevation raster with negative
+#'   values below sea level (e.g. from [load_bathymetry()]). It is projected
+#'   onto `template` and flipped to positive seafloor depth.
+#' @param depths Numeric vector. Standard depth levels in metres (e.g. the
+#'   World Ocean Atlas standard depths) that set the vertical resolution of the
+#'   voxel model.
+#'
+#' @returns A `study_voxel` object: a list with `grid` (the empty horizontal
+#'   template), `seafloor` (positive seafloor depth on that grid), and `depths`
+#'   (sorted standard depth levels).
+#' @export
+create_study_voxel <- function(template, bathymetry, depths) {
+  if (!inherits(template, "SpatRaster")) {
+    stop("`template` must be a SpatRaster defining the horizontal grid.")
+  }
+  if (!inherits(bathymetry, "SpatRaster")) {
+    stop("`bathymetry` must be a SpatRaster of elevation values.")
+  }
+  if (!is.numeric(depths) || length(depths) < 1) {
+    stop("`depths` must be a numeric vector of standard depth levels.")
+  }
+
+  # Empty copy of the template: extent, resolution, and CRS only.
+  grid <- terra::rast(template)
+
+  # Project elevation onto the grid, flip to positive depth, clamp land to 0.
+  seafloor <- terra::clamp(terra::project(bathymetry, grid) * -1, lower = 0)
+  names(seafloor) <- "seafloor"
+
+  structure(
+    list(
+      grid = grid,
+      seafloor = seafloor,
+      depths = sort(unique(as.numeric(depths)))
+    ),
+    class = "study_voxel"
+  )
+}
+
+#' @export
+print.study_voxel <- function(x, ...) {
+  cat("<study_voxel>\n")
+  cat(sprintf("  grid:   %d x %d cells\n",
+              terra::ncol(x$grid), terra::nrow(x$grid)))
+  cat(sprintf("  depths: %d levels (%g to %g m)\n",
+              length(x$depths), min(x$depths), max(x$depths)))
+  invisible(x)
+}
+
 #' Voxelize a species range or fishery footprint onto a study grid
 #'
 #' Rasterize polygons onto a study grid and assign per-cell depth limits,
@@ -43,13 +106,16 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'
 #' @param polygons sf or SpatVector. Species range or fishery footprint
 #'   polygons.
-#' @param voxel SpatRaster. The voxel grid that defines the study area: an
-#'   empty raster template (e.g., from [create_study_raster()]) whose cells
-#'   become the horizontal footprint of each voxel column. This is the voxel
-#'   model that the package builds all 3D operations on.
+#' @param voxel The voxel grid that defines the study area. Either a
+#'   `study_voxel` object (from [create_study_voxel()]), which carries both the
+#'   horizontal grid and the seafloor, or a plain SpatRaster template (e.g.,
+#'   from [create_study_raster()]) whose cells become the horizontal footprint
+#'   of each voxel column. This is the voxel model that the package builds all
+#'   3D operations on.
 #' @param bathymetry SpatRaster. Seafloor depth raster with positive values
 #'   in metres, matching the CRS and resolution of `voxel`. Pre-prepare from
 #'   GEBCO with: `seafloor <- terra::clamp(-terra::project(bathy, voxel), lower = 0)`.
+#'   Optional and ignored when `voxel` is a `study_voxel` (its seafloor is used).
 #' @param depth_min Numeric. Minimum (shallowest) depth in metres.
 #' @param depth_max Numeric. Maximum (deepest) depth in metres.
 #'
@@ -57,7 +123,15 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'   Cells where the species/fishery is absent or the seafloor is shallower
 #'   than depth_min are NA.
 #' @export
-voxelize_range <- function(polygons, voxel, bathymetry, depth_min, depth_max) {
+voxelize_range <- function(polygons, voxel, bathymetry = NULL, depth_min, depth_max) {
+  if (inherits(voxel, "study_voxel")) {
+    if (is.null(bathymetry)) bathymetry <- voxel$seafloor
+    voxel <- voxel$grid
+  }
+  if (is.null(bathymetry)) {
+    stop("`bathymetry` is required when `voxel` is a SpatRaster. ",
+         "Supply `bathymetry`, or pass a study_voxel (see create_study_voxel()).")
+  }
   if (!terra::same.crs(bathymetry, voxel)) {
     stop("bathymetry CRS does not match voxel grid. Pre-project bathymetry onto the voxel grid.")
   }
@@ -100,11 +174,13 @@ voxelize_range <- function(polygons, voxel, bathymetry, depth_min, depth_max) {
 #' object, each with its own depth limits. Displays a progress bar.
 #'
 #' @param sf_data sf object. Each row is a separate range to rasterize.
-#' @param voxel SpatRaster. The voxel grid that defines the study area: an
-#'   empty raster template (e.g., from [create_study_raster()]) whose cells
-#'   become the horizontal footprint of each voxel column.
-#' @param bathymetry SpatRaster. Bathymetry raster with negative values for
-#'   depth below sea level (e.g., from [load_bathymetry()]).
+#' @param voxel The voxel grid that defines the study area. Either a
+#'   `study_voxel` object (from [create_study_voxel()]) or a plain SpatRaster
+#'   template (e.g., from [create_study_raster()]) whose cells become the
+#'   horizontal footprint of each voxel column.
+#' @param bathymetry SpatRaster. Seafloor depth raster (positive values in
+#'   metres) matching `voxel`. Optional and ignored when `voxel` is a
+#'   `study_voxel` (its seafloor is used).
 #' @param depth_min_col Character. Column name in `sf_data` containing the
 #'   minimum (shallowest) depth in metres.
 #' @param depth_max_col Character. Column name in `sf_data` containing the
@@ -115,7 +191,7 @@ voxelize_range <- function(polygons, voxel, bathymetry, depth_min, depth_max) {
 #' @returns Named list of multi-layer SpatRasters (output of
 #'   [voxelize_range()]).
 #' @export
-voxelize_ranges <- function(sf_data, voxel, bathymetry,
+voxelize_ranges <- function(sf_data, voxel, bathymetry = NULL,
                              depth_min_col, depth_max_col,
                              name_col = NULL) {
   n <- nrow(sf_data)

@@ -7,7 +7,7 @@
 voxelize_ranges(
   sf_data,
   voxel,
-  bathymetry,
+  bathymetry = NULL,
   depth_min_col,
   depth_max_col,
   name_col = NULL
@@ -16,12 +16,14 @@ voxelize_ranges(
 \arguments{
 \item{sf_data}{sf object. Each row is a separate range to rasterize.}
 
-\item{voxel}{SpatRaster. The voxel grid that defines the study area: an
-empty raster template (e.g., from \code{\link[=create_study_raster]{create_study_raster()}}) whose cells
-become the horizontal footprint of each voxel column.}
+\item{voxel}{The voxel grid that defines the study area. Either a
+\code{study_voxel} object (from \code{\link[=create_study_voxel]{create_study_voxel()}}) or a plain SpatRaster
+template (e.g., from \code{\link[=create_study_raster]{create_study_raster()}}) whose cells become the
+horizontal footprint of each voxel column.}
 
-\item{bathymetry}{SpatRaster. Bathymetry raster with negative values for
-depth below sea level (e.g., from \code{\link[=load_bathymetry]{load_bathymetry()}}).}
+\item{bathymetry}{SpatRaster. Seafloor depth raster (positive values in
+metres) matching \code{voxel}. Optional and ignored when \code{voxel} is a
+\code{study_voxel} (its seafloor is used).}
 
 \item{depth_min_col}{Character. Column name in \code{sf_data} containing the
 minimum (shallowest) depth in metres.}
