@@ -6,8 +6,8 @@ output: html_document
 <!--
 This is NOT a package vignette. It is the source that builds Figure 1 of the
 accompanying manuscript (figures/fig-voxel-model.png). It lives in figures/ and
-is excluded from the built package via .Rbuildignore. Render it (from this
-directory, so ggsave writes the figure here) to regenerate the figure; it
+is excluded from the built package via .Rbuildignore. Render it to regenerate the
+figure (ggsave writes into figures/ whether run from the project root or here); it
 depends on rayshader, rayrender, tidyterra, patchwork, and sf.
 -->
 
@@ -508,10 +508,11 @@ fig_voxel_model <- fig_voxel_model +
   plot_layout(widths = c(0.7, 1, 1)) 
 fig_voxel_model
 
-# Save into this figures/ directory (this document lives here, and render runs
-# with figures/ as the working directory).
+# Always write into the figures/ directory, whether render runs from the project
+# root or from figures/ itself.
+fig_dir <- if (basename(getwd()) == "figures") "." else "figures"
 ggsave(
-  filename = "fig-voxel-model_raw.pdf",
+  filename = file.path(fig_dir, "fig-voxel-model_raw.pdf"),
   plot = fig_voxel_model,
   width = 14, height = 8, dpi = 300, bg = "white"
 )
