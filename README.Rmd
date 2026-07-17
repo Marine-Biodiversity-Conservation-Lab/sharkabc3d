@@ -69,7 +69,7 @@ Sign up and acquire your API key at <https://api.iucnredlist.org/>:
 ```{r, eval = FALSE}
 usethis::edit_r_environ()
 # Add the following line to the .Renviron file
-# IUCN_API_KEY="your_iucn_api_key_here"
+# IUCN_REDLIST_KEY="your_iucn_api_key_here"
 ```
 
 ## Function overview
