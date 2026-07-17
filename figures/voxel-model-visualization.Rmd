@@ -1,0 +1,535 @@
+---
+title: "Visualizing the Voxel Spatial Model"
+output: html_document
+---
+
+<!--
+This is NOT a package vignette. It is the source that builds Figure 1 of the
+accompanying manuscript (figures/fig-voxel-model.png). It lives in figures/ and
+is excluded from the built package via .Rbuildignore. Render it (from this
+directory, so ggsave writes the figure here) to regenerate the figure; it
+depends on rayshader, rayrender, tidyterra, patchwork, and sf.
+-->
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Visualizing the Voxel Spatial Model
+
+The spatial representation at the core of `sharkabc3d` is the **voxel model**:
+a cube representation of three-dimensional space, the volumetric analogue of
+the cell (or pixel) in a two-dimensional raster. Each cube is a *voxel*.
+
+Every 3D operation in the package is built on this model, and every model is
+built by [create_study_voxel()], which bundles **three inputs** into one
+`study_voxel` object:
+
+1. a **horizontal grid template** — the map footprint each voxel column sits on;
+2. a **bathymetry raster** — the seafloor depth that caps each column; and
+3. a vector of **standard depths** — the vertical levels that slice the water
+   column into layers.
+
+This document builds a deliberately small, synthetic example so the geometry
+is easy to see, visualizes each of the three inputs on its own, then renders
+the **output**: the voxelized ocean that the package computes volumes and
+overlaps on. It reproduces Figure 1 of the accompanying manuscript.
+
+The 3D panels use the [rayshader](https://www.rayshader.com/) ecosystem:
+`rayshader::plot_3d()` renders the bathymetry input as a shaded surface (its
+native strength), and [rayrender](https://www.rayrender.net/) — rayshader's
+path-tracing sister package by the same author — builds the voxel output as
+true stacked cubes. Both render straight to a PNG file, which we read back and
+tile with the 2D panels using `patchwork`.
+
+## Setup
+
+```{r setup}
+# devtools::load_all()
+library(sharkabc3d)
+library(terra)
+library(ggplot2)
+library(tidyterra)
+library(patchwork)
+library(rayshader)
+library(rayrender)
+```
+
+## A simplified study area
+
+Rather than load a multi-gigabyte GEBCO grid, we hand-build a 10 x 10 study
+area. The extent, resolution, and coordinate system are arbitrary here — the
+point is to keep the cube count low enough to read at a glance. A real analysis
+would supply the same three inputs at full resolution (see the Bangladesh,
+World Ocean Atlas, and Global Fishing Watch vignettes).
+
+### Input 1: the horizontal grid template
+
+The template is an empty raster. It defines the extent, resolution, and CRS
+whose cells become the horizontal footprint of each voxel column. In a real
+workflow it comes from [create_study_raster()], which sizes a grid to cover
+your input layers; here we declare one directly.
+
+```{r template}
+template <- terra::rast(
+  nrow = 10, ncol = 10,
+  xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+  crs = "EPSG:4326"
+)
+template
+```
+
+### Input 2: the bathymetry
+
+Bathymetry gives the depth of the seafloor at each cell, and so sets how tall
+each voxel column can be. We synthesize a GEBCO-style elevation raster
+(negative values below sea level, positive on land): a shallow shelf in the
+north-west that drops down a slope to roughly 400 m in the south-east, plus a
+small landmass in the north-west corner. We then snap the depths to 25 m steps,
+so neighbouring cells of equal depth form flat terraces — the discrete,
+per-cell depths the voxel model actually works on, where each cell's value is
+its distance below the surface.
+
+```{r bathymetry}
+xy <- terra::xyFromCell(template, seq_len(terra::ncell(template)))
+x  <- xy[, 1]
+y  <- xy[, 2]
+
+# Seafloor deepens toward the south-east: a shallow shelf drops down a slope to
+# ~400 m in the far corner. Values are metres relative to sea level.
+elev <- -(30 + (x^1.7) * 5 + (10 - y) * 15)
+
+# A small landmass in the north-west corner (positive elevation = land).
+elev[x < 2.5 & y > 7.5] <- 20
+
+# Snap to 25 m steps: equal-depth cells form flat terraces, so the render reads
+# as a staircase whose step heights are depths below the surface.
+elev <- round(elev / 25) * 25
+
+bathymetry <- terra::setValues(terra::rast(template), elev)
+names(bathymetry) <- "elevation"
+bathymetry
+```
+
+### Input 3: the standard depths
+
+The standard depths are the vertical levels that define the model's vertical
+resolution — the same idea as the standard depths of an oceanographic product
+such as the World Ocean Atlas. Here we use ten levels: a slightly finer 25 m
+spacing near the surface, where conditions change fastest, then a regular 50 m
+spacing through the deeper water so the levels are easy to read.
+
+```{r depths}
+depths <- c(0, 25, 50, 100, 150, 200, 250, 300, 350, 400)
+depths
+```
+
+## Visualizing the three inputs
+
+Before assembling the voxel model, we plot each input on its own so the roles
+are clear. A shared, muted theme keeps the panels legible when tiled together.
+
+```{r input-theme}
+theme_voxel_input <- function() {
+  theme_minimal(base_size = 11) +
+    theme(
+      panel.grid.minor = element_blank(),
+      # Align the title to the plot's left edge (not the panel), so the A/B/C
+      # headings line up with each other and with the plots' left side.
+      plot.title.position = "plot",
+      plot.title = element_text(face = "bold", size = 12)
+    )
+}
+```
+
+### Panel A: horizontal grid template
+
+The template carries no values — only a grid. We draw the cell boundaries to
+convey the horizontal footprint that each voxel column will stand on.
+
+```{r plot-template}
+grid_cells <- terra::as.polygons(template, aggregate = FALSE) |>
+  sf::st_as_sf()
+
+p_template <- ggplot() +
+  geom_sf(data = grid_cells, fill = "grey97", colour = "grey55",
+          linewidth = 0.25) +
+  coord_sf(expand = FALSE) +
+  labs(title = "A. Horizontal grid template") +
+  theme_voxel_input() +
+  theme(axis.title = element_blank())
+p_template
+```
+
+### Panel B: bathymetry (rayshader surface)
+
+Bathymetry is a surface, so we render it as one with `rayshader` — but we want
+the render to show the model's *rasterised* nature, not a smoothly interpolated
+seafloor. By default `plot_3d()` interpolates between cell centres; upsampling
+the raster with **nearest-neighbour** resampling first copies each cell value
+across a block, so the only height changes happen at cell boundaries. The render
+then draws flat steps joined by near-vertical walls: a staircase whose every
+step sits at that cell's depth below the surface. A translucent water plane at
+sea level (`water = TRUE, waterdepth = 0`) shows the ocean sitting over the
+stepped seafloor — the surface that caps each voxel column from below. The
+render is written straight to a PNG we reuse in the composite.
+
+```{r plot-bathymetry}
+# Render each cell as a flat block rather than a smooth surface: nearest-
+# neighbour upsampling copies each cell value across a 12 x 12 patch, so heights
+# change only at cell boundaries and plot_3d draws flat steps joined by near-
+# vertical walls (the rasterised staircase).
+bathymetry_blocky <- terra::disagg(bathymetry, fact = 12, method = "near")
+
+# rayshader reads a plain elevation matrix (no CRS): negative below sea level,
+# positive on land, exactly the GEBCO convention this raster already uses.
+elev_mat <- rayshader::raster_to_matrix(bathymetry_blocky)
+
+# Colour ramp keyed to elevation: deep = dark blue, shallow = pale, land = tan.
+bathy_texture <- grDevices::colorRampPalette(
+  c("#0a2850", "#2166ac", "#4191d2", "#c6e6ff", "#d9c8a0")
+)(256)
+bathy_shade <- rayshader::height_shade(elev_mat, texture = bathy_texture)
+
+bathy_png <- tempfile(fileext = ".png")
+
+# Camera angles, shared with Panels D and E so the 3D scenes face the same way:
+# view_theta is the compass azimuth, view_phi the elevation above the horizon. A
+# shallow view_phi keeps the eye low and near side-on, which opens up the gaps
+# between the exploded raster layers in Panel D.
+view_theta <- 35
+view_phi   <- 18
+
+# zscale trades horizontal against vertical scale. After the 12x upsampling the
+# matrix is 120 cells wide and the seafloor reaches ~400 m, so a smaller zscale
+# than the raw 10-cell grid would use keeps the relief readable rather than a
+# spike. Tune up to flatten, down to exaggerate.
+rayshader::plot_3d(
+  bathy_shade, elev_mat,
+  zscale      = 8,
+  solid       = TRUE,  solidcolor = "grey30",
+  water       = TRUE,  waterdepth = 0,
+  watercolor  = "#7fb2e5", wateralpha = 0.45,
+  theta = view_theta, phi = view_phi, zoom = 0.72,
+  windowsize  = c(900, 700)
+)
+rayshader::render_snapshot(filename = bathy_png, clear = TRUE)
+
+# Read the render back as a grob for the composite figure below. wrap_elements()
+# accepts a title via labs(), so the panel matches the A/C headers.
+bathy_grob <- grid::rasterGrob(png::readPNG(bathy_png), interpolate = TRUE)
+p_bathy <- patchwork::wrap_elements(full = bathy_grob) +
+  labs(title = "B. Bathymetry") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(face = "bold", size = 12))
+```
+
+### Panel C: standard depths
+
+The standard depths are one-dimensional — a set of levels down the water
+column. We draw them as points on an inverted depth axis so the surface sits at
+the top, matching how the 3D scene is oriented.
+
+```{r plot-depths}
+depth_df <- data.frame(depth = depths)
+
+p_depths <- ggplot(depth_df, aes(x = 0, y = depth)) +
+  geom_point(colour = "#2c7fb8", size = 2) +
+  geom_text(aes(label = paste0(depth, " m")), hjust = -0.25, size = 3) +
+  scale_y_reverse(limits = c(max(depths), min(depths) - 10)) +
+  scale_x_continuous(limits = c(-0.1, 1)) +
+  labs(title = "C. Standard depths") +
+  theme_voxel_input() +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+p_depths
+```
+
+## Assembling the voxel model
+
+[create_study_voxel()] takes the three inputs and returns a `study_voxel`. It
+projects the bathymetry onto the template, flips it to a positive seafloor
+depth (clamping land to 0), and stores the sorted standard depths alongside the
+empty grid.
+
+```{r create-voxel}
+voxel <- create_study_voxel(
+  template   = template,
+  bathymetry = bathymetry,
+  depths     = depths
+)
+voxel
+#> <study_voxel>
+#>   grid:   10 x 10 cells
+#>   depths: 10 levels (0 to 400 m)
+
+# The three components the object carries:
+voxel$grid        # empty horizontal template
+voxel$seafloor    # positive seafloor depth on that grid
+voxel$depths      # sorted standard depth levels
+```
+
+## Visualizing the output: the voxelized ocean
+
+The `study_voxel` describes a stack of cubes: at every ocean cell, the water
+column from the surface (0 m) down to the seafloor is sliced into voxels at the
+standard depths, with the deepest voxel clamped to the local seafloor. That is
+exactly the volume [voxelize_range()] fills for a feature and that
+[calc_volume()] and [calc_volume_overlap()] measure.
+
+We render it with `rayrender`, which builds a path-traced scene from real 3D
+primitives — one solid, opaque plate per voxel. First we expand the `study_voxel`
+into a table of voxels (one row per ocean cell x standard-depth layer), then draw
+each row as a solid plate coloured by depth. We show the result two ways: **Panel
+D** pulls the standard-depth layers apart into an *exploded* stack so each raster
+layer is legible on its own, and **Panel E** drops those same plates to their
+true depths, so the real vertical spacing of the voxelized ocean — fine near the
+surface, widening below — is visible.
+
+```{r voxel-columns}
+# Vertical extent of each standard-depth layer: half-way to the neighbouring
+# levels, so adjacent voxels meet without gaps or overlap. The shallowest layer
+# starts at the surface (0 m); the deepest extends half a step below the last
+# level before being clamped to the seafloor per cell.
+depth_bands <- function(standard_depths) {
+  sd <- sort(unique(standard_depths))
+  n  <- length(sd)
+  mids <- (sd[-n] + sd[-1]) / 2
+  data.frame(
+    depth  = sd,
+    z_low  = c(0, mids),
+    z_high = c(mids, sd[n] + (sd[n] - sd[n - 1]) / 2)
+  )
+}
+
+# Expand a study_voxel into one row per (ocean cell x depth layer) whose top
+# sits above the seafloor, clamping the deepest layer to the local seafloor.
+voxel_columns <- function(voxel) {
+  bands <- depth_bands(voxel$depths)
+  cells <- terra::as.data.frame(voxel$seafloor, xy = TRUE, na.rm = FALSE)
+
+  do.call(rbind, lapply(seq_len(nrow(cells)), function(i) {
+    sfd <- cells$seafloor[i]
+    if (is.na(sfd) || sfd <= 0) return(NULL)      # skip land / dry cells
+    keep <- bands$z_low < sfd
+    if (!any(keep)) return(NULL)
+    b <- bands[keep, , drop = FALSE]
+    b$z_high <- pmin(b$z_high, sfd)               # clamp deepest voxel to seafloor
+    data.frame(x = cells$x[i], y = cells$y[i],
+               depth = b$depth, z_low = b$z_low, z_high = b$z_high)
+  }))
+}
+
+vox <- voxel_columns(voxel)
+nrow(vox)   # number of voxels (ocean cells x layers)
+#> [1] 558
+```
+
+`rayrender`'s vertical axis is **y** (up), so we map the horizontal grid to the
+scene's x/z plane and depth to y, going negative downward: the sea surface sits
+at `y = 0` and the seafloor below it. Depth in metres dwarfs the 10-unit-wide
+grid, so we scale it (`vscale`) to keep the columns readable rather than
+needle-thin. Each voxel is a **solid, opaque plate** (`rayrender::cube()`)
+coloured by depth; a small horizontal seam keeps the individual raster cells
+legible. A single `voxel_plate()` helper places a plate at any vertical position,
+so the *same* voxels can be drawn two ways: exploded onto evenly spaced levels
+(Panel D) or dropped to their true standard depths (Panel E). Each column's
+deepest plate is clamped to the seafloor, so the plate bottoms already trace the
+seabed without a filled surface. We point the camera down Panel B's view angles,
+so all three 3D panels face the same way.
+
+```{r voxel-scene}
+# Depth -> colour: shallow pale blue, deep navy.
+depth_palette <- grDevices::colorRampPalette(
+  c("#bcdcf5", "#3a7fc0", "#0a2f66")
+)(256)
+depth_to_colour <- function(d, dmin, dmax) {
+  idx <- pmax(1, pmin(256, ceiling((d - dmin) / (dmax - dmin) * 256)))
+  depth_palette[idx]
+}
+
+res     <- terra::res(voxel$grid)       # horizontal cell size (x, y) in grid units
+dx      <- res[1]
+dy      <- res[2]
+vscale  <- 6 / max(vox$z_high)          # true depths -> ~6 scene units at the seafloor
+hgap    <- 0.94                         # horizontal seams so raster cells stay visible
+plate_h <- 0.07                         # thickness of each solid layer plate
+dmin    <- min(voxel$depths)
+dmax    <- max(voxel$depths)
+
+# Layer index of each voxel (1 = surface layer), used to explode the stack.
+layer_levels <- sort(unique(voxel$depths))
+vox$layer <- match(vox$depth, layer_levels)
+
+# One solid, opaque plate per voxel, coloured by depth. `ycentre` sets where the
+# plate sits vertically; every plate is the same thin thickness, so the same
+# voxels can be drawn exploded (evenly spaced) or at their true depths.
+voxel_plate <- function(r, ycentre) {
+  rayrender::cube(
+    x = r$x, y = ycentre, z = r$y,
+    xwidth = dx * hgap, ywidth = plate_h, zwidth = dy * hgap,
+    material = rayrender::diffuse(color = depth_to_colour(r$depth, dmin, dmax))
+  )
+}
+
+# Panel D (exploded): each plate is pulled to an evenly spaced level by its layer
+# index, opening space between the raster layers so each is legible on its own
+# and the footprint (shrinking with depth) is easy to read. Panel D gets its own
+# tall column in the figure, so the spacing is exaggerated generously.
+explode_step <- 2.0                     # vertical gap between exploded layers
+exploded_cubes <- lapply(seq_len(nrow(vox)), function(i) {
+  r <- vox[i, ]
+  voxel_plate(r, -(r$layer - 1) * explode_step)
+})
+
+# Panel E (stacked): the same plates dropped to their true standard depths
+# (clamped to the seafloor for each cell's deepest layer), so the real vertical
+# spacing shows — fine near the surface, widening below. The plates' clamped
+# bottoms already trace the seabed, so no solid staircase surface is drawn.
+stacked_cubes <- lapply(seq_len(nrow(vox)), function(i) {
+  r <- vox[i, ]
+  voxel_plate(r, -pmin(r$depth, r$z_high) * vscale)
+})
+
+# A soft overhead light, high and toward the camera, shared by both scenes.
+key_light <- rayrender::sphere(
+  x = 14, y = 20, z = -10, radius = 3,
+  material = rayrender::light(intensity = 8)
+)
+
+# Assemble the two scenes: both are just the plates and a shared light, floating
+# on the plain white background.
+scene_exploded <- Reduce(rayrender::add_object, exploded_cubes) |>
+  rayrender::add_object(key_light)
+
+scene_stacked <- Reduce(rayrender::add_object, stacked_cubes) |>
+  rayrender::add_object(key_light)
+```
+
+```{r voxel-render}
+library(png)
+
+# Camera matched to Panel B. rayshader hands theta/phi to rgl, whose eye lies
+# along (cos(phi)sin(theta), sin(phi), cos(phi)cos(theta)) in (east, up, south) —
+# rgl's default view looks north, so its +z is the south side. Our scene uses
+# +z = north, so we negate that term. This unit direction puts the deep
+# south-east corner in front, exactly as in Panel B.
+rad     <- pi / 180
+cam_dir <- c(
+   cos(view_phi * rad) * sin(view_theta * rad),   # east
+   sin(view_phi * rad),                           # up
+  -cos(view_phi * rad) * cos(view_theta * rad)    # north (rgl south -> negate)
+)
+
+# rayshader and rayrender lay out their horizontal axes with opposite handedness,
+# so a raw rayrender frame comes out mirrored east-west relative to Panel B.
+# Reflecting the finished image left-right (equivalent to reflecting camera and
+# scene together, which keeps the deep corner in front) restores the match.
+flip_h <- function(img) img[, rev(seq_len(dim(img)[2])), , drop = FALSE]
+
+# Both output panels share one camera (same distance, fov and tall portrait
+# frame), so D and E render at exactly the same zoom -- the 10x10 grid footprint
+# reads at the same size in both. Only the aim (`lookat_y`) differs, centring
+# each stack: D's exploded layers fill the frame, while E's shorter true-depth
+# stack sits lower and reads as smaller at the same scale.
+render_voxels <- function(scene, file, lookat_y, dist, fov, width, height) {
+  rayrender::render_scene(
+    scene,
+    lookfrom       = c(5, 0, 5) + dist * cam_dir,
+    lookat         = c(5, lookat_y, 5),
+    fov            = fov,
+    samples        = 256,
+    width          = width, height = height,
+    ambient_light  = TRUE,
+    backgroundhigh = "#ffffff", backgroundlow = "#ffffff",  # solid white, matches the figure
+    filename       = file
+  )
+  flip_h(png::readPNG(file))
+}
+
+exploded_png <- tempfile(fileext = ".png")
+stacked_png  <- tempfile(fileext = ".png")
+
+# Panel D: exploded plates span 0 to -(nlayers - 1) * explode_step; aim at its mid.
+exploded_mid <- -(length(layer_levels) - 1) * explode_step / 2
+img_exploded <- render_voxels(scene_exploded, exploded_png,
+                              lookat_y = exploded_mid, dist = 42, fov = 30,
+                              width = 880, height = 1200)
+# Panel E: same dist/fov/frame as D (so the zoom matches); aimed at its own
+# shorter span (0 to ~-6, mid ~-3), which leaves it sitting lower in the frame.
+img_stacked  <- render_voxels(scene_stacked, stacked_png,
+                              lookat_y = -3, dist = 42, fov = 30,
+                              width = 880, height = 1200)
+
+p_output1 <- patchwork::wrap_elements(
+  full = grid::rasterGrob(img_exploded, interpolate = TRUE)) +
+  labs(title = "D. Exploded raster stack") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(face = "bold", size = 12))
+
+p_output2 <- patchwork::wrap_elements(
+  full = grid::rasterGrob(img_stacked, interpolate = TRUE)) +
+  labs(title = "E. Voxelized ocean") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(face = "bold", size = 12))
+```
+
+Panel D pulls the raster layers apart so each standard-depth slice reads on its
+own, its footprint shrinking with depth as the rising seafloor drops out cells;
+Panel E drops those same plates to their true depths — spaced finely near the
+surface and widening below — their clamped bottoms tracing the seabed that Panel
+B renders as a surface: short over the shallow shelf and reaching deep in the
+south-east, absent over the north-west land. These plates are the same voxels [voxelize_range()] fills for a
+feature and that [calc_volume()] and [calc_volume_overlap()] measure. Because
+`rayrender` path-traces real geometry, the render is deterministic and needs no
+browser or `webshot` step — `render_scene()` writes the PNG directly.
+
+## Composing the manuscript figure
+
+The manuscript figure is three columns wide: the three inputs (A, B, C) stacked
+on the left, the exploded raster stack (D) in the middle, and the voxelized ocean
+(E) on the right. All four 3D panels are PNG renders wrapped as grobs (`p_bathy`,
+`p_output1`, `p_output2`); the two 2D panels (`p_template`, `p_depths`) are
+ggplots. The inputs column is kept narrow (its plots are small), while D and E
+get equal widths and share one camera, so they read at the same size and zoom.
+
+```{r compose-figure, fig.width = 14, fig.height = 8}
+inputs_col <- (p_template / p_bathy / p_depths)
+
+fig_voxel_model <- inputs_col | p_output1 | p_output2
+fig_voxel_model <- fig_voxel_model +
+  plot_layout(widths = c(0.7, 1, 1)) 
+fig_voxel_model
+
+# Save into this figures/ directory (this document lives here, and render runs
+# with figures/ as the working directory).
+ggsave(
+  filename = "fig-voxel-model_raw.pdf",
+  plot = fig_voxel_model,
+  width = 14, height = 8, dpi = 300, bg = "white"
+)
+
+# Figures modified manually in vector editing software (Inkscape) after saving.
+```
+
+`fig-voxel-model_raw.pdf` is the raw export; it is hand-edited in Inkscape to
+produce the final `fig-voxel-model.pdf` / `fig-voxel-model.png` used in the
+manuscript. All three live here in `figures/` alongside this source.
+
+## Recap
+
+- The voxel model is a stack of raster layers sharing one grid, each layer a
+  standard depth — the same representation oceanographic products use.
+- [create_study_voxel()] bundles the three inputs every 3D operation needs:
+  the **horizontal grid template**, the **bathymetry** that caps each column,
+  and the **standard depths** that slice the water column.
+- The output is a voxelized ocean: per-cell columns of cubes clamped to the
+  seafloor, which [voxelize_range()], [calc_volume()], and
+  [calc_volume_overlap()] operate on directly.

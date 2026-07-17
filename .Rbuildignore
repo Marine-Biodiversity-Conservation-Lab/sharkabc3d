@@ -6,6 +6,7 @@
 ^\.Rproj\.user$
 ^\.claude$
 ^data-raw$
+^figures$
 ^previous_projects$
 ^presentation$
 ^output$
