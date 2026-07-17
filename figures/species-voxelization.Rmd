@@ -1,0 +1,457 @@
+---
+title: "Voxelizing a Species Range"
+output: html_document
+---
+
+<!--
+This is NOT a package vignette. It is the source that builds Figure 2 of the
+accompanying manuscript (figures/fig-species-voxel.png). It lives in figures/ and
+is excluded from the built package via .Rbuildignore. Render it to regenerate the
+figure (ggsave writes into figures/ whether run from the project root or here); it
+depends on rayrender, patchwork, and sf. It reuses the same synthetic study area
+(grid, bathymetry, standard depths) as figures/voxel-model-visualization.Rmd
+(Figure 1), so the two figures share one worked example.
+-->
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Voxelizing a Species Range
+
+Figure 1 built the **voxel model** of the ocean: a stack of raster layers, one
+per standard depth, clamped to the seafloor. This figure shows how the package
+turns a **species** into that same representation — a *voxelized range*. Three
+inputs combine:
+
+1. a **range polygon** — where the species is found, horizontally (Panel A);
+2. a **depth range** — the band of the water column it occupies (Panel B); and
+3. the **voxel ocean model** from Figure 1 — the discretised study space that
+   caps every column at the seafloor (Panel C).
+
+`voxelize_range()` intersects the three: a voxel is *present* when its cell lies
+inside the polygon **and** its standard depth falls within the species' depth
+band **and** the water column there reaches that depth. The result (Panel D) is
+a raster stack whose cells are coloured where the species is present and left
+empty (NA) where it is not — the object `calc_volume()` and
+`calc_volume_overlap()` measure.
+
+Both 3D panels use [rayrender](https://www.rayrender.net/), rendering each voxel
+as a solid plate exactly as in Figure 1.
+
+## Setup
+
+```{r setup}
+# devtools::load_all()
+library(sharkabc3d)
+library(terra)
+library(sf)
+library(ggplot2)
+library(patchwork)
+library(rayrender)
+library(png)
+```
+
+## The study area (shared with Figure 1)
+
+We rebuild the same synthetic 10 x 10 study area as Figure 1: an empty grid
+template, a GEBCO-style bathymetry that deepens to ~400 m in the south-east with
+a small landmass in the north-west, and ten standard depths. See
+`voxel-model-visualization.Rmd` for the reasoning behind each input.
+
+```{r study-area}
+template <- terra::rast(
+  nrow = 10, ncol = 10,
+  xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+  crs = "EPSG:4326"
+)
+
+xy <- terra::xyFromCell(template, seq_len(terra::ncell(template)))
+x  <- xy[, 1]
+y  <- xy[, 2]
+elev <- -(30 + (x^1.7) * 5 + (10 - y) * 15)   # seafloor deepens to the south-east
+elev[x < 2.5 & y > 7.5] <- 20                 # small landmass in the north-west
+elev <- round(elev / 25) * 25                 # snap to 25 m terraces
+
+bathymetry <- terra::setValues(terra::rast(template), elev)
+names(bathymetry) <- "elevation"
+
+depths <- c(0, 25, 50, 100, 150, 200, 250, 300, 350, 400)
+
+voxel <- create_study_voxel(
+  template   = template,
+  bathymetry = bathymetry,
+  depths     = depths
+)
+```
+
+## The species: a range polygon and a depth band
+
+The species' horizontal range is an irregular oval over the grid (the same noisy
+ellipse used elsewhere, with a fixed seed for reproducibility). Its depth range
+is a band of the water column — here 50 m to 250 m, a mid-water species that
+avoids the surface and does not reach the deep south-east floor.
+
+```{r species}
+# Horizontal range: an irregular oval centred on the grid.
+set.seed(42)
+n_vertices <- 24
+ang    <- seq(0, 2 * pi, length.out = n_vertices + 1)[-(n_vertices + 1)]
+noise  <- runif(n_vertices, 0.75, 1.15)
+poly_pts <- cbind(
+  x = 5 + 3.2 * noise * cos(ang),
+  y = 5 + 2.4 * noise * sin(ang)
+)
+poly_pts <- rbind(poly_pts, poly_pts[1, ])   # close the ring
+
+sp_poly <- sf::st_sf(
+  id = 1L,
+  geometry = sf::st_sfc(sf::st_polygon(list(poly_pts)), crs = "EPSG:4326")
+)
+
+# Vertical range: the species' depth band, in metres.
+depth_min <- 50
+depth_max <- 250
+
+# A warm highlight colour for the species (contrasts the ocean's blues).
+species_col <- "#e6550d"
+```
+
+## Visualizing the inputs (Panels A and B)
+
+A shared, muted theme matches Figure 1.
+
+```{r input-theme}
+# Match the hand-edited style of Figure 1: Liberation Sans (the Arial-metric font
+# the final PDF embeds) and teal panel titles. Rendering via cairo_pdf (see the
+# compose chunk) embeds the system font, so the raw export already looks close to
+# the finished figure.
+title_font <- "Liberation Sans"
+teal_col   <- "#1a9e9e"
+
+theme_voxel_input <- function() {
+  theme_minimal(base_size = 11, base_family = title_font) +
+    theme(
+      panel.grid.minor = element_blank(),
+      plot.title.position = "plot",
+      plot.title = element_text(family = title_font, colour = teal_col, size = 12)
+    )
+}
+```
+
+### Panel A: the species range polygon
+
+The polygon over the grid template: where the species is found, horizontally.
+
+```{r plot-range}
+grid_cells <- terra::as.polygons(template, aggregate = FALSE) |>
+  sf::st_as_sf()
+
+p_range <- ggplot() +
+  geom_sf(data = grid_cells, fill = "grey97", colour = "grey85",
+          linewidth = 0.2) +
+  geom_sf(data = sp_poly, fill = scales::alpha(species_col, 0.30),
+          colour = species_col, linewidth = 0.7) +
+  coord_sf(expand = FALSE) +
+  labs(title = "A. Species range") +
+  theme_voxel_input() +
+  theme(axis.title = element_blank())
+p_range
+```
+
+### Panel B: the species depth range
+
+An inverted depth axis (surface at the top) with the standard-depth levels
+labelled on the axis, the whole water column shown faintly, and the species'
+50–250 m band highlighted.
+
+```{r plot-depthrange}
+p_depthrange <- ggplot() +
+  # Full water column as a faint bar, flush against the depth axis (xmin = 0,
+  # no left expansion) so there is no gap between the bar and the y axis.
+  annotate("rect", xmin = 0, xmax = 0.35, ymin = 0, ymax = max(depths),
+           fill = "grey92") +
+  # The species' depth band.
+  annotate("rect", xmin = 0, xmax = 0.35, ymin = depth_min, ymax = depth_max,
+           fill = species_col, alpha = 0.9) +
+  annotate("text", x = 0.45, y = (depth_min + depth_max) / 2,
+           label = paste0(depth_min, "–", depth_max, " m"),
+           hjust = 0, size = 3.2, colour = species_col, fontface = "bold",
+           family = title_font) +
+  # Break the depth axis at the standard depths so each layer is labelled.
+  scale_y_reverse(breaks = depths, limits = c(max(depths), -10)) +
+  scale_x_continuous(limits = c(0, 1.3), expand = expansion(mult = c(0, 0.05))) +
+  labs(title = "B. Species depth range", y = "Depth (m)") +
+  theme_voxel_input() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
+p_depthrange
+```
+
+## Expanding the voxel model and masking to the species
+
+We expand the `study_voxel` into one row per (ocean cell x standard-depth
+layer), exactly as in Figure 1, then flag which voxels the species occupies: the
+cell must fall inside the range polygon and the depth must lie within the band.
+Reachability (depth <= seafloor) is already guaranteed by the expansion.
+
+```{r voxel-columns}
+depth_bands <- function(standard_depths) {
+  sd <- sort(unique(standard_depths))
+  n  <- length(sd)
+  mids <- (sd[-n] + sd[-1]) / 2
+  data.frame(
+    depth  = sd,
+    z_low  = c(0, mids),
+    z_high = c(mids, sd[n] + (sd[n] - sd[n - 1]) / 2)
+  )
+}
+
+voxel_columns <- function(voxel) {
+  bands <- depth_bands(voxel$depths)
+  cells <- terra::as.data.frame(voxel$seafloor, xy = TRUE, na.rm = FALSE)
+  do.call(rbind, lapply(seq_len(nrow(cells)), function(i) {
+    sfd <- cells$seafloor[i]
+    if (is.na(sfd) || sfd <= 0) return(NULL)      # skip land / dry cells
+    keep <- bands$z_low < sfd
+    if (!any(keep)) return(NULL)
+    b <- bands[keep, , drop = FALSE]
+    b$z_high <- pmin(b$z_high, sfd)               # clamp deepest voxel to seafloor
+    data.frame(x = cells$x[i], y = cells$y[i],
+               depth = b$depth, z_low = b$z_low, z_high = b$z_high)
+  }))
+}
+
+vox <- voxel_columns(voxel)
+
+# Which voxels the species occupies: cell inside the polygon AND depth in band.
+sp_mask   <- terra::rasterize(terra::vect(sp_poly), template, field = 1)
+in_poly   <- !is.na(terra::extract(sp_mask, cbind(vox$x, vox$y))[, 1])
+vox$present <- in_poly & vox$depth >= depth_min & vox$depth <= depth_max
+
+c(total_voxels = nrow(vox), present_voxels = sum(vox$present))
+#> total_voxels present_voxels
+#>          558             83
+```
+
+## Rendering the 3D panels (C and D)
+
+The rayrender machinery is identical to Figure 1: one solid plate per voxel,
+placed at its true depth, viewed down the same camera angles so the panels line
+up. Both panels wireframe the bounding box of the study extent so the voxels read
+as cells inside a defined volume: Panel C colours every ocean voxel by depth (the
+voxel model), while Panel D colours only the *present* voxels in the species
+highlight colour and leaves the rest empty.
+
+```{r voxel-scene}
+# Depth -> colour for the ocean model (Panel C): shallow pale blue, deep navy.
+depth_palette <- grDevices::colorRampPalette(
+  c("#bcdcf5", "#3a7fc0", "#0a2f66")
+)(256)
+depth_to_colour <- function(d, dmin, dmax) {
+  idx <- pmax(1, pmin(256, ceiling((d - dmin) / (dmax - dmin) * 256)))
+  depth_palette[idx]
+}
+
+res     <- terra::res(voxel$grid)
+dx      <- res[1]
+dy      <- res[2]
+vscale  <- 6 / max(vox$z_high)          # true depths -> ~6 scene units at the seafloor
+hgap    <- 0.94                         # horizontal seams so raster cells stay visible
+plate_h <- 0.07                         # thickness of each solid layer plate
+dmin    <- min(voxel$depths)
+dmax    <- max(voxel$depths)
+
+# One solid plate per voxel at its true depth (clamped to the seafloor), in a
+# given colour. Shared by both scenes.
+voxel_plate <- function(r, colour) {
+  rayrender::cube(
+    x = r$x, y = -pmin(r$depth, r$z_high) * vscale, z = r$y,
+    xwidth = dx * hgap, ywidth = plate_h, zwidth = dy * hgap,
+    material = rayrender::diffuse(color = colour)
+  )
+}
+
+# Panel C: the full voxel ocean, every plate coloured by depth.
+ocean_cubes <- lapply(seq_len(nrow(vox)), function(i) {
+  r <- vox[i, ]
+  voxel_plate(r, depth_to_colour(r$depth, dmin, dmax))
+})
+
+# Panel D: only the voxels the species occupies, in the highlight colour. Absent
+# voxels are simply not drawn, so they read as empty space.
+present_vox    <- vox[vox$present, ]
+species_cubes  <- lapply(seq_len(nrow(present_vox)), function(i) {
+  voxel_plate(present_vox[i, ], species_col)
+})
+
+# Wireframe the bounding box of the study extent, so the voxels read as cells
+# inside a defined volume rather than shapes floating in space. Just a rectangle
+# at the surface and at the deepest standard depth, joined by four vertical corner
+# edges (thin cylinders via rayrender::segment). Shared by both 3D panels.
+ext      <- as.vector(terra::ext(voxel$grid))   # xmin, xmax, ymin(=z), ymax(=z)
+y_bottom <- -max(depths) * vscale
+wire_col <- "#404040"   # dark grey: clearly visible against the white background
+wire_r   <- 0.012
+wire_seg <- function(a, b) {
+  rayrender::segment(start = a, end = b, radius = wire_r,
+                     material = rayrender::diffuse(color = wire_col))
+}
+rect_at <- function(yd) list(
+  wire_seg(c(ext[1], yd, ext[3]), c(ext[2], yd, ext[3])),
+  wire_seg(c(ext[2], yd, ext[3]), c(ext[2], yd, ext[4])),
+  wire_seg(c(ext[2], yd, ext[4]), c(ext[1], yd, ext[4])),
+  wire_seg(c(ext[1], yd, ext[4]), c(ext[1], yd, ext[3]))
+)
+corners <- list(c(ext[1], ext[3]), c(ext[2], ext[3]),
+                c(ext[2], ext[4]), c(ext[1], ext[4]))
+wire_objs <- c(
+  rect_at(0),          # top face at the surface
+  rect_at(y_bottom),   # bottom face at the deepest standard depth
+  lapply(corners, function(cc) wire_seg(c(cc[1], 0, cc[2]),
+                                        c(cc[1], y_bottom, cc[2])))
+)
+wireframe <- Reduce(rayrender::add_object, wire_objs)
+
+# A soft overhead light, shared by both scenes.
+key_light <- rayrender::sphere(
+  x = 14, y = 20, z = -10, radius = 3,
+  material = rayrender::light(intensity = 8)
+)
+
+scene_ocean   <- Reduce(rayrender::add_object, ocean_cubes)   |>
+  rayrender::add_object(wireframe) |>
+  rayrender::add_object(key_light)
+scene_species <- Reduce(rayrender::add_object, species_cubes) |>
+  rayrender::add_object(wireframe) |>
+  rayrender::add_object(key_light)
+```
+
+```{r voxel-render}
+# Camera angles shared across the 3D panels (as in Figure 1): compass azimuth and
+# a shallow elevation so the eye sits low and near side-on, opening up the layers.
+view_theta <- 35
+view_phi   <- 18
+rad     <- pi / 180
+cam_dir <- c(
+   cos(view_phi * rad) * sin(view_theta * rad),   # east
+   sin(view_phi * rad),                           # up
+  -cos(view_phi * rad) * cos(view_theta * rad)    # north (rgl south -> negate)
+)
+
+# rayrender comes out mirrored east-west relative to rayshader's convention, so
+# we flip the finished image left-right (see Figure 1).
+flip_h <- function(img) img[, rev(seq_len(dim(img)[2])), , drop = FALSE]
+
+render_voxels <- function(scene, file, lookat_y, dist, fov, width, height) {
+  rayrender::render_scene(
+    scene,
+    lookfrom       = c(5, 0, 5) + dist * cam_dir,
+    lookat         = c(5, lookat_y, 5),
+    fov            = fov,
+    samples        = 256,
+    width          = width, height = height,
+    ambient_light  = TRUE,
+    backgroundhigh = "#ffffff", backgroundlow = "#ffffff",
+    filename       = file
+  )
+  flip_h(png::readPNG(file))
+}
+
+ocean_png   <- tempfile(fileext = ".png")
+species_png <- tempfile(fileext = ".png")
+
+# Both panels share one camera/frame (as D and E do in Figure 1) so the 10x10
+# grid footprint reads at the same size and the species subset is comparable to
+# the full ocean.
+img_ocean   <- render_voxels(scene_ocean, ocean_png,
+                             lookat_y = -3, dist = 42, fov = 30,
+                             width = 880, height = 1200)
+img_species <- render_voxels(scene_species, species_png,
+                             lookat_y = -3, dist = 42, fov = 30,
+                             width = 880, height = 1200)
+
+p_ocean <- patchwork::wrap_elements(
+  full = grid::rasterGrob(img_ocean, interpolate = TRUE)) +
+  labs(title = "C. Voxelized ocean model") +
+  theme(plot.title.position = "plot",
+        plot.title = element_text(family = title_font, colour = teal_col, size = 12))
+
+p_species <- patchwork::wrap_elements(
+  full = grid::rasterGrob(img_species, interpolate = TRUE)) +
+  labs(title = "D. Voxelized species range") +
+  # D is the output, not an input, so its title is black rather than teal.
+  theme(plot.title.position = "plot",
+        plot.title = element_text(family = title_font, colour = "black", size = 12))
+```
+
+Panel D is the intersection of the three inputs: the species' plates sit inside
+the polygon's footprint (Panel A), span only the 50–250 m band (Panel B), and are
+clamped to the seafloor of the voxel ocean (Panel C). The light bounding-box
+wireframe (shared with Panel C) marks the study extent, so the coloured voxels
+read as a subset of a defined volume; everywhere else the stack is empty, the NA
+cells the package skips when it sums presence into a volume.
+
+## Composing the manuscript figure
+
+Two columns: the three inputs (A range polygon, B depth range, C voxel ocean
+model) stacked in a narrow left column, and the voxelized species range (D) as a
+large right column at double the width. The figure is sized so the right column's
+aspect matches D's portrait render, so D fills the column. Mirroring the
+hand-edited Figure 1, the inputs are wrapped in a teal-bordered box labelled
+"INPUTS".
+
+```{r compose-figure, fig.width = 12, fig.height = 11}
+# Group the three inputs in a teal-bordered box titled "INPUTS": plot_annotation
+# draws the border (plot.background) and the title, and wrap_elements turns the
+# annotated group into a single patch so it sits beside the large output panel D.
+inputs_group <- (p_range / p_depthrange / p_ocean) +
+  plot_annotation(
+    title = "INPUTS",
+    theme = theme(
+      plot.title = element_text(family = title_font, colour = teal_col,
+                                face = "bold", hjust = 0.5, size = 14),
+      plot.background = element_rect(colour = teal_col, fill = NA, linewidth = 1),
+      plot.margin = margin(6, 8, 6, 8)
+    )
+  )
+
+fig_species <- wrap_elements(full = inputs_group) | p_species
+fig_species <- fig_species +
+  plot_layout(widths = c(1, 2))
+fig_species
+
+# Always write into the figures/ directory, whether render runs from the project
+# root or from figures/ itself. Render with cairo_pdf so the system font
+# (Liberation Sans) embeds, matching the final figure.
+fig_dir <- if (basename(getwd()) == "figures") "." else "figures"
+ggsave(
+  filename = file.path(fig_dir, "fig-species-voxel_raw.pdf"),
+  plot = fig_species,
+  width = 12, height = 11, dpi = 300, bg = "white",
+  device = cairo_pdf
+)
+
+# Figures modified manually in vector editing software (Inkscape) after saving.
+```
+
+`fig-species-voxel_raw.pdf` is the raw export; hand-edit it in Inkscape to produce
+the final `fig-species-voxel.pdf` / `.png` used in the manuscript.
+
+## Recap
+
+- A voxelized range is the voxel model masked to a species: cells inside the
+  **range polygon**, at depths within the species' **depth band**, clamped to the
+  seafloor of the **voxel ocean**.
+- [voxelize_range()] performs that intersection; present cells carry the species,
+  absent cells are NA (empty space).
+- The resulting stack is what [calc_volume()] and [calc_volume_overlap()] measure
+  — the same representation as the environmental stacks in Figure 1.
+```
