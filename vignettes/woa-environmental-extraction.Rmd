@@ -159,7 +159,10 @@ bathy <- load_bathymetry("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub
 study_grid <- t_annual[[1]]
 
 # Bathymetry → positive depth, aligned to the study grid.
-seafloor <- terra::project(-bathy, study_grid) |>
+# Project before negating: negating first forces an eager pass over the full
+# global 15 arc-second grid, which terra otherwise avoids by reading only the
+# window the target grid needs.
+seafloor <- (terra::project(bathy, study_grid) * -1) |>
   terra::clamp(lower = 0)
 ```
 
