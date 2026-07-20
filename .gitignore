@@ -15,3 +15,5 @@ example_data/*
 .httr-oauth
 .DS_Store
 .quarto
+figures/fig-voxel-model_raw.pdf
+figures/fig-species-voxel_raw.pdf
