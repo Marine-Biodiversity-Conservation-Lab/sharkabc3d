@@ -207,13 +207,13 @@ p_map <- ggplot() +
   geom_sf(data = focus_poly, fill = NA, colour = "#21918c", linewidth = 0.6) +
   coord_sf(datum = sf::st_crs(4326), expand = FALSE) +
   labs(title = paste0("A. Study area: ", cell_label, " equal-area grid")) +
-  theme_minimal(base_size = 11) +
+  theme_minimal(base_size = 13) +
   theme(
     panel.grid.major = element_line(colour = "grey90", linewidth = 0.2),
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.8),
     axis.title = element_blank(),
     plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 12),
+    plot.title = element_text(face = "bold", size = 15),
     legend.position = "inside",
     legend.position.inside = c(0.82, 0.18),
     legend.background = element_rect(fill = "white", colour = "grey70"),
@@ -268,17 +268,43 @@ sea surface) moves straight down. The viewer therefore sits over the
 low-`x`, low-`y` corner and sees each box's top face plus its two near sides.
 
 ```{r iso-helpers}
-ISO_C <- cos(pi / 6)   # horizontal shear of the x/y axes
-ISO_S <- sin(pi / 6)   # vertical  shear of the x/y axes
+# Camera. The azimuth stays at 45 degrees, so the two horizontal axes are
+# treated symmetrically and the cell reads as a square seen corner-on. The
+# elevation is how far the eye sits ABOVE the sea-surface plane: 90 degrees
+# would look straight down (the plane fills the page, no side faces visible),
+# and 0 would put the eye exactly in the plane (the plane collapses to a line
+# and only the side faces show). Lowering it flattens the water surface and
+# swings the view toward side-on, which is what makes the depth intervals — the
+# thing this panel is about — read more clearly than a true isometric does.
+VIEW_AZIMUTH_DEG <- 45
+VIEW_ELEV_DEG    <- 30
+
+az   <- VIEW_AZIMUTH_DEG * pi / 180
+elev <- VIEW_ELEV_DEG * pi / 180
+
+ISO_C <- cos(az)              # horizontal spread of the x/y axes
+ISO_S <- sin(az) * sin(elev)  # how much horizontal depth projects up the page
 
 # Page units per metre of depth. The cell footprint is 1 unit wide while the
 # column is hundreds of metres deep, so depth has to be compressed hard or the
-# drawing becomes a needle. Derived from the cell's actual depth rather than
-# fixed, so the column keeps the same on-page height whatever bathymetry the
-# focus cell turns out to have — this cell is ~450 m at 10 km resolution and
-# ~400 m at the analysis's 1 km, and a hardcoded scale would misdraw both.
-COLUMN_HEIGHT <- 3.2                     # target height of the column, in page units
-VSCALE <- COLUMN_HEIGHT / focus_depth
+# drawing becomes a needle.
+#
+# Both panels share ONE scale, keyed to the deeper of the two cells, so the
+# columns are directly comparable: Panel C's shallower cell must actually look
+# shorter than Panel B's. Scaling each panel to its own depth would draw them
+# the same height and quietly hide the difference the pair exists to show.
+# Tall on purpose. The panels are laid out in a row, so horizontal space is the
+# scarce dimension and vertical space is nearly free — exaggerating depth uses
+# that space, separates the slabs, and gives the callouts a long span to spread
+# down. This is a drawing scale only: the depth NUMBERS in the labels are the
+# real ones, and no volume is computed from the page geometry.
+COLUMN_HEIGHT <- 6.5          # page height of the DEEPEST column drawn
+
+# Panel C uses a hardcoded shallow bed (see that section): declared here because
+# the shared vertical scale has to know about it.
+shallow_seafloor_m <- 200
+
+VSCALE <- COLUMN_HEIGHT / max(focus_depth, shallow_seafloor_m)
 
 iso <- function(x, y, z) {
   data.frame(
@@ -386,6 +412,10 @@ col_intersect <- "#21918c"   # teal
 col_water     <- "#7fb2e5"
 col_bed       <- "#3b5aa0"
 
+# One transparency for every depth band. Applied once per band (see the banding
+# in column_panel), so the whole column reads at a consistent weight.
+SLAB_ALPHA <- 0.65
+
 # How far the species and fishery slabs are pulled apart. The offsets must be
 # OPPOSED in x and y: this projection has px = (x - y) * ISO_C, so shifting both
 # axes by the same amount moves a box straight up the page and separates nothing.
@@ -397,153 +427,260 @@ col_bed       <- "#3b5aa0"
 # the species left and the fishery right and expose the overlap slab between.
 off <- 0
 
-box_species <- iso_box(-off, 1 - off,  off, 1 + off,
-                       species_top, species_bot, col_species)
-box_fishery <- iso_box( off, 1 + off, -off, 1 - off,
-                       fishery_top, fishery_bot, col_fishery)
-box_overlap <- iso_box(0, 1, 0, 1,
-                       overlap_top, overlap_bot, col_intersect)
+# How far the overlap slab is inset from the cell footprint on every side.
+# At 0 it is drawn flush, filling the cell exactly as the species and fishery do
+# — which is the truthful footprint, since the intersection spans the whole cell
+# horizontally and differs only in depth. The cost is that its near faces land on
+# top of the fishery's in the overlap band, so the fishery reads as stopping at
+# the top of the overlap rather than continuing to its own lower limit. Raise
+# this to nest the overlap inside the others and keep their outlines continuous.
+overlap_inset <- 0
 
-# The sea surface: a translucent plane at z = 0. Its projected half-width is
-# surf * 2 * ISO_C, so keep it modest or the plane dwarfs the column.
+# The cell spans 0..1 in both horizontal axes, so its middle is at 0.5. The sea
+# surface is centred there rather than on the origin, so the plane sits squarely
+# around the column instead of hanging off one corner of it.
+cell_mid <- 0.5
+
+# Half-width of the sea-surface plane, in cell widths either side of the middle.
 surf <- 1.5
-water_plane <- iso(c(-surf, surf, surf, -surf),
-                   c(-surf, -surf, surf, surf), rep(0, 4))
 
-# The cell's seafloor: a thin plate at the bed, capping the column from below.
-bed_plate <- iso_box(0, 1, 0, 1, seafloor_m, seafloor_m + 4, col_bed)
+# Shared drawing limits for every column panel. coord_equal() fits a panel's own
+# data range into the space it is given, so a panel whose range is half as tall
+# gets scaled up twice as much — which is why Panel C's grid cell rendered LARGER
+# than Panel B's despite both being a 1 x 1 footprint. Pinning both panels to one
+# set of limits, sized to the deepest column drawn, makes the cell identical in
+# every panel and lets the shorter column simply leave space below it.
+PANEL_DEPTH_MAX <- max(focus_depth, shallow_seafloor_m)
 
-# The cell footprint at the surface, and guide lines dropping from its corners
-# to the bed, so the column the slabs belong to is unambiguous.
-surface_cell <- iso(c(0, 1, 1, 0), c(0, 0, 1, 1), rep(0, 4))
+panel_px <- 2 * surf * ISO_C                       # half-width of the water plane
+panel_py_top <- 2 * (cell_mid + surf) * ISO_S      # far corner of the water plane
+panel_py_bot <- -PANEL_DEPTH_MAX * VSCALE - 0.03   # underside of the deepest bed
 
-corners <- expand.grid(x = c(0, 1), y = c(0, 1))
-guides <- do.call(rbind, lapply(seq_len(nrow(corners)), function(i) {
-  d <- iso(rep(corners$x[i], 2), rep(corners$y[i], 2), c(0, -seafloor_m))
-  d$grp <- i
-  d
-}))
-```
+PANEL_XLIM <- c(-panel_px - 0.15, panel_px + 0.15)
+PANEL_YLIM <- c(panel_py_bot - 0.35, panel_py_top + 0.35)
 
-### Callouts
+# All callouts stack in ONE column to the right of the drawing. With the panels
+# in a row there is ample vertical space but little horizontal, so a single
+# right-hand stack keeps every label inside its own panel instead of overrunning
+# into the neighbouring one.
+label_x <- 2.4
 
-Each element gets a label anchored off to one side with a leader line running to
-the feature it names, as in the manuscript figure. There is no separate depth
-axis: the depths are carried in the label text instead, which keeps the drawing
-uncluttered and avoids an axis colliding with the callouts.
+# Spread the labels evenly down that column, ordered by the height of the
+# feature each one points at, so leader lines do not cross. The span adapts to
+# the panel's own geometry, which matters because Panel C's column is shorter
+# than Panel B's under the shared vertical scale.
+spread_labels <- function(ty, top, bot) {
+  out <- numeric(length(ty))
+  out[order(-ty)] <- seq(top, bot, length.out = length(ty))
+  out
+}
 
-Because the projection maps a 3D point to the page, target points are computed
-with `iso()` rather than guessed — that way they stay attached to the geometry if
-the depths or offsets above are changed. Label anchors are still tuned by eye.
+# Build one complete column panel. Every depth is in metres below the surface.
+# `species_bot_nominal` is the species' stated lower limit BEFORE clamping, so
+# the function can report truthfully whether voxelize_range() actually truncated
+# it at this cell's bed.
+column_panel <- function(seafloor_m, species_top, species_bot_nominal,
+                         fishery_top, fishery_bot, title, cell_label) {
 
-```{r iso-annotations}
-# Helper: a point on the geometry, in page coordinates.
-at <- function(x, y, depth) iso(x, y, -depth)
+  # Clamp exactly as voxelize_range() does, then intersect the two clamped
+  # intervals exactly as calc_volume_overlap() does.
+  species_bot <- min(species_bot_nominal, seafloor_m)
+  fishery_bot <- min(fishery_bot, seafloor_m)
+  was_clamped <- species_bot_nominal > seafloor_m
 
-# Mid-edge of each slab's visible near face, used as leader targets: the species
-# slab is read off its left face (x = -off), the fishery off its right face
-# (y = -off).
-sp_left_x <- -off;      sp_mid_y <-  off + 0.5
-fi_right_y <- -off;     fi_mid_x <-  off + 0.5
+  overlap_top <- max(species_top, fishery_top)
+  overlap_bot <- min(species_bot, fishery_bot)
+  has_overlap <- overlap_bot > overlap_top
 
-targets <- rbind(
-  surface   = at(-surf * 0.8, surf * 0.8, 0),          # far corner of the water plane
-  sp_top    = at(sp_left_x, sp_mid_y, species_top),
-  sp_bot    = at(sp_left_x, sp_mid_y, species_bot),
-  fi_top    = at(fi_mid_x, fi_right_y, fishery_top),
-  fi_bot    = at(fi_mid_x, fi_right_y, fishery_bot),
-  overlap   = at(0, 0, (overlap_top + overlap_bot) / 2),
-  bed       = at(0, 0, seafloor_m),
-  cell      = at(1, 0, 0)
-)
+  # Partition the column into DISJOINT depth bands and draw each exactly once.
+  # The three slabs share one footprint, so drawing them as three overlapping
+  # boxes STACKS their alpha: the band covered by species + fishery + overlap
+  # composites three translucent layers and renders near-opaque, while a band
+  # covered by only one stays light. That is why the transparency looked uneven
+  # between the top, middle, and bottom of the column. Since the slabs are flush,
+  # only the outermost surface is ever visible anyway — so banding is visually
+  # equivalent and gives every band the same, uniform alpha.
+  edges <- sort(unique(c(species_top, species_bot, fishery_top, fishery_bot)))
+  bands <- data.frame(top = head(edges, -1), bot = tail(edges, -1))
+  bands$mid <- (bands$top + bands$bot) / 2
 
-# Label anchors: left column hjust = 1, right column hjust = 0.
-label_x_left  <- -2.6
-label_x_right <-  2.6
+  # Which features contain each band. Teal where both do (that IS the overlap),
+  # otherwise the single feature's colour; bands inside neither are dropped.
+  in_sp <- bands$mid > species_top & bands$mid < species_bot
+  in_fi <- bands$mid > fishery_top & bands$mid < fishery_bot
+  bands$fill <- ifelse(in_sp & in_fi, col_intersect,
+                ifelse(in_sp, col_species,
+                ifelse(in_fi, col_fishery, NA)))
+  bands <- bands[!is.na(bands$fill) & bands$bot > bands$top, , drop = FALSE]
 
-callouts <- data.frame(
-  key = rownames(targets),
-  label = c(
-    "Sea surface (0 m)",
-    paste0("Upper depth of species (", species_top, " m)"),
-    # Only claim clamping when it actually happened: if the nominal limit is
-    # shallower than this cell's bed, voxelize_range() leaves it alone and the
-    # label would otherwise assert a truncation that never took place.
-    if (species_bot_nominal > seafloor_m) {
+  # Drawn shallowest first, so each band's top face paints over the one above it
+  # and reads as the boundary between them.
+  band_layers <- lapply(seq_len(nrow(bands)), function(i) {
+    geom_iso_box(iso_box(0, 1, 0, 1, bands$top[i], bands$bot[i], bands$fill[i]),
+                 alpha = SLAB_ALPHA)
+  })
+
+  # Sea surface: a translucent plane at z = 0, centred on the cell's middle.
+  water_plane <- iso(cell_mid + c(-surf, surf, surf, -surf),
+                     cell_mid + c(-surf, -surf, surf, surf), rep(0, 4))
+
+  # The cell's seafloor: a thin plate at the bed, capping the column from below.
+  # Its thickness is set in page units and converted back to metres, so it stays
+  # the same visual thickness at any depth rather than vanishing on deep cells.
+  bed_plate <- iso_box(0, 1, 0, 1,
+                       seafloor_m, seafloor_m + 0.03 / VSCALE, col_bed)
+
+  # Guide lines dropping from the cell corners to the bed, so the column the
+  # slabs belong to is unambiguous.
+  corners <- expand.grid(x = c(0, 1), y = c(0, 1))
+  guides <- do.call(rbind, lapply(seq_len(nrow(corners)), function(i) {
+    d <- iso(rep(corners$x[i], 2), rep(corners$y[i], 2), c(0, -seafloor_m))
+    d$grp <- i
+    d
+  }))
+
+  # Leader targets, computed through iso() so they stay pinned to the geometry.
+  at <- function(x, y, depth) iso(x, y, -depth)
+  sp_left_x <- -off;   sp_mid_y <- off + 0.5
+  fi_right_y <- -off;  fi_mid_x <- off + 0.5
+
+  targets <- rbind(
+    surface = at(cell_mid - surf * 0.8, cell_mid + surf * 0.8, 0),
+    sp_top  = at(sp_left_x, sp_mid_y, species_top),
+    sp_bot  = at(sp_left_x, sp_mid_y, species_bot),
+    fi_top  = at(fi_mid_x, fi_right_y, fishery_top),
+    fi_bot  = at(fi_mid_x, fi_right_y, fishery_bot),
+    bed     = at(0, 0, seafloor_m),
+    overlap = at(0, 0, if (has_overlap) (overlap_top + overlap_bot) / 2 else NA)
+  )
+
+  labels <- c(
+    surface = "Sea surface (0 m)",
+    sp_top  = paste0("Upper depth of species (", species_top, " m)"),
+    sp_bot  = if (was_clamped) {
       paste0("Lower depth of species\nclamped to seafloor (", species_bot, " m)")
     } else {
       paste0("Lower depth of species (", species_bot, " m)")
     },
-    paste0("Upper depth of fishery (", fishery_top, " m)"),
-    paste0("Lower depth of fishery (", fishery_bot, " m)"),
-    paste0("Overlap volume (", overlap_top, "-", overlap_bot, " m)"),
-    paste0("Seafloor depth of grid cell (", seafloor_m, " m)"),
-    paste0(cell_label, " grid cell")
-  ),
-  lx = c(label_x_left, label_x_left, label_x_left,
-         label_x_right, label_x_right,
-         label_x_left, label_x_right, label_x_right),
-  ly = c(0.95, -0.75, -2.60,
-         0.35, -1.05,
-         -1.70, -2.90, 1.20),
-  tx = targets$px,
-  ty = targets$py
-)
-callouts$hjust <- ifelse(callouts$lx < 0, 1, 0)
+    fi_top  = paste0("Upper depth of fishery (", fishery_top, " m)"),
+    fi_bot  = paste0("Lower depth of fishery (", fishery_bot, " m)"),
+    bed     = paste0("Seafloor depth of grid cell (", seafloor_m, " m)"),
+    overlap = if (has_overlap) {
+      paste0("Overlap volume (", overlap_top, "-", overlap_bot, " m)")
+    } else NA_character_
+  )
+
+  callouts <- data.frame(
+    key = rownames(targets),
+    label = labels[rownames(targets)],
+    tx = targets$px,
+    ty = targets$py,
+    stringsAsFactors = FALSE
+  )
+  callouts <- callouts[!is.na(callouts$label), ]
+
+  # Vertical span the labels are spread across: the geometry's own extent, with
+  # a little headroom so the topmost label clears the water plane.
+  py_all <- c(water_plane$py, guides$py, bed_plate$py)
+  top <- max(py_all) + 0.35
+  bot <- min(py_all) - 0.35
+
+  callouts$lx <- label_x
+  callouts$hjust <- 0
+  callouts$ly <- spread_labels(callouts$ty, top, bot)
+
+  ggplot() +
+    # Water surface, drawn first so everything else sits over it.
+    geom_polygon(data = water_plane, aes(px, py),
+                 fill = col_water, alpha = 0.28, colour = NA) +
+    # Column guide lines from the cell corners down to the bed.
+    geom_path(data = guides, aes(px, py, group = grp),
+              colour = "grey45", linewidth = 0.25, linetype = "22") +
+    geom_iso_box(bed_plate, alpha = 0.95) +
+    # The species / overlap / fishery bands, every one at the same alpha.
+    band_layers +
+    scale_fill_identity() +
+    # Callout leader lines, then the labels over them. geom_label (rather than
+    # annotate) so label.size = NA is honoured and the boxes stay borderless.
+    geom_segment(data = callouts,
+                 aes(x = lx, xend = tx, y = ly, yend = ty),
+                 colour = "grey30", linewidth = 0.3) +
+    geom_label(data = callouts,
+               aes(x = lx, y = ly, label = label, hjust = hjust),
+               size = 4.1, label.size = NA, fill = "white", alpha = 0.85,
+               lineheight = 0.95) +
+    coord_equal(xlim = PANEL_XLIM, ylim = PANEL_YLIM, clip = "off") +
+    labs(title = title) +
+    theme_void(base_size = 13) +
+    theme(
+      plot.title.position = "plot",
+      plot.title = element_text(face = "bold", size = 15),
+      # Nearly all the slack goes to the right, where the label stack lives.
+      plot.margin = margin(10, 150, 10, 15)
+    )
+}
 ```
 
+### Panel B: the deep cell
+
+The cell Panel A highlights sits in deep water, so the species' 250 m lower
+limit is shallower than the bed and `voxelize_range()` leaves it untouched. The
+fishery stops well above the seafloor, leaving a thick depth refuge below it.
+
 ```{r panel-b}
-p_column <- ggplot() +
-  # Water surface, drawn first so everything else sits over it.
-  geom_polygon(data = water_plane, aes(px, py),
-               fill = col_water, alpha = 0.28, colour = NA) +
-  # Column guide lines from the surface cell corners down to the bed.
-  geom_path(data = guides, aes(px, py, group = grp),
-            colour = "grey45", linewidth = 0.25, linetype = "22") +
-  # Seafloor plate.
-  geom_iso_box(bed_plate, alpha = 0.95) +
-  # Fishery is furthest from the viewer, so it goes down first.
-  geom_iso_box(box_fishery, alpha = 0.45) +
-  geom_iso_box(box_species, alpha = 0.45) +
-  # The intersection last and most opaque: it is the point of the figure.
-  geom_iso_box(box_overlap, alpha = 0.80) +
-  # Cell footprint at the surface.
-  # geom_polygon(data = surface_cell, aes(px, py),
-  #              fill = "#3ce8dc", alpha = 0.75,
-  #              colour = "#0f6b66", linewidth = 0.5) +
-  scale_fill_identity() +
-  # Callout leader lines, then the labels over them. geom_label (rather than
-  # annotate) so label.size = NA is honoured and the boxes stay borderless.
-  geom_segment(data = callouts,
-               aes(x = lx, xend = tx, y = ly, yend = ty),
-               colour = "grey30", linewidth = 0.3) +
-  geom_label(data = callouts,
-             aes(x = lx, y = ly, label = label, hjust = hjust),
-             size = 3, label.size = NA, fill = "white", alpha = 0.85,
-             lineheight = 0.95) +
-  coord_equal(clip = "off") +
-  labs(title = "B. Depth overlap within one grid cell") +
-  theme_void(base_size = 11) +
-  theme(
-    plot.title.position = "plot",
-    plot.title = element_text(face = "bold", size = 12),
-    plot.margin = margin(10, 90, 10, 90)
-  )
+p_column <- column_panel(
+  seafloor_m          = seafloor_m,
+  species_top         = species_top,
+  species_bot_nominal = species_bot_nominal,
+  fishery_top         = fishery_top,
+  fishery_bot         = fishery_bot,
+  title               = "B. Deep cell: species sits clear of the seafloor",
+  cell_label          = cell_label
+)
 p_column
+```
+
+### Panel C: a shallow cell, where clamping bites
+
+Panel B alone does not show the behaviour that most shapes the Bangladesh
+results. On the shallow continental shelf the seafloor is often shallower than a
+species' stated lower depth limit, and `voxelize_range()` truncates the range at
+the bed — which is exactly why this package's volumes come out below the
+original hexagonal-grid analysis (see the vignette's Step 4).
+
+Panel C makes that case explicit with a **hardcoded 200 m bed**. It is not read
+from the bathymetry: the point is to hold the species and fishery identical to
+Panel B and vary only the seafloor, so the difference between the panels is
+attributable to the clamp and nothing else. Against a 200 m bed the same 250 m
+species limit *is* truncated, and the fishery reaches the seabed.
+
+```{r panel-c}
+p_column_shallow <- column_panel(
+  seafloor_m          = shallow_seafloor_m,
+  species_top         = species_top,
+  species_bot_nominal = species_bot_nominal,
+  fishery_top         = fishery_top,
+  fishery_bot         = fishery_bot,
+  title               = "C. Shallow cell: species range clamped to the seafloor",
+  cell_label          = cell_label
+)
+p_column_shallow
 ```
 
 ## Composing the figure
 
 The map carries the inset in its upper-right corner via
-`patchwork::inset_element()`, then sits beside the isometric panel. The two get
-roughly equal width, as in the manuscript layout.
+`patchwork::inset_element()`, then the three panels run left to right in a
+single row. B and C share one vertical scale, so the shallower cell in C reads
+as genuinely shorter than B rather than merely relabelled — which is easier to
+judge side by side than stacked.
 
-```{r compose-figure, fig.width = 14, fig.height = 8}
+```{r compose-figure, fig.width = 20, fig.height = 8}
 p_map_inset <- p_map +
   inset_element(p_inset, left = 0.52, bottom = 0.62, right = 0.99, top = 0.99)
 
-fig_overlap_schematic <- (p_map_inset | p_column) +
-  plot_layout(widths = c(1, 1.05))
+fig_overlap_schematic <- (p_map_inset | p_column | p_column_shallow) +
+  plot_layout(widths = c(1.1, 1, 1))
 fig_overlap_schematic
 
 # Always write into the figures/ directory, whether render runs from the project
@@ -552,19 +689,21 @@ fig_dir <- if (basename(getwd()) == "figures") "." else "figures"
 ggsave(
   filename = file.path(fig_dir, "fig-overlap-schematic_raw.pdf"),
   plot = fig_overlap_schematic,
-  width = 14, height = 8, dpi = 300, bg = "white"
+  width = 20, height = 8, dpi = 300, bg = "white"
 )
 ggsave(
   filename = file.path(fig_dir, "fig-overlap-schematic_raw.png"),
   plot = fig_overlap_schematic,
-  width = 14, height = 8, dpi = 300, bg = "white"
+  width = 20, height = 8, dpi = 300, bg = "white"
 )
 ```
 
 `fig-overlap-schematic_raw.pdf` is the raw export; hand-edit it in Inkscape to
 produce the final `fig-overlap-schematic.pdf` / `.png` used in the manuscript.
-The callout label positions in `iso-annotations` are tuned by eye and are the
-most likely thing to need nudging there.
+Callout labels are spread automatically down each side of a panel by
+`spread_labels()`, so they rarely collide. The knobs most likely to want nudging
+in Inkscape are `label_x` (how far the stack sits from the drawing),
+`COLUMN_HEIGHT` (vertical exaggeration), and the view angle.
 
 ## Recap
 
