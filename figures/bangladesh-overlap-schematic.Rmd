@@ -1,0 +1,585 @@
+---
+title: "Visualizing 2.5D Species-Fishery Overlap in a Raster Cell"
+output: html_document
+---
+
+<!--
+This is NOT a package vignette. It is the source that builds the conceptual
+schematic for the Bangladesh analysis (figures/fig-overlap-schematic.png). It
+lives in figures/ and is excluded from the built package via .Rbuildignore.
+Render it to regenerate the figure (ggsave writes into figures/ whether run from
+the project root or here); it depends on tidyterra, patchwork, and sf, plus the
+GEBCO and World EEZ files referenced in the Bangladesh vignette.
+
+Supersedes an earlier hexagonal-grid version of this schematic. The analysis it
+illustrates is vignettes/bangladesh-fisheries-3d-overlap.Rmd.
+-->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Visualizing 2.5D Species-Fishery Overlap in a Raster Cell
+
+The Bangladesh analysis
+(`vignettes/bangladesh-fisheries-3d-overlap.Rmd`) measures the overlap between a
+species and a fishery as a **volume**, one grid cell at a time. This document
+builds the two-panel schematic that explains how, with a synthetic species and
+fishery so the geometry is easy to read.
+
+The representation is **2.5D**, not a stack of cubes: the study area is
+discretized *horizontally* into square cells, but each cell stores a single
+**continuous** depth interval per feature. Volumes are exact interval
+arithmetic, not a count of occupied depth bins.
+
+- **Panel A** — the study area. The Bangladesh EEZ on a Lambert Azimuthal Equal
+  Area grid, each cell carrying its seafloor depth from GEBCO. An inset zooms in
+  far enough to resolve individual square cells and highlights the one Panel B
+  dissects.
+- **Panel B** — that single cell's water column, drawn in isometric projection:
+  the species depth interval, the fishery depth interval, and the intersection
+  that `calc_volume_overlap()` returns.
+
+The three quantities Panel B shows are exactly the ones the analysis computes:
+
+| Panel B element | Analysis quantity |
+|---|---|
+| Purple slab | `depth_min` / `depth_max` from `voxelize_range()` for the species |
+| Yellow slab | Same, for the fishery (after the 3 m tidal correction) |
+| Teal slab | `depth_min_overlap` / `depth_max_overlap` from `calc_volume_overlap()` |
+| Slab footprint | Cell area from `terra::cellSize()` |
+| Blue floor | Seafloor depth, which truncates every slab from below |
+
+## Setup
+
+```{r setup}
+# devtools::load_all()
+library(sharkabc3d)
+library(terra)
+library(sf)
+library(dplyr)
+library(ggplot2)
+library(tidyterra)
+library(patchwork)
+
+sf::sf_use_s2(FALSE)
+```
+
+## Panel A: the study area grid
+
+We rebuild the study grid the way the Bangladesh vignette does, so the schematic
+describes the real analysis rather than an idealisation of it: the same GEBCO
+release, the same EEZ polygon, and the same equal-area projection. The one
+deliberate departure is the cell size — the analysis runs at 1000 m, but the
+figure uses a coarser grid so that individual cells are visible in the inset.
+That is a legibility choice, not a change to the method.
+
+```{r study-grid}
+bathy <- load_bathymetry(
+  "~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"
+)
+
+bangladesh_eez <- sf::st_read(
+  "~/Programming_Projects/Big_Data/World_EEZ_v12_20231025/eez_v12.shp",
+  query = "SELECT * FROM eez_v12 WHERE TERRITORY1 = 'Bangladesh'",
+  quiet = TRUE
+) %>% rename(geometry = "_ogr_geometry_")
+
+# Lambert Azimuthal Equal Area centred on Bangladesh waters: this is what makes
+# every cell the same size on the ground, and so what licenses treating
+# the cell area as a constant when converting depth intervals to volumes.
+bangladesh_crs <- "+proj=laea +lat_0=22 +lon_0=90 +datum=WGS84 +units=m"
+
+# Grid resolution in metres. The Bangladesh analysis runs at 1000 m; this figure
+# is free to use a coarser grid, because at 1 km the cells are far too small to
+# resolve in the inset. Everything downstream — the highlighted cell footprint,
+# the inset window, the cell area used for the volume arithmetic, and the panel
+# labels — derives from this one number, so changing it here keeps the whole
+# figure self-consistent.
+grid_res <- 10000
+
+study_grid <- create_study_raster(
+  layers = list(bangladesh_eez),
+  res = grid_res,
+  crs = bangladesh_crs
+)
+
+# Crop before projecting so we never reproject the full global GEBCO grid.
+# terra::project() resamples bilinearly by default, so each cell takes an
+# interpolated seafloor depth rather than the mean of the ~450 m GEBCO cells it
+# contains. clamp(lower = 0) puts land at zero depth.
+bathy_crop <- terra::crop(bathy, terra::vect(bangladesh_eez))
+seafloor <- terra::project(bathy_crop, study_grid)
+seafloor <- terra::clamp(-seafloor, lower = 0)
+
+# Mask to the EEZ: the analysis extent is the EEZ polygon, not the grid's
+# bounding box, and the figure should show the same footprint.
+eez_proj <- sf::st_transform(bangladesh_eez, bangladesh_crs)
+seafloor_eez <- terra::mask(seafloor, terra::vect(eez_proj))
+names(seafloor_eez) <- "depth"
+
+# Read the realised cell size back off the raster rather than trusting
+# `grid_res`: create_study_raster() fits whole cells to the layer extent, so the
+# result can differ slightly from the requested resolution. These drive the
+# highlighted cell, the inset window, and every "N km" label in the figure.
+cell_dx <- terra::res(seafloor_eez)[1]
+cell_dy <- terra::res(seafloor_eez)[2]
+
+# Label for the cell size. Written as km when the cells are at least 1 km, and
+# dropped to a whole number when it is one (so "10 km", not "10.0 km").
+cell_label <- paste0(round(cell_dx / 1000, digits = 0), " km")
+cell_area_km2 <- (cell_dx / 1000) * (cell_dy / 1000)
+
+c(cell_dx = cell_dx, cell_dy = cell_dy, cell_area_km2 = cell_area_km2)
+```
+
+### Choosing the cell to dissect
+
+Panel B needs one cell, and the two panels should agree: the seafloor depth
+drawn in Panel B is read from the very cell the inset highlights. We pick a
+mid-shelf cell — deep enough that a fishery does not reach the seabed, shallow
+enough that the species' nominal lower limit gets truncated — because that is
+the case worth explaining.
+
+```{r focus-cell}
+# A point on the mid shelf, in lon/lat, projected onto the study grid.
+focus_lonlat <- sf::st_sfc(sf::st_point(c(90.5, 20.1)), crs = 4326)
+focus_xy <- sf::st_coordinates(sf::st_transform(focus_lonlat, bangladesh_crs))
+
+focus_cell <- terra::cellFromXY(seafloor_eez, focus_xy)
+focus_centre <- terra::xyFromCell(seafloor_eez, focus_cell)
+focus_depth <- terra::extract(seafloor_eez, focus_cell)[["depth"]]
+
+# Round for the schematic: this is a conceptual figure, not a data readout.
+focus_depth <- round(focus_depth / 10) * 10
+focus_depth
+#> [1] 450        # at grid_res = 10000; ~400 m at the analysis's 1000 m
+
+# Footprint of the highlighted cell, as a polygon for both the inset and the
+# leader line from Panel A to Panel B. Built from half a cell either side of the
+# cell centre, so it tracks the grid resolution instead of assuming one.
+focus_poly <- terra::as.polygons(
+  terra::ext(
+    focus_centre[1] - cell_dx / 2, focus_centre[1] + cell_dx / 2,
+    focus_centre[2] - cell_dy / 2, focus_centre[2] + cell_dy / 2
+  )
+) |> sf::st_as_sf()
+sf::st_crs(focus_poly) <- bangladesh_crs
+```
+
+### The full-extent map
+
+At the full extent of the EEZ the cells are at or below pixel size, so we draw
+the seafloor raster directly rather than thousands of cell polygons.
+`coord_sf(datum = ...)` keeps the plot in the equal-area projection while
+drawing a familiar lon/lat graticule.
+
+```{r map-full}
+# Box marking the region the inset magnifies. Sized in CELLS, not metres, so the
+# inset always shows a legible number of them however the grid is resolved.
+inset_cells <- 12
+inset_ext <- terra::ext(
+  focus_centre[1] - inset_cells / 2 * cell_dx,
+  focus_centre[1] + inset_cells / 2 * cell_dx,
+  focus_centre[2] - inset_cells / 2 * cell_dy,
+  focus_centre[2] + inset_cells / 2 * cell_dy
+)
+inset_box <- sf::st_as_sf(terra::as.polygons(inset_ext))
+sf::st_crs(inset_box) <- bangladesh_crs
+
+depth_fill <- scale_fill_gradientn(
+  name = "Seafloor\ndepth (m)",
+  colours = c("#bcdcf5", "#4191d2", "#2166ac", "#0a2850"),
+  na.value = "transparent",
+  trans = "reverse"          # shallow pale at the top of the legend
+)
+
+p_map <- ggplot() +
+  geom_sf(data = eez_proj, fill = "grey97", colour = "grey60",
+          linewidth = 0.3, linetype = "dashed") +
+  geom_spatraster(data = seafloor_eez) +
+  depth_fill +
+  geom_sf(data = inset_box, fill = NA, colour = "grey15", linewidth = 0.5) +
+  geom_sf(data = focus_poly, fill = NA, colour = "#21918c", linewidth = 0.6) +
+  coord_sf(datum = sf::st_crs(4326), expand = FALSE) +
+  labs(title = paste0("A. Study area: ", cell_label, " equal-area grid")) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.major = element_line(colour = "grey90", linewidth = 0.2),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.8),
+    axis.title = element_blank(),
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 12),
+    legend.position = "inside",
+    legend.position.inside = c(0.82, 0.18),
+    legend.background = element_rect(fill = "white", colour = "grey70"),
+    legend.key.height = unit(0.9, "cm")
+  )
+p_map
+```
+
+### The inset: individual cells
+
+Zoomed to a window a dozen cells across, the cells resolve. Here we *do* draw them as
+polygons, with their boundaries visible, because the whole point of the inset is
+that the grid is square and discrete — the single change from the earlier
+hexagonal version of this analysis.
+
+```{r map-inset}
+inset_rast <- terra::crop(seafloor_eez, inset_ext)
+
+# One polygon per cell, boundaries drawn. aggregate = FALSE keeps cells separate
+# instead of dissolving equal-valued neighbours into one shape.
+inset_cells <- terra::as.polygons(inset_rast, aggregate = FALSE, na.rm = TRUE) |>
+  sf::st_as_sf()
+
+p_inset <- ggplot() +
+  geom_sf(data = inset_cells, aes(fill = depth),
+          colour = "grey20", linewidth = 0.08) +
+  depth_fill +
+  geom_sf(data = focus_poly, fill = NA, colour = "#3ce8dc", linewidth = 1.1) +
+  coord_sf(expand = FALSE) +
+  theme_void() +
+  theme(
+    legend.position = "none",
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 0.8)
+  )
+p_inset
+```
+
+## Panel B: the water column of one cell
+
+Panel B is an isometric drawing, built from ggplot polygons rather than a
+rendered 3D scene. Two reasons: the slabs are translucent and deliberately
+interpenetrating, which path tracers render unpredictably; and a polygon plot
+exports as vector art, so the callout labels stay editable when the figure is
+finished in Inkscape.
+
+### Isometric projection helpers
+
+An isometric view maps a 3D point to the page by shearing the two horizontal
+axes apart and letting depth run straight up and down. Increasing `x` moves
+right-and-back, increasing `y` moves left-and-back, and `z` (negative below the
+sea surface) moves straight down. The viewer therefore sits over the
+low-`x`, low-`y` corner and sees each box's top face plus its two near sides.
+
+```{r iso-helpers}
+ISO_C <- cos(pi / 6)   # horizontal shear of the x/y axes
+ISO_S <- sin(pi / 6)   # vertical  shear of the x/y axes
+
+# Page units per metre of depth. The cell footprint is 1 unit wide while the
+# column is hundreds of metres deep, so depth has to be compressed hard or the
+# drawing becomes a needle. Derived from the cell's actual depth rather than
+# fixed, so the column keeps the same on-page height whatever bathymetry the
+# focus cell turns out to have — this cell is ~450 m at 10 km resolution and
+# ~400 m at the analysis's 1 km, and a hardcoded scale would misdraw both.
+COLUMN_HEIGHT <- 3.2                     # target height of the column, in page units
+VSCALE <- COLUMN_HEIGHT / focus_depth
+
+iso <- function(x, y, z) {
+  data.frame(
+    px = (x - y) * ISO_C,
+    py = (x + y) * ISO_S + z * VSCALE
+  )
+}
+
+# Darken a colour toward black; used to shade the three visible faces of a box
+# so it reads as a solid rather than a flat silhouette.
+darken <- function(col, f) {
+  grDevices::rgb(t(grDevices::col2rgb(col) * f), maxColorValue = 255)
+}
+
+# The three visible faces of an axis-aligned box, as a polygon data frame.
+# z_top and z_bot are depths in metres below the surface (positive down); the
+# box spans from z_top down to z_bot.
+iso_box <- function(x0, x1, y0, y1, z_top, z_bot, colour) {
+  zt <- -z_top
+  zb <- -z_bot
+
+  face <- function(pts, shade, id) {
+    d <- iso(pts[, 1], pts[, 2], pts[, 3])
+    d$grp <- id
+    d$fill <- darken(colour, shade)
+    d
+  }
+
+  rbind(
+    # Top face: brightest.
+    face(cbind(c(x0, x1, x1, x0), c(y0, y0, y1, y1), rep(zt, 4)), 1.00, "top"),
+    # y = y0 face, falling away to the right of the viewer.
+    face(cbind(c(x0, x1, x1, x0), rep(y0, 4), c(zb, zb, zt, zt)), 0.82, "right"),
+    # x = x0 face, falling away to the left of the viewer.
+    face(cbind(rep(x0, 4), c(y0, y1, y1, y0), c(zb, zb, zt, zt)), 0.64, "left")
+  )
+}
+
+# Draw one box as three shaded polygons at a fixed transparency.
+geom_iso_box <- function(box, alpha = 0.55) {
+  geom_polygon(
+    data = box,
+    aes(x = px, y = py, group = grp, fill = fill),
+    alpha = alpha, colour = "grey25", linewidth = 0.2
+  )
+}
+```
+
+### The synthetic depth ranges
+
+The depths below are invented for legibility; only the seafloor depth is real,
+read from the highlighted cell in Panel A. They are chosen to show the two
+behaviours that matter in the analysis:
+
+1. The species' nominal lower limit is compared against the seafloor, and
+   `voxelize_range()` truncates it at the bed when it is deeper. Whether that
+   bites depends on the cell: this one is ~450 m, so a 250 m limit is **not**
+   clamped. Raise `species_bot_nominal` past the seafloor depth to show the
+   truncation, which is the behaviour the panel is meant to illustrate.
+2. The fishery works the full water column down to the bed, so it encloses the
+   species' whole depth range. The intersection is therefore the entire species
+   interval: this cell offers **no depth refuge**, and the species is fully
+   exposed to the gear where the two footprints meet.
+
+```{r depth-ranges}
+seafloor_m <- focus_depth        # from Panel A's highlighted cell (450 m here)
+
+species_top <- 80
+species_bot_nominal <- 250                            # IUCN / study depth limit
+species_bot <- min(species_bot_nominal, seafloor_m)   # clamped by voxelize_range()
+
+fishery_top <- 0
+fishery_bot <- 120
+
+# The intersection calc_volume_overlap() computes: interval arithmetic on the
+# two already-clamped intervals.
+overlap_top <- max(species_top, fishery_top)
+overlap_bot <- min(species_bot, fishery_bot)
+overlap_thickness <- max(0, overlap_bot - overlap_top)
+
+c(species = species_bot - species_top,
+  fishery = fishery_bot - fishery_top,
+  overlap = overlap_thickness)
+#>  species  fishery  overlap
+#>      170      120       40
+
+# Volumes, in the km^3 the analysis reports: the cell's footprint area times the
+# interval thickness expressed in km. cell_area_km2 comes from the study grid
+# above, so these track the chosen resolution.
+c(species_km3 = cell_area_km2 * (species_bot - species_top) / 1000,
+  overlap_km3 = cell_area_km2 * overlap_thickness / 1000)
+```
+
+### Assembling the scene
+
+The three slabs share the cell's footprint but are offset horizontally so
+all three stay visible — an exploded view, not a claim that they occupy
+different ground. The overlap slab is drawn last and least transparent, since it
+is the quantity the figure exists to explain.
+
+```{r iso-scene}
+col_species   <- "#7b52ab"   # purple, matching the vignette's overlap maps
+col_fishery   <- "#e8d54a"   # yellow
+col_intersect <- "#21918c"   # teal
+col_water     <- "#7fb2e5"
+col_bed       <- "#3b5aa0"
+
+# How far the species and fishery slabs are pulled apart. The offsets must be
+# OPPOSED in x and y: this projection has px = (x - y) * ISO_C, so shifting both
+# axes by the same amount moves a box straight up the page and separates nothing.
+# Shifting -x/+y sends the species left, +x/-y sends the fishery right, and both
+# stay at the same height because py depends on (x + y), which is unchanged.
+#
+# At off = 0 all three slabs share one footprint exactly, which is geometrically
+# truthful but hides the intersection inside the other two. Raise this to pull
+# the species left and the fishery right and expose the overlap slab between.
+off <- 0
+
+box_species <- iso_box(-off, 1 - off,  off, 1 + off,
+                       species_top, species_bot, col_species)
+box_fishery <- iso_box( off, 1 + off, -off, 1 - off,
+                       fishery_top, fishery_bot, col_fishery)
+box_overlap <- iso_box(0, 1, 0, 1,
+                       overlap_top, overlap_bot, col_intersect)
+
+# The sea surface: a translucent plane at z = 0. Its projected half-width is
+# surf * 2 * ISO_C, so keep it modest or the plane dwarfs the column.
+surf <- 1.5
+water_plane <- iso(c(-surf, surf, surf, -surf),
+                   c(-surf, -surf, surf, surf), rep(0, 4))
+
+# The cell's seafloor: a thin plate at the bed, capping the column from below.
+bed_plate <- iso_box(0, 1, 0, 1, seafloor_m, seafloor_m + 4, col_bed)
+
+# The cell footprint at the surface, and guide lines dropping from its corners
+# to the bed, so the column the slabs belong to is unambiguous.
+surface_cell <- iso(c(0, 1, 1, 0), c(0, 0, 1, 1), rep(0, 4))
+
+corners <- expand.grid(x = c(0, 1), y = c(0, 1))
+guides <- do.call(rbind, lapply(seq_len(nrow(corners)), function(i) {
+  d <- iso(rep(corners$x[i], 2), rep(corners$y[i], 2), c(0, -seafloor_m))
+  d$grp <- i
+  d
+}))
+```
+
+### Callouts
+
+Each element gets a label anchored off to one side with a leader line running to
+the feature it names, as in the manuscript figure. There is no separate depth
+axis: the depths are carried in the label text instead, which keeps the drawing
+uncluttered and avoids an axis colliding with the callouts.
+
+Because the projection maps a 3D point to the page, target points are computed
+with `iso()` rather than guessed — that way they stay attached to the geometry if
+the depths or offsets above are changed. Label anchors are still tuned by eye.
+
+```{r iso-annotations}
+# Helper: a point on the geometry, in page coordinates.
+at <- function(x, y, depth) iso(x, y, -depth)
+
+# Mid-edge of each slab's visible near face, used as leader targets: the species
+# slab is read off its left face (x = -off), the fishery off its right face
+# (y = -off).
+sp_left_x <- -off;      sp_mid_y <-  off + 0.5
+fi_right_y <- -off;     fi_mid_x <-  off + 0.5
+
+targets <- rbind(
+  surface   = at(-surf * 0.8, surf * 0.8, 0),          # far corner of the water plane
+  sp_top    = at(sp_left_x, sp_mid_y, species_top),
+  sp_bot    = at(sp_left_x, sp_mid_y, species_bot),
+  fi_top    = at(fi_mid_x, fi_right_y, fishery_top),
+  fi_bot    = at(fi_mid_x, fi_right_y, fishery_bot),
+  overlap   = at(0, 0, (overlap_top + overlap_bot) / 2),
+  bed       = at(0, 0, seafloor_m),
+  cell      = at(1, 0, 0)
+)
+
+# Label anchors: left column hjust = 1, right column hjust = 0.
+label_x_left  <- -2.6
+label_x_right <-  2.6
+
+callouts <- data.frame(
+  key = rownames(targets),
+  label = c(
+    "Sea surface (0 m)",
+    paste0("Upper depth of species (", species_top, " m)"),
+    # Only claim clamping when it actually happened: if the nominal limit is
+    # shallower than this cell's bed, voxelize_range() leaves it alone and the
+    # label would otherwise assert a truncation that never took place.
+    if (species_bot_nominal > seafloor_m) {
+      paste0("Lower depth of species\nclamped to seafloor (", species_bot, " m)")
+    } else {
+      paste0("Lower depth of species (", species_bot, " m)")
+    },
+    paste0("Upper depth of fishery (", fishery_top, " m)"),
+    paste0("Lower depth of fishery (", fishery_bot, " m)"),
+    paste0("Overlap volume (", overlap_top, "-", overlap_bot, " m)"),
+    paste0("Seafloor depth of grid cell (", seafloor_m, " m)"),
+    paste0(cell_label, " grid cell")
+  ),
+  lx = c(label_x_left, label_x_left, label_x_left,
+         label_x_right, label_x_right,
+         label_x_left, label_x_right, label_x_right),
+  ly = c(0.95, -0.75, -2.60,
+         0.35, -1.05,
+         -1.70, -2.90, 1.20),
+  tx = targets$px,
+  ty = targets$py
+)
+callouts$hjust <- ifelse(callouts$lx < 0, 1, 0)
+```
+
+```{r panel-b}
+p_column <- ggplot() +
+  # Water surface, drawn first so everything else sits over it.
+  geom_polygon(data = water_plane, aes(px, py),
+               fill = col_water, alpha = 0.28, colour = NA) +
+  # Column guide lines from the surface cell corners down to the bed.
+  geom_path(data = guides, aes(px, py, group = grp),
+            colour = "grey45", linewidth = 0.25, linetype = "22") +
+  # Seafloor plate.
+  geom_iso_box(bed_plate, alpha = 0.95) +
+  # Fishery is furthest from the viewer, so it goes down first.
+  geom_iso_box(box_fishery, alpha = 0.45) +
+  geom_iso_box(box_species, alpha = 0.45) +
+  # The intersection last and most opaque: it is the point of the figure.
+  geom_iso_box(box_overlap, alpha = 0.80) +
+  # Cell footprint at the surface.
+  # geom_polygon(data = surface_cell, aes(px, py),
+  #              fill = "#3ce8dc", alpha = 0.75,
+  #              colour = "#0f6b66", linewidth = 0.5) +
+  scale_fill_identity() +
+  # Callout leader lines, then the labels over them. geom_label (rather than
+  # annotate) so label.size = NA is honoured and the boxes stay borderless.
+  geom_segment(data = callouts,
+               aes(x = lx, xend = tx, y = ly, yend = ty),
+               colour = "grey30", linewidth = 0.3) +
+  geom_label(data = callouts,
+             aes(x = lx, y = ly, label = label, hjust = hjust),
+             size = 3, label.size = NA, fill = "white", alpha = 0.85,
+             lineheight = 0.95) +
+  coord_equal(clip = "off") +
+  labs(title = "B. Depth overlap within one grid cell") +
+  theme_void(base_size = 11) +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text(face = "bold", size = 12),
+    plot.margin = margin(10, 90, 10, 90)
+  )
+p_column
+```
+
+## Composing the figure
+
+The map carries the inset in its upper-right corner via
+`patchwork::inset_element()`, then sits beside the isometric panel. The two get
+roughly equal width, as in the manuscript layout.
+
+```{r compose-figure, fig.width = 14, fig.height = 8}
+p_map_inset <- p_map +
+  inset_element(p_inset, left = 0.52, bottom = 0.62, right = 0.99, top = 0.99)
+
+fig_overlap_schematic <- (p_map_inset | p_column) +
+  plot_layout(widths = c(1, 1.05))
+fig_overlap_schematic
+
+# Always write into the figures/ directory, whether render runs from the project
+# root or from figures/ itself.
+fig_dir <- if (basename(getwd()) == "figures") "." else "figures"
+ggsave(
+  filename = file.path(fig_dir, "fig-overlap-schematic_raw.pdf"),
+  plot = fig_overlap_schematic,
+  width = 14, height = 8, dpi = 300, bg = "white"
+)
+ggsave(
+  filename = file.path(fig_dir, "fig-overlap-schematic_raw.png"),
+  plot = fig_overlap_schematic,
+  width = 14, height = 8, dpi = 300, bg = "white"
+)
+```
+
+`fig-overlap-schematic_raw.pdf` is the raw export; hand-edit it in Inkscape to
+produce the final `fig-overlap-schematic.pdf` / `.png` used in the manuscript.
+The callout label positions in `iso-annotations` are tuned by eye and are the
+most likely thing to need nudging there.
+
+## Recap
+
+- The grid is **square** and equal-area — the change from the earlier
+  hexagonal version of this analysis.
+- Each cell holds one **continuous** depth interval per feature. Nothing is
+  snapped to standard depth levels; the vertical dimension is analytical, and
+  only the horizontal is discretized. That is what makes the model 2.5D rather
+  than a true voxel stack.
+- `voxelize_range()` truncates every interval at the cell's seafloor before any
+  overlap is computed. Whether that truncation is visible in Panel B depends on
+  the focus cell: it bites only when the nominal limit is deeper than that
+  cell's bed.
+- `calc_volume_overlap()` intersects the two clamped intervals and multiplies
+  the resulting thickness by the cell area. Summed over cells, that is the
+  overlap volume the analysis reports.
+- The gap between the teal slab and the seafloor is the **depth refuge**: water
+  the species occupies that the fishery does not reach.
