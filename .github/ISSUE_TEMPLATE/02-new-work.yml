@@ -1,0 +1,63 @@
+name: New function or capability
+description: Propose or claim a function, data source, or analysis to add
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is the record of the work's status. Please assign yourself
+        before you start coding — see
+        [CONTRIBUTING.md](../../blob/main/CONTRIBUTING.md#branching-and-coordination).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What analysis problem does this solve?
+      description: What can't you do today with the package as it stands?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed function(s) and signature
+      description: Include the return value.
+      render: r
+      placeholder: |
+        function_name(arg, another_arg = default)
+        # returns: what the caller gets back, and in what units
+    validations:
+      required: true
+
+  - type: textarea
+    id: prior-work
+    attributes:
+      label: Prior work or SPEC entry
+      description: >
+        An existing script, paper, or prior lab analysis this would be generalised
+        from. Source material
+        from prior analyses is not in this repo — ask the maintainer if you need it.
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+      description: What synthetic inputs will you construct? Tests must not need external data, keys, or network.
+    validations:
+      required: true
+
+  - type: input
+    id: deps
+    attributes:
+      label: New dependencies required
+      description: The package is already dependency-heavy; list any new ones and why they're necessary.
+      placeholder: "none"
+
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Data access
+      options:
+        - label: I have all the data I need to do this work
+        - label: I am blocked on a dataset I don't have access to (also add the `needs-data` label)

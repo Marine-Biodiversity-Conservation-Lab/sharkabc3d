@@ -1,0 +1,51 @@
+name: Test coverage
+description: Add or improve tests, with no change in behaviour
+title: "[test] "
+labels: ["test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tests must run with **no external data, API keys, or network** — build
+        small synthetic `SpatRaster`/`sf` objects in the test itself. See
+        `tests/testthat/test-volume.R` for the pattern. HTTP-backed tests replay
+        `vcr` cassettes from `tests/testthat/_vcr/`.
+
+        Branch as `test/<issue-number>-<slug>`. If you find a bug while writing
+        the test, open a separate bug report and link it.
+
+  - type: input
+    id: target
+    attributes:
+      label: What is under-tested?
+      placeholder: "Which file or function, and what is missing"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - volume (R/volume.R, R/load_data.R)
+        - environment (R/extract.R, R/woa.R)
+        - fisheries (R/gfw.R)
+        - species data (R/iucn_utils.R)
+        - plotting (R/plot.R)
+        - test infrastructure (helpers, cassettes, fixtures)
+    validations:
+      required: true
+
+  - type: textarea
+    id: cases
+    attributes:
+      label: Which cases will you cover?
+      description: Happy path, input-validation errors, and at least one edge case.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fixtures
+    attributes:
+      label: Synthetic inputs needed
+      description: What will you construct, and does any of it belong in a shared helper?

@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**sharkabc3d** (Shark and Ray Abiotic Covariates in 3 Dimensions) — an R package for 3D marine spatial analysis of sharks, rays, and chimaeras. Enables depth-aware volume overlap calculations between species ranges, fisheries, MPAs, and environmental rasters.
+**sharkabc3d** (Shark and Ray Abiotic Covariates in 3 Dimensions) — an R package for 3D marine spatial analysis of sharks, rays, and chimaeras. Enables depth-aware volume overlap calculations between species ranges, fisheries, and environmental rasters.
 
-Target: presentation at Sharks International 2026 (May 1st deadline).
+Goal: generalise the lab's previous 3D spatial analyses into a reusable, tested, documented R package.
 
 ## R Version
 
@@ -61,10 +61,13 @@ load_bathymetry() + species polygons → voxelize_range() → calc_volume() / ca
 woa_load_nc() → extract_rast_volume() → summarise_species_environment()
 ```
 
-### Priority tiers (see SPEC.md for full details)
+### Where things are tracked
 
-- **P1**: Volume calculation pipeline, environmental extraction, WOA utilities, visualization — needed for Sharks International
-- **P2**: 2D area overlap (MPA analysis), geometry utilities, data source helpers (Copernicus, WDPA, MPAtlas)
+- `SPEC.md` — design rationale, conventions, and specs for **unbuilt** work. Not a status tracker; it has no per-function checkboxes. If a change departs from a spec or sets a new convention, record it under *Design decisions and deviations*.
+- GitHub issues — what is in flight, who has it, and priority.
+- `man/` + `NAMESPACE` — the authoritative list of what exists.
+
+The core pipeline is built. Remaining planned work (all secondary priority): geometry utilities, `load_eez()`, species summary metrics, `plot_cross_section()`, Copernicus helpers, and retiring `woa_nc_extract()`.
 
 ### Key directories
 

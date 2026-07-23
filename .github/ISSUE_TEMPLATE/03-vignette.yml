@@ -1,0 +1,53 @@
+name: Vignette / worked analysis
+description: Reproduce an analysis end-to-end as a long-form vignette
+title: "[vignette] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vignettes reproduce real analyses end-to-end. Structure them as:
+        study question → data loading → analysis → figures → interpretation.
+        Branch as `vignette/<issue-number>-<slug>`.
+
+  - type: input
+    id: analysis
+    attributes:
+      label: Which analysis?
+      placeholder: "Short name of the analysis, and the paper or project it comes from"
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Study question and what the reader should learn
+    validations:
+      required: true
+
+  - type: textarea
+    id: functions
+    attributes:
+      label: Which package functions does it exercise?
+      description: >
+        Vignettes are our main integration test of the public API. Note any gap
+        where you'd need a function that doesn't exist yet — that's a separate
+        issue, link it here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Data required
+      description: Which datasets, and is each public? See the Data setup table in CONTRIBUTING.md.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Conventions
+      options:
+        - label: Paths use `SHARKABC3D_DATA` rather than hard-coded absolute paths
+        - label: I am blocked on a dataset I don't have access to (also add the `needs-data` label)

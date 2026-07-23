@@ -1,0 +1,54 @@
+name: Refactor
+description: Restructure existing code without changing its behaviour
+title: "[refactor] "
+labels: ["refactor"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Behaviour must not change. If it does, that's a `feat` or a `fix` — use
+        those templates so the change is visible in the history.
+
+        Only the first field is required — fill in whatever else is useful and
+        leave the rest blank. Branch as `refactor/<issue-number>-<slug>`.
+
+  - type: textarea
+    id: current
+    attributes:
+      label: What does the code look like now, and why is that a problem?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed structure
+      description: Optional — fine to open the issue knowing only that something needs untangling.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Optional, but worth setting — it's how we spot two people working the same files.
+      options:
+        - ""
+        - volume (R/volume.R, R/load_data.R)
+        - environment (R/extract.R, R/woa.R)
+        - fisheries (R/gfw.R)
+        - species data (R/iucn_utils.R)
+        - plotting (R/plot.R)
+        - across several files
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Effect on the public API
+      description: Optional. Flag it here if an exported function would be deprecated, removed, or change signature.
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How will you show behaviour is unchanged?
+      description: >
+        Optional. Existing tests passing is the baseline; if coverage in this area
+        is thin, say whether you'll add characterisation tests first.
