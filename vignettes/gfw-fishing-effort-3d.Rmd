@@ -27,9 +27,9 @@ package, which queries the GFW 4Wings API and returns effort already
 aggregated per cell × group. `sharkabc3d` covers the two steps gfwr does not:
 rasterising onto the canonical study grid, and extending the 2D effort
 product into a 3D depth-stratified stack via gear-class depth priors and
-bathymetry. The stack functions are still placeholders (stubbed with
-`stop("Not yet implemented")`); the vignette is intended to fix the API and
-the analytical steps before implementation.
+bathymetry. Both steps are implemented — `gfw_effort_to_raster()` and
+`gfw_gear_depth_bands()` — but chunks here are `eval = FALSE` because they
+need a `GFW_TOKEN` and a local bathymetry grid.
 
 ## What GFW provides, and what we need
 

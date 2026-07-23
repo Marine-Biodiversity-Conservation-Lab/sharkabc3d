@@ -442,16 +442,16 @@ systematically lower for two reasons:
 2. **Raster vs hexagonal grid**: Minor differences in spatial footprint from
    rasterization onto a square grid vs the original hexagonal grid.
 
-> **Note:** This step requires the reference CSV from the original project
-> (`previous_projects/bangladesh-fisheries-3d-overlap/`), which is not
-> included in this package. It is provided for reproducibility when the
-> original project data is available; the analysis above (Steps 1–3) and the
-> visualisation below (Step 5) run without it.
+> **Note:** This step compares against reference results from the original
+> Haque et al. analysis. That CSV is not distributed with the package —
+> contact the maintainer for it, and place it under `example_data/` alongside
+> the other inputs used above. The analysis (Steps 1–3) and the visualisation
+> below (Step 5) run without it.
 
 ```{r compare-original}
 # Load reference results from original analysis (per species-fishery pair)
 reference <- read.csv(
-  here("previous_projects", "bangladesh-fisheries-3d-overlap",
+  here("example_data", "bangladesh-fisheries-3d-overlap",
        "230314_3D_species_fisheries_intersect.csv")
 ) %>%
   rename(species = genus_species)
