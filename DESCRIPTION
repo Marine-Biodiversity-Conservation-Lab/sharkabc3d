@@ -7,7 +7,7 @@ Authors@R:
 Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
     descriptions of habitat by depth and area. Provides tools for volume
     calculation, environmental extraction, and spatial overlap analysis between
-    species ranges, fisheries, and protected areas.
+    species ranges, fisheries, and depth-stratified environmental data.
 License: MIT + file LICENSE
 Imports:
     curl,

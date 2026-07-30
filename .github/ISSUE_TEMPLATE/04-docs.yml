@@ -1,0 +1,41 @@
+name: Documentation
+description: Fix or improve roxygen docs, README, CONTRIBUTING, or SPEC
+title: "[docs] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things that trip people up: `man/` is generated — edit the roxygen
+        comments above the function and run `devtools::document()`. `README.md`
+        is generated from `README.Rmd` — edit the `.Rmd` and run
+        `devtools::build_readme()`.
+
+        For a whole new worked analysis, use the *Vignette* template instead.
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: What needs changing?
+      options:
+        - Function documentation (roxygen in R/*.R)
+        - README
+        - CONTRIBUTING.md
+        - SPEC.md — a convention or design decision
+        - Vignette prose (existing vignette)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong, missing, or unclear?
+      description: Quote the current text where relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: Proposed change

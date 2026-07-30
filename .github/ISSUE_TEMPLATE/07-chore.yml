@@ -1,0 +1,38 @@
+name: Chore / infrastructure
+description: CI, renv, build plumbing, repo configuration
+title: "[chore] "
+labels: ["chore"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Branch as `chore/<issue-number>-<slug>`. Dependency changes are the one
+        thing to flag loudly — the package is already dependency-heavy.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of chore?
+      options:
+        - CI / GitHub Actions
+        - Dependencies (DESCRIPTION, renv.lock)
+        - Build config (.Rbuildignore, DESCRIPTION metadata)
+        - Repo configuration (templates, labels, settings)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing, and why?
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How will you check it worked?
+      description: e.g. `devtools::check()` clean, CI green on a draft PR, `renv::status()` in sync.
+    validations:
+      required: true

@@ -141,6 +141,21 @@ usethis::edit_r_environ()
 - `plot_overlap_by_depth()` — per-depth-bin bar chart of species,
   fishery, and overlap cell counts across multiple sub-fisheries.
 
+## Contributing
+
+Contributions are welcome. `sharkabc3d` is being actively built out from a set
+of lab analyses into a general, tested package, and there is plenty of
+well-scoped work available. Start with:
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — development setup, data requirements,
+  the branching/coordination workflow, and coding conventions.
+- **[SPEC.md](SPEC.md)** — the roadmap; every planned function with its priority
+  and source. Unchecked items are up for grabs.
+- **[Code of Conduct](CODE_OF_CONDUCT.md)**.
+
+New contributors: the "Known rough edges / good first issues" section of
+`CONTRIBUTING.md` lists concrete starting points.
+
 ## Acknowledgements
 
 Thank you to the people that have inspired and collaborated on this work! 

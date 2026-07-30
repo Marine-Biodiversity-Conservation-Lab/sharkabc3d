@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in the package behaves incorrectly
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reprex
+    attributes:
+      label: Reproducible example
+      description: >
+        Ideally a self-contained reprex using synthetic `terra`/`sf` objects rather
+        than your local data files. If it truly needs external data, say which dataset.
+      render: r
+    validations:
+      required: true
+
+  - type: textarea
+    id: session-info
+    attributes:
+      label: Session info
+      description: Output of `sessioninfo::session_info()` — please include `terra`, `sf`, and GDAL/GEOS/PROJ versions.
+      render: text
+    validations:
+      required: true
