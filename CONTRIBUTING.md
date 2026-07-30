@@ -388,4 +388,4 @@ authorship will be discussed openly on the relevant issue. Please add your
 ORCID when you're added.
 
 By contributing you agree that your contributions are licensed under the
-project's [MIT License](LICENSE.md).
+project's [GNU General Public License v3.0](LICENSE.md).
