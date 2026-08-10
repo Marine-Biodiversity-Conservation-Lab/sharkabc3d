@@ -6,6 +6,12 @@ export(calc_volume_overlap)
 export(count_3d_overlap)
 export(create_study_raster)
 export(create_study_voxel)
+export(extract2d)
+export(extract3d_all)
+export(extract3d_bottom)
+export(extract3d_nearest)
+export(extract3d_surface)
+export(extract_netcdf)
 export(extract_rast_range)
 export(extract_rast_volume)
 export(fetch_species_assessments)
@@ -28,24 +34,32 @@ export(woa_load_nc)
 export(woa_nc_extract)
 export(woa_summarise_monthly)
 import(terra)
-importFrom(ggplot2,aes)
-importFrom(ggplot2,coord_flip)
-importFrom(ggplot2,coord_sf)
-importFrom(ggplot2,element_blank)
-importFrom(ggplot2,element_text)
-importFrom(ggplot2,facet_wrap)
-importFrom(ggplot2,geom_col)
-importFrom(ggplot2,ggplot)
-importFrom(ggplot2,labs)
-importFrom(ggplot2,scale_fill_manual)
-importFrom(ggplot2,scale_fill_viridis_c)
-importFrom(ggplot2,theme)
-importFrom(ggplot2,theme_minimal)
+importFrom(ggplot2,
+  aes,
+  coord_flip,
+  coord_sf,
+  element_blank,
+  element_text,
+  facet_wrap,
+  geom_col,
+  ggplot,
+  labs,
+  scale_fill_manual,
+  scale_fill_viridis_c,
+  theme,
+  theme_minimal
+)
 importFrom(magrittr,"%>%")
-importFrom(rlang,"%||%")
-importFrom(rlang,.data)
+importFrom(rlang,
+  "%||%",
+  .data
+)
 importFrom(sf,st_as_sf)
-importFrom(stringr,str_remove)
-importFrom(stringr,str_subset)
-importFrom(utils,setTxtProgressBar)
-importFrom(utils,txtProgressBar)
+importFrom(stringr,
+  str_remove,
+  str_subset
+)
+importFrom(utils,
+  setTxtProgressBar,
+  txtProgressBar
+)
