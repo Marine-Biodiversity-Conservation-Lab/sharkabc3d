@@ -16,6 +16,8 @@ file column.}
 \item{var}{Name of the variable to extract from the netCDF file. If \code{NULL},
 the function tries to detect the variable automatically from each file. This
 only works when each netCDF file contains one single variable.}
+
+\item{...}{Additional arguments passed to \code{\link[=extract_netcdf]{extract_netcdf()}}.}
 }
 \value{
 The original \code{data} with three extracted columns: \verb{nearest_*},

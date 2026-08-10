@@ -818,6 +818,7 @@ extract_netcdf <- function(data,
 #' optionally a time dimension, but no depth dimension.
 #'
 #' @inheritParams extract_netcdf
+#' @param ... Additional arguments passed to [extract_netcdf()].
 #' @return The original `data` with extracted values appended.
 #' @export
 extract2d <- function(data, nc, var = NULL, ...) {
@@ -831,6 +832,7 @@ extract2d <- function(data, nc, var = NULL, ...) {
 #'
 #' @inheritParams extract_netcdf
 #' @return The original `data` with extracted values appended.
+#' @param ... Additional arguments passed to [extract_netcdf()].
 #' @export
 extract3d_surface <- function(data, nc, var = NULL, ...) {
   extract_netcdf(data = data, nc = nc, var = var, method = "surface", ...)
@@ -845,6 +847,7 @@ extract3d_surface <- function(data, nc, var = NULL, ...) {
 #'
 #' @inheritParams extract_netcdf
 #' @return The original `data` with extracted values appended.
+#' @param ... Additional arguments passed to [extract_netcdf()].
 #' @export
 extract3d_bottom <- function(data, nc, var = NULL, ...) {
   extract_netcdf(data = data, nc = nc, var = var, method = "bottom", ...)
@@ -859,6 +862,7 @@ extract3d_bottom <- function(data, nc, var = NULL, ...) {
 #'
 #' @inheritParams extract_netcdf
 #' @return The original `data` with extracted values appended.
+#' @param ... Additional arguments passed to [extract_netcdf()].
 #' @export
 extract3d_nearest <- function(data, nc, var = NULL, ...) {
   extract_netcdf(data = data, nc = nc, var = var, method = "nearest", ...)
@@ -871,6 +875,7 @@ extract3d_nearest <- function(data, nc, var = NULL, ...) {
 #' columns: nearest valid depth, surface and bottom. 
 #'
 #' @inheritParams extract_netcdf
+#' @param ... Additional arguments passed to [extract_netcdf()].
 #' @return The original `data` with three extracted columns: `nearest_*`,
 #'   `surface_*` and `seabottom_*`. 
 #' @export
