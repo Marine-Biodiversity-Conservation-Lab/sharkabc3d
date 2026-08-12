@@ -342,7 +342,7 @@
         "tibble",
         "tidyr"
       ],
-      "Hash": "3447a105f31a023e31e1f6428530dc78"
+      "Hash": "d4d86b645e72efdda59e2081eeb66bb7"
     },
     "ggplot2": {
       "Package": "ggplot2",
@@ -537,6 +537,13 @@
         "tools"
       ],
       "Hash": "0ec19f34c72fab674d8f2b4b1c6410e1"
+    },
+    "ncdf4": {
+      "Package": "ncdf4",
+      "Version": "1.24",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2e2f7c6faeb943039f9f5793eab83482"
     },
     "openssl": {
       "Package": "openssl",
