@@ -46,7 +46,7 @@ We use issues as the unit of work and the record of its current state.
     - Branches will be named with the format of `<issue-number>-<short-slug>`. Using the above `Create a branch` procedure should automatically generate branch names based on the issue number and title of the issue. 
 4. **Open a Pull Request early** 
     - A draft Pull Request is fine. This way, others can see what areas are being worked on. A Pull Request is a review of the work done on the branch, so that it can be merged with the main branch. This is the main gate for coordinating work done. Ideally, we would have some formal process for PRs, but for now Jay will review these before merging with main to keep work coordinated. 
-5. **Squash-merge** and delete the branch. 
+5. **Merge** and delete the branch. 
     - Reference the issue from the PR so it closes automatically. This should happen automatically if the branch is created from the issue. 
 
 
@@ -70,21 +70,13 @@ Two people *can* work in the same area — just make the split explicit in the
 issue thread (e.g. "I'll take `fix_dateline_geometry()`, you take
 `validate_geometry()`").
 
-`NAMESPACE` is edited by nearly every PR and is the usual source of conflicts.
-It is generated — if it conflicts, resolve by rerunning `devtools::document()`
-rather than hand-merging. (`SPEC.md` used to conflict just as often, back when
-every PR ticked a box in it. It should now change only when a convention or a
-design decision changes.)
-
 ### Labels
 
 Please apply these when you open an issue:
 
 The templates apply a type label for you; add priority and area yourself.
 
-- Priority: `high`, `medium`, `low` — set here, not in `SPEC.md`, so it can
-  change without a commit
-- Area: `area:volume`, `area:environment`, `area:fisheries`, `area:plotting`, `area:infra`
+- Priority: `high`, `medium`, `low` 
 - Type (one per branch type): `bug`, `enhancement`, `documentation`, `test`,
   `refactor`, `chore`
 - Extra: `good first issue`, `needs-data` (= blocked on a dataset the
@@ -95,15 +87,14 @@ The templates apply a type label for you; add priority and area yourself.
 - Every PR needs one approving review from a maintainer (currently
   [@JayMatsushiba](https://github.com/JayMatsushiba)) before merge.
 - CI (`R CMD check`) must be green.
-- Squash-merge with a message in the imperative mood, referencing the issue:
+- Merge with a message referencing the issue:
   `Add load_eez() for Marine Regions EEZ polygons (#12)`.
 - Delete the branch after merging.
 
 ### Versioning
 
-Development version is `0.0.0.9000`. Bump the fourth component in `DESCRIPTION`
-(`0.0.0.9001`, …) when a PR adds or changes an exported function. We'll move to
-proper `0.1.0` semantic versioning at the first tagged release.
+Development version is `0.1.0`. Bump the third component in `DESCRIPTION`
+(`0.1.1`, …) when a PR adds or changes an exported function. 
 
 ---
 
@@ -116,16 +107,10 @@ A PR implementing a SPEC function should include **all** of:
 2. Tests in the mirroring `tests/testthat/test-*.R` file, covering the happy
    path, input validation errors, and at least one edge case.
 3. `devtools::document()` run, so `man/` and `NAMESPACE` are updated.
-4. If the implemented signature differs from the one in *Planned work*, or the
-   work established a new convention, a note under `SPEC.md` *Design decisions
-   and deviations*. Deviating is fine and common — leaving it unrecorded is
-   what causes trouble.
-5. `devtools::check()` passing locally with no new NOTEs.
+4. `devtools::check()` passing locally with no new NOTEs.
 
-If you are generalising code from one of the prior lab analyses (named in
-`SPEC.md` *Planned work*), the goal is **generalisation**, not a copy-paste: parameterise the
-hard-coded species lists, study areas, and file paths, and make the function
-work for any input meeting the documented contract.
+If you are generalising code from one of the prior analyses, the goal is **generalisation**, not a copy-paste.
+Parameterise the hard-coded species lists, study areas, and file paths, and make the function work for any input meeting the documented contract.
 
 ---
 
@@ -135,11 +120,11 @@ work for any input meeting the documented contract.
 | --- | --- |
 | `R/` | Package functions, one file per topic: `extract.R`, `gfw.R`, `iucn_utils.R`, `load_data.R`, `plot.R`, `volume.R`, `woa.R` |
 | `tests/testthat/` | One test file per `R/` file (`test-volume.R` ↔ `R/volume.R`) |
-| `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for IUCN Red List API tests |
+| `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for API tests |
 | `man/` | roxygen2-generated docs — **never edit by hand** |
 | `vignettes/` | Long-form worked analyses; these are the reproductions of the source papers |
-| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. Not a status tracker — issues are. |
-| `CLAUDE.md` | Short architecture summary (also read by AI coding assistants) |
+| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. |
+| `CLAUDE.md` | Short architecture summary read by AI coding assistants |
 | `renv.lock` | Pinned dependency versions |
 
 **Read `SPEC.md` before proposing work.** Its *Architecture and conventions*
@@ -149,23 +134,9 @@ intended signature and, where one exists, a note on the prior analysis it should
 be generalised from (that source material is not in this repo — ask the
 maintainer).
 
-`SPEC.md` deliberately does **not** record what is finished or who is working on
-what. For that, see the [open
+To see what needs working on, see the [open
 issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/issues)
 and the package reference (`man/`, `?sharkabc3d`).
-
-### The core idea, in one paragraph
-
-All 3D analysis uses a **stacked raster** approach on `terra` + `sf`. Polygons
-(species ranges, fishery footprints) are rasterized onto a GEBCO
-bathymetry-derived grid by `voxelize_range()`; each cell stores presence plus
-`depth_min`/`depth_max` clamped to the seafloor. Volume and volume overlap are
-then per-cell raster algebra (`calc_volume()`, `calc_volume_overlap()`).
-Multi-depth environmental rasters (e.g. WOA at 57 standard depths) use the
-layer-naming convention `{variable}_depth={value}` (e.g. `t_an_depth=100`), and
-functions such as `extract_rast_volume()` parse those names to select layers.
-**Any new data-source utility must convert its input into that naming
-convention.**
 
 ---
 
