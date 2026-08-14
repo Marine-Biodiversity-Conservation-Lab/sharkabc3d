@@ -15,7 +15,7 @@ body:
     attributes:
       label: Reproducible example
       description: >
-        Ideally a self-contained reprex using synthetic `terra`/`sf` objects rather
+        Ideally a self-contained reprex using synthetic objects rather
         than your local data files. If it truly needs external data, say which dataset.
       render: r
     validations:
@@ -25,7 +25,7 @@ body:
     id: session-info
     attributes:
       label: Session info
-      description: Output of `sessioninfo::session_info()` — please include `terra`, `sf`, and GDAL/GEOS/PROJ versions.
+      description: Output of `sessioninfo::session_info()`
       render: text
     validations:
       required: true

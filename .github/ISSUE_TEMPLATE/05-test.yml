@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Tests must run with **no external data, API keys, or network** — build
-        small synthetic `SpatRaster`/`sf` objects in the test itself. See
+        small synthetic objects in the test itself. See
         `tests/testthat/test-volume.R` for the pattern. HTTP-backed tests replay
         `vcr` cassettes from `tests/testthat/_vcr/`.
 
@@ -19,20 +19,6 @@ body:
     attributes:
       label: What is under-tested?
       placeholder: "Which file or function, and what is missing"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: Area
-      options:
-        - volume (R/volume.R, R/load_data.R)
-        - environment (R/extract.R, R/woa.R)
-        - fisheries (R/gfw.R)
-        - species data (R/iucn_utils.R)
-        - plotting (R/plot.R)
-        - test infrastructure (helpers, cassettes, fixtures)
     validations:
       required: true
 

@@ -33,7 +33,7 @@ body:
   - type: textarea
     id: prior-work
     attributes:
-      label: Prior work or SPEC entry
+      label: Prior work
       description: >
         An existing script, paper, or prior lab analysis this would be generalised
         from. Source material

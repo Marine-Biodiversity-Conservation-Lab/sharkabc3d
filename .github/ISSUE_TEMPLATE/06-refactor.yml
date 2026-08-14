@@ -25,24 +25,10 @@ body:
       label: Proposed structure
       description: Optional — fine to open the issue knowing only that something needs untangling.
 
-  - type: dropdown
-    id: area
-    attributes:
-      label: Area
-      description: Optional, but worth setting — it's how we spot two people working the same files.
-      options:
-        - ""
-        - volume (R/volume.R, R/load_data.R)
-        - environment (R/extract.R, R/woa.R)
-        - fisheries (R/gfw.R)
-        - species data (R/iucn_utils.R)
-        - plotting (R/plot.R)
-        - across several files
-
   - type: textarea
     id: impact
     attributes:
-      label: Effect on the public API
+      label: Effect on the public API (functions)
       description: Optional. Flag it here if an exported function would be deprecated, removed, or change signature.
 
   - type: textarea

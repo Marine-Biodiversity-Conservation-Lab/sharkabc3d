@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Two things that trip people up: `man/` is generated — edit the roxygen
+        `man/` is generated — edit the roxygen
         comments above the function and run `devtools::document()`. `README.md`
         is generated from `README.Rmd` — edit the `.Rmd` and run
         `devtools::build_readme()`.
