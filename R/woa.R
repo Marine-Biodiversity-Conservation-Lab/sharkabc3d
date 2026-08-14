@@ -410,6 +410,8 @@ woa_nc_extract <- function(woa_nc, selected_field) {
     )
   }
 
+  # This line is the problem, it doesn't resolve the variable abbreviation correctly when its 3 characters long, 
+  # rather than 2 
   var_abr <- woa_nc[[1]] %>% names() %>% substr(1, 2)
   field_pattern <- paste0(var_abr, selected_field, "_depth=")
   selected_names <- woa_nc %>%
