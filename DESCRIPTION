@@ -28,7 +28,8 @@ Roxygen: list(markdown = TRUE)
 Suggests:
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    vcr
 Config/testthat/edition: 3
 VignetteBuilder: knitr
 Remotes: 

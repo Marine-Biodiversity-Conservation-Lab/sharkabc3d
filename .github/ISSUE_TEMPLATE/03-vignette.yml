@@ -43,11 +43,3 @@ body:
       description: Which datasets, and is each public? See the Data setup table in CONTRIBUTING.md.
     validations:
       required: true
-
-  - type: checkboxes
-    id: constraints
-    attributes:
-      label: Conventions
-      options:
-        - label: Paths use `SHARKABC3D_DATA` rather than hard-coded absolute paths
-        - label: I am blocked on a dataset I don't have access to (also add the `needs-data` label)

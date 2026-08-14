@@ -21,17 +21,110 @@ a contribution needs to look like to be merged.
 
 ---
 
+## Why contribute to **sharkabc3d**? 
+
+**sharkabc3d** is an open-source package, built on collaboration across researchers and projects. Currently, **sharkabc3d** is a very new project undergoing active development, which means that you can shape and directly contribute to the work done. Functionality that you wished existed? You can write an issue with what you would like, reaching contributors with your direct feedback.  Even better, you can develop that functionality and add it to **sharkabc3d** yourself, broadening the impact of your work. Other people can then come along and use your code to use in their projects, making science overall more efficient and impactful. 
+
+---
+
+## How contributing works for **sharkabc3d** 
+
+### The loop
+```
+GitHub issue  →  self-assign  →  branch  →  PR  →  squash-merge
+```
+
+We use issues as the unit of work and the record of its current state. 
+
+1. **Find or open an issue.** Every piece of work starts as an issue. 
+    - Issues describe anything that needs to be developed, fixed, refined within this codebase. The easiest way to open issues is via this package's [GitHub repository](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues). When creating the issue, choose any template that fits (or write your own from scratch). You can write issues without implementing it; it's totally acceptable and encouraged to write issues about what you wish this package did or problems that you have found with it, without intention of coding those actual fixes yourself. 
+
+2. **Claim it.** 
+    - Assign yourself and comment before you start coding. You can claim your own issues, or claim another issue that someone else has written but it currently unassigned. This is how we avoid two people extracting the same function from the same prior analysis. If an issue has been assigned, but it's been silent for a month, comment and see if the assigned contributor is still working on it. 
+3. **Branch from an up-to-date `main`.**
+    - Create a new branch from the most recent commit on `main`. Easiest way is click `Create a branch` under `Development`, within the sidebar of the Issue page in GitHub. We use short-lived branches off `main`, with **one issue per branch**.
+    - Branches will be named with the format of `<issue-number>-<short-slug>`. Using the above `Create a branch` procedure should automatically generate branch names based on the issue number and title of the issue. 
+4. **Open a Pull Request early** 
+    - A draft Pull Request is fine. This way, others can see what areas are being worked on. A Pull Request is a review of the work done on the branch, so that it can be merged with the main branch. This is the main gate for coordinating work done. Ideally, we would have some formal process for PRs, but for now Jay will review these before merging with main to keep work coordinated. 
+5. **Merge** and delete the branch. 
+    - Reference the issue from the PR so it closes automatically. This should happen automatically if the branch is created from the issue. 
+
+
+`main` must always be installable — never push work-in-progress directly to it. All changes to `main` should be done via a Pull Request. 
+
+### Ownership map — how to avoid collisions
+
+Work is naturally partitioned by file. Coordinate before crossing these lines,
+because these files are where merge conflicts actually happen:
+
+| Area | Files | Typical SPEC section |
+| --- | --- | --- |
+| Volume / voxelisation | `R/volume.R`, `R/load_data.R` | Volume calculation |
+| Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
+| Fisheries | `R/gfw.R` | Data source utilities (GFW) |
+| Species data | `R/iucn_utils.R` | Data loading and preparation |
+| Geometry utilities (**unstarted, medium**) | new `R/geometry.R` | Geometry utilities |
+| Plotting | `R/plot.R` | Visualization |
+
+Two people *can* work in the same area — just make the split explicit in the
+issue thread (e.g. "I'll take `fix_dateline_geometry()`, you take
+`validate_geometry()`").
+
+### Labels
+
+Please apply these when you open an issue:
+
+The templates apply a type label for you; add priority and area yourself.
+
+- Priority: `high`, `medium`, `low` 
+- Type (one per branch type): `bug`, `enhancement`, `documentation`, `test`,
+  `refactor`, `chore`
+- Extra: `good first issue`, `needs-data` (= blocked on a dataset the
+  contributor may not have)
+
+### Review and merge
+
+- Every PR needs one approving review from a maintainer (currently
+  [@JayMatsushiba](https://github.com/JayMatsushiba)) before merge.
+- CI (`R CMD check`) must be green.
+- Merge with a message referencing the issue:
+  `Add load_eez() for Marine Regions EEZ polygons (#12)`.
+- Delete the branch after merging.
+
+### Versioning
+
+Development version is `0.1.0`. Bump the third component in `DESCRIPTION`
+(`0.1.1`, …) when a PR adds or changes an exported function. 
+
+---
+
+## What a good contribution looks like
+
+A PR implementing a SPEC function should include **all** of:
+
+1. The function in the appropriate `R/*.R` file, with full roxygen2 docs
+   (`@param`, `@returns`, `@examples`, `@export`).
+2. Tests in the mirroring `tests/testthat/test-*.R` file, covering the happy
+   path, input validation errors, and at least one edge case.
+3. `devtools::document()` run, so `man/` and `NAMESPACE` are updated.
+4. `devtools::check()` passing locally with no new NOTEs.
+
+If you are generalising code from one of the prior analyses, the goal is **generalisation**, not a copy-paste.
+Parameterise the hard-coded species lists, study areas, and file paths, and make the function work for any input meeting the documented contract.
+
+---
+
 ## Quick orientation
 
 | Path | What lives there |
 | --- | --- |
 | `R/` | Package functions, one file per topic: `extract.R`, `gfw.R`, `iucn_utils.R`, `load_data.R`, `plot.R`, `volume.R`, `woa.R` |
 | `tests/testthat/` | One test file per `R/` file (`test-volume.R` ↔ `R/volume.R`) |
-| `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for IUCN Red List API tests |
+| `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for API tests |
 | `man/` | roxygen2-generated docs — **never edit by hand** |
 | `vignettes/` | Long-form worked analyses; these are the reproductions of the source papers |
-| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. Not a status tracker — issues are. |
-| `CLAUDE.md` | Short architecture summary (also read by AI coding assistants) |
+| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. |
+| `CLAUDE.md` | Short architecture summary read by AI coding assistants |
 | `renv.lock` | Pinned dependency versions |
 
 **Read `SPEC.md` before proposing work.** Its *Architecture and conventions*
@@ -41,23 +134,9 @@ intended signature and, where one exists, a note on the prior analysis it should
 be generalised from (that source material is not in this repo — ask the
 maintainer).
 
-`SPEC.md` deliberately does **not** record what is finished or who is working on
-what. For that, see the [open
+To see what needs working on, see the [open
 issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/issues)
 and the package reference (`man/`, `?sharkabc3d`).
-
-### The core idea, in one paragraph
-
-All 3D analysis uses a **stacked raster** approach on `terra` + `sf`. Polygons
-(species ranges, fishery footprints) are rasterized onto a GEBCO
-bathymetry-derived grid by `voxelize_range()`; each cell stores presence plus
-`depth_min`/`depth_max` clamped to the seafloor. Volume and volume overlap are
-then per-cell raster algebra (`calc_volume()`, `calc_volume_overlap()`).
-Multi-depth environmental rasters (e.g. WOA at 57 standard depths) use the
-layer-naming convention `{variable}_depth={value}` (e.g. `t_an_depth=100`), and
-functions such as `extract_rast_volume()` parse those names to select layers.
-**Any new data-source utility must convert its input into that naming
-convention.**
 
 ---
 
@@ -152,133 +231,6 @@ All vignette chunks are currently `eval = FALSE` for exactly this reason — the
 are documentation of a real analysis, not something CI can reproduce. Tests, by
 contrast, must run on synthetic in-memory rasters with **no external data and
 no network**.
-
----
-
-## Branching and coordination
-
-We use short-lived branches off `main`, with **one issue per branch**.
-
-### The loop
-
-```
-GitHub issue  →  self-assign  →  branch  →  PR  →  squash-merge
-```
-
-The issue is the unit of work and the record of its state; closing it via the PR
-is what marks the work done. Nothing needs ticking afterwards.
-
-1. **Find or open an issue.** Every piece of work starts as an issue. Use the
-   *New function or capability* template — it covers both work already sketched
-   under *Planned work* in `SPEC.md` (quote that entry in the issue) and ideas
-   that aren't in `SPEC.md` at all.
-2. **Claim it.** Assign yourself and comment before you start coding. This is
-   how we avoid two people extracting the same function from the same
-   prior analysis. If an issue has been assigned and silent for two
-   weeks, it's fair game — comment first.
-3. **Branch from an up-to-date `main`.**
-4. **Open a PR early** (draft is fine) so others can see the area is being
-   worked on.
-5. **Squash-merge** and delete the branch. Reference the issue from the PR so
-   it closes automatically. Update `SPEC.md` if the work changed a
-   convention or departed from its spec — record the deviation under *Design
-   decisions and deviations*.
-
-`main` must always be installable — never push work-in-progress directly to it.
-
-### Branch naming
-
-```
-<type>/<issue-number>-<short-slug>
-```
-
-There is one issue template per branch type — pick the template first and the
-branch prefix follows from it.
-
-| Type | Use for | Issue template | Example |
-| --- | --- | --- | --- |
-| `feat/` | A new exported function or capability | New function or capability | `feat/12-load-eez` |
-| `fix/` | Bug fix in existing behaviour | Bug report | `fix/19-voxelize-dateline` |
-| `vignette/` | A worked analysis | Vignette / worked analysis | `vignette/31-deep-sea-refuge` |
-| `docs/` | Roxygen, README, this file, SPEC edits | Documentation | `docs/27-contributing` |
-| `test/` | Tests only, no behaviour change | Test coverage | `test/23-woa-cache-coverage` |
-| `refactor/` | Restructuring without behaviour change | Refactor | `refactor/34-retire-woa-nc-extract` |
-| `chore/` | CI, renv, build plumbing | Chore / infrastructure | `chore/38-r-cmd-check-action` |
-
-### Ownership map — how to avoid collisions
-
-Work is naturally partitioned by file. Coordinate before crossing these lines,
-because these files are where merge conflicts actually happen:
-
-| Area | Files | Typical SPEC section |
-| --- | --- | --- |
-| Volume / voxelisation | `R/volume.R`, `R/load_data.R` | Volume calculation |
-| Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
-| Fisheries | `R/gfw.R` | Data source utilities (GFW) |
-| Species data | `R/iucn_utils.R` | Data loading and preparation |
-| Geometry utilities (**unstarted, medium**) | new `R/geometry.R` | Geometry utilities |
-| Plotting | `R/plot.R` | Visualization |
-
-Two people *can* work in the same area — just make the split explicit in the
-issue thread (e.g. "I'll take `fix_dateline_geometry()`, you take
-`validate_geometry()`").
-
-`NAMESPACE` is edited by nearly every PR and is the usual source of conflicts.
-It is generated — if it conflicts, resolve by rerunning `devtools::document()`
-rather than hand-merging. (`SPEC.md` used to conflict just as often, back when
-every PR ticked a box in it. It should now change only when a convention or a
-design decision changes.)
-
-### Labels
-
-Please apply these when you open an issue:
-
-The templates apply a type label for you; add priority and area yourself.
-
-- Priority: `high`, `medium`, `low` — set here, not in `SPEC.md`, so it can
-  change without a commit
-- Area: `area:volume`, `area:environment`, `area:fisheries`, `area:plotting`, `area:infra`
-- Type (one per branch type): `bug`, `enhancement`, `documentation`, `test`,
-  `refactor`, `chore`
-- Extra: `good first issue`, `needs-data` (= blocked on a dataset the
-  contributor may not have)
-
-### Review and merge
-
-- Every PR needs one approving review from a maintainer (currently
-  [@JayMatsushiba](https://github.com/JayMatsushiba)) before merge.
-- CI (`R CMD check`) must be green.
-- Squash-merge with a message in the imperative mood, referencing the issue:
-  `Add load_eez() for Marine Regions EEZ polygons (#12)`.
-- Delete the branch after merging.
-
-### Versioning
-
-Development version is `0.0.0.9000`. Bump the fourth component in `DESCRIPTION`
-(`0.0.0.9001`, …) when a PR adds or changes an exported function. We'll move to
-proper `0.1.0` semantic versioning at the first tagged release.
-
----
-
-## What a good contribution looks like
-
-A PR implementing a SPEC function should include **all** of:
-
-1. The function in the appropriate `R/*.R` file, with full roxygen2 docs
-   (`@param`, `@returns`, `@examples`, `@export`).
-2. Tests in the mirroring `tests/testthat/test-*.R` file, covering the happy
-   path, input validation errors, and at least one edge case.
-3. `devtools::document()` run, so `man/` and `NAMESPACE` are updated.
-4. If the implemented signature differs from the one in *Planned work*, or the
-   work established a new convention, a note under `SPEC.md` *Design decisions
-   and deviations*. Deviating is fine and common — leaving it unrecorded is
-   what causes trouble.
-5. `devtools::check()` passing locally with no new NOTEs.
-
-If you are generalising code from one of the prior lab analyses (named in
-`SPEC.md` *Planned work*), the goal is **generalisation**, not a copy-paste: parameterise the
-hard-coded species lists, study areas, and file paths, and make the function
-work for any input meeting the documented contract.
 
 ---
 
