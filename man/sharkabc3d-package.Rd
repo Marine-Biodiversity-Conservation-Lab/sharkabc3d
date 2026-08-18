@@ -9,11 +9,11 @@
 Facilitates the analysis of shark and ray habitat in 3D, enabling descriptions of habitat by depth and area. Provides tools for volume calculation, environmental extraction, and spatial overlap analysis between species ranges, fisheries, and depth-stratified environmental data.
 }
 \author{
-\strong{Maintainer}: Jay Matsushiba \email{jay.matsushiba@gmail.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
+\strong{Maintainer}: Jay Matsushiba \email{hello@jmatsushiba.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
 
 Authors:
 \itemize{
-  \item Jay Matsushiba \email{jay.matsushiba@gmail.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
+  \item Jay Matsushiba \email{hello@jmatsushiba.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
 }
 
 }
