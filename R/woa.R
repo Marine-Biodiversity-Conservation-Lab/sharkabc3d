@@ -302,14 +302,19 @@ woa_download <- function(variable,
 
 #' Load a WOA NetCDF file
 #'
-#' Load a WOA .nc file and select layers for a given statistical field. Wrapper
-#' around [terra::rast()] + [woa_nc_extract()]. Returns a SpatRaster with
-#' layer names already following the `{variable}_depth={value}` convention used
-#' throughout this package (native to WOA NetCDFs).
+#' Load a WOA .nc file and select layers for a given statistical field. Returns 
+#' a SpatRaster with layer names already following the `{variable}_depth={value}` 
+#' convention used throughout this package (native to WOA NetCDFs).
 #'
 #' @param file_path Character. Path to a WOA .nc file.
-#' @param field Character. Statistical field to select. Default `"an"`
-#'   (objectively analyzed climatology). See [woa_nc_extract()] for other codes.
+#' @param field Character. Statistical field to select. One of:
+#'   `"an"` (objectively analyzed climatology), `"mn"` (statistical mean),
+#'   `"dd"` (number of observations), `"sd"` (standard deviation),
+#'   `"se"` (standard error), `"oa"` (mean minus climatology),
+#'   `"gp"` (number of mean values within radius of influence),
+#'   `"sdo"` (objectively analyzed standard deviation),
+#'   `"sea"` (standard error of the analysis). See the
+#'   [WOA 2023 Product Documentation](https://repository.library.noaa.gov/view/noaa/70581).
 #'
 #' @returns SpatRaster with standardized depth layer names.
 #' @export
@@ -318,7 +323,43 @@ woa_load_nc <- function(file_path, field = "an") {
     stop("File not found: ", file_path)
   }
   r <- terra::rast(file_path)
-  woa_nc_extract(r, field)
+  
+  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
+  if (!field %in% available_fields) {
+    stop(
+      "field must be one of: ",
+      paste(available_fields, collapse = ", "),
+      ". See https://repository.library.noaa.gov/view/noaa/70581"
+    )
+  }
+
+  # WOA layers take the form of v_field_depth=123
+  # v is the abbreviated variable, which has to be one character
+  var_abr <- r[[1]] %>% names() %>% stringr::str_split_i(pattern = "_", 1)
+
+  # check that layer names follow convention
+  layer_name_split <- r[[1]] %>% names() %>% stringr::str_split(pattern = "_")
+  available_vars <- c("t", "s", "o", "n", "p", "i")
+  if (!layer_name_split[[1]][1] %in% available_vars) {
+    stop(
+      "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: ",
+      paste(available_vars, collapse = ", "),
+      ". See https://repository.library.noaa.gov/view/noaa/70581"
+    )
+  }
+  if (!layer_name_split[[1]][2] %in% available_fields) {
+    stop(
+      "check raster layer names. For WOA data, field code must be one of: ",
+      paste(available_fields, collapse = ", "),
+      ". See https://repository.library.noaa.gov/view/noaa/70581"
+    )
+  }
+
+  field_pattern <- paste0(var_abr, "_", field, "_depth=")
+  selected_names <- r %>%
+    names() %>%
+    stringr::str_subset(field_pattern)
+  r[[selected_names]]
 }
 
 #' Summarise monthly WOA data across months
@@ -372,51 +413,5 @@ woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
     max  = terra::rast(lapply(per_depth, `[[`, "max")),
     diff = terra::rast(lapply(per_depth, `[[`, "diff"))
   )
-}
-
-# ---------------------------------------------------------------------------
-# Legacy helpers (superseded; retained for back-compat with older scripts).
-# `woa_nc_extract()` is still the implementation detail behind `woa_load_nc()`.
-# `woa_volume_extract()` is superseded by `extract_rast_volume()`.
-# ---------------------------------------------------------------------------
-
-#' Extract all layers of a given variable from a WOA raster
-#'
-#' Select layers corresponding to a given WOA statistical field (e.g. `"an"`,
-#' `"mn"`) from a SpatRaster loaded from a WOA NetCDF. Used internally by
-#' [woa_load_nc()].
-#'
-#' @param woa_nc SpatRaster loaded with [terra::rast()] from a WOA .nc file.
-#'   Downloaded from <https://www.ncei.noaa.gov/access/world-ocean-atlas-2023/>.
-#' @param selected_field Character. Statistical field to select. One of:
-#'   `"an"` (objectively analyzed climatology), `"mn"` (statistical mean),
-#'   `"dd"` (number of observations), `"sd"` (standard deviation),
-#'   `"se"` (standard error), `"oa"` (mean minus climatology),
-#'   `"gp"` (number of mean values within radius of influence),
-#'   `"sdo"` (objectively analyzed standard deviation),
-#'   `"sea"` (standard error of the analysis). See the
-#'   [WOA 2023 Product Documentation](https://repository.library.noaa.gov/view/noaa/70581).
-#'
-#' @returns SpatRaster containing only the selected field's depth layers,
-#'   using the native `{variable}_depth={value}` layer naming convention.
-#' @export
-woa_nc_extract <- function(woa_nc, selected_field) {
-  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
-  if (!selected_field %in% available_fields) {
-    stop(
-      "selected_field must be one of: ",
-      paste(available_fields, collapse = ", "),
-      ". See https://repository.library.noaa.gov/view/noaa/70581"
-    )
-  }
-
-  # This line is the problem, it doesn't resolve the variable abbreviation correctly when its 3 characters long, 
-  # rather than 2 
-  var_abr <- woa_nc[[1]] %>% names() %>% substr(1, 2)
-  field_pattern <- paste0(var_abr, selected_field, "_depth=")
-  selected_names <- woa_nc %>%
-    names() %>%
-    stringr::str_subset(field_pattern)
-  woa_nc[[selected_names]]
 }
 
