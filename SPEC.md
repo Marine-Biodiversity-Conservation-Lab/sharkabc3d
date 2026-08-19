@@ -11,7 +11,7 @@ this project's history. Instead:
 | To find out… | Look at… |
 | --- | --- |
 | What functions exist today and how to call them | The package reference — `man/`, `?sharkabc3d`, or the pkgdown site once it is up. `NAMESPACE` is authoritative. |
-| What is being worked on, by whom | [GitHub issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/issues) |
+| What is being worked on, by whom | [GitHub issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues) |
 | Why the package is built the way it is, and what is still planned | This document |
 
 Items under [Planned work](#planned-work) are written to be pasted into an issue
@@ -20,7 +20,7 @@ more or less as-is. Open one before starting; see
 
 ## Overview
 
-This document describes the intended outcomes for the sharkABC3D (Shark and ray ABiotic Covariates in 3-Dimensions) project. SharkABC3D is an R package that is designed to facilitate the analysis of shark and ray habitat in 3D, enabling descriptions of habitat by depth and area. 
+This document describes the intended outcomes for the sharkabc3d (Shark and Ray Abiotic Covariates in 3 Dimensions) project. sharkabc3d is an R package that is designed to facilitate the analysis of shark and ray habitat in 3D, enabling descriptions of habitat by depth and area. 
 
 The idea is to create a R package that encapsulates the work across these papers, so that we can reproduce the work done and repeat depending on new data, params, etc. 
 

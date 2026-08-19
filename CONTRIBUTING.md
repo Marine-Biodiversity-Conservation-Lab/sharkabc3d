@@ -135,7 +135,7 @@ be generalised from (that source material is not in this repo — ask the
 maintainer).
 
 To see what needs working on, see the [open
-issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/issues)
+issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues)
 and the package reference (`man/`, `?sharkabc3d`).
 
 ---
@@ -152,8 +152,8 @@ and the package reference (`man/`, `?sharkabc3d`).
 ### 2. Clone and restore the environment
 
 ```bash
-git clone https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D.git
-cd sharkABC3D
+git clone https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d.git
+cd sharkabc3d
 ```
 
 ```r
@@ -322,9 +322,9 @@ contribution — open an issue and claim it:
 ## Questions, and how to get help
 
 - For usage, methods, or interpretation questions, open a
-  [GitHub Discussion](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/discussions).
+  [GitHub Discussion](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/discussions).
 - For bugs or feature/function work, open a
-  [GitHub issue](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/issues).
+  [GitHub issue](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues).
 - For access to non-public data (the Bangladesh fishery footprints), contact
   the maintainer directly: Jay Matsushiba <hello@jmatsushiba.com>.
 
