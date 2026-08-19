@@ -19,13 +19,13 @@ Imports:
     terra,
     tidyterra,
     rredlist,
-    dplyr,
-    gfwr (>= 3.0),
-    ncdf4,
-    here
+    ncdf4
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Suggests:
+    gfwr (>= 3.0),
+    dplyr,
+    here,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0),
