@@ -298,25 +298,22 @@ contribution — open an issue and claim it:
    `/home/jay/Programming_Projects/Big_Data/...`. Convert to the
    `SHARKABC3D_DATA` environment-variable pattern described above.
    (`area:infra`, `good first issue`)
-2. **`vcr` is used but not declared.** `tests/testthat/test-iucn_utils.R` calls
-   `vcr::local_cassette()`, but `vcr` is not in `DESCRIPTION` `Suggests:` and
-   there is no `tests/testthat/helper-vcr.R` with `vcr::vcr_configure()`.
-   Several cassettes referenced by the tests (`empty`, `multiple_inputs`,
-   `three_inputs`) are also missing from `tests/testthat/_vcr/`, so those tests
-   attempt live API calls and the suite hangs without a key. Adding the
-   dependency, the helper, and the missing cassettes would make
-   `devtools::test()` runnable for everyone. (`area:infra`, `good first issue`)
-3. **No continuous integration yet.** `.github/workflows/R-CMD-check.yaml` is
-   included in this repo, but it will not go green until (2) is fixed.
-4. **Test coverage gaps.** `test-plot.R` has only a handful of assertions for
+2. **Test coverage for the IUCN helpers is cassette-bound.** The IUCN Red List
+   tests replay recorded HTTP interactions from `tests/testthat/_vcr/` (see
+   `tests/testthat/setup-vcr.R`), so they need no API key — but any *new* test
+   that hits a URL not already in a cassette has to be recorded once with a
+   real `IUCN_REDLIST_KEY`, then committed. `_vcr/group_code.yml` is ~42 MB and
+   its test is currently `skip()`ped; slimming or dropping it would shrink the
+   repo considerably. (`area:infra`, `good first issue`)
+3. **Test coverage gaps.** `test-plot.R` has only a handful of assertions for
    five exported plotting functions; `load_bathymetry()`'s main test skips when
    `terra::writeCDF` is unavailable.
-5. **Legacy function pending retirement.** `woa_nc_extract()` (in `R/woa.R`) is
+4. **Legacy function pending retirement.** `woa_nc_extract()` (in `R/woa.R`) is
    superseded by `woa_load_nc()` but is still exported (see SPEC *Planned work →
    Retirements*). Its counterpart `woa_volume_extract()` has already been removed
    in favour of `extract_rast_volume()`. Retiring `woa_nc_extract()` behind a
    deprecation warning is a clean, self-contained PR.
-6. **Whole unstarted areas.** The geometry-utility, species summary-metric, and
+5. **Whole unstarted areas.** The geometry-utility, species summary-metric, and
    Copernicus entries under `SPEC.md` *Planned work* have no code at all. If you
    want a substantial, collision-free chunk of work, start there.
 

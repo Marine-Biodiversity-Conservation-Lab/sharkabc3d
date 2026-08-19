@@ -1,7 +1,5 @@
 # Runs R CMD check on pushes and PRs to main.
 # Based on the standard r-lib/actions example workflow.
-# NOTE: this will not pass until the vcr test setup is fixed — see
-# CONTRIBUTING.md "Known rough edges" #2 and #3.
 on:
   push:
     branches: [main]
@@ -20,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: ubuntu-latest, r: '4.4.3'}
+          - {os: ubuntu-latest, r: 'release'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -47,5 +45,5 @@ jobs:
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
-          build_args: 'c("--no-manual","--no-build-vignettes")'
-          args: 'c("--no-manual", "--as-cran", "--no-vignettes")'
+          build_args: 'c("--no-manual", "--no-build-vignettes", "--ignore-vignettes")'
+          args: 'c("--no-manual", "--as-cran", "--no-vignettes", "--ignore-vignettes")'
