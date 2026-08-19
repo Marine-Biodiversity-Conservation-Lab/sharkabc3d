@@ -20,4 +20,14 @@ jobs:
     permissions:
       issues: write
     steps:
+      # The pkgcheck container runs as root while the checked-out workspace is
+      # owned by the runner user, so libgit2 (via gert) refuses to open the repo
+      # with "repository path '/github/workspace/' is not owned by current user".
+      # The container's HOME is /github/home, mounted from $RUNNER_TEMP/_github_home,
+      # so a global gitconfig placed there marks the workspace as safe.
+      - name: Allow libgit2 to open the workspace inside the pkgcheck container
+        run: |
+          mkdir -p "${RUNNER_TEMP}/_github_home"
+          printf '[safe]\n\tdirectory = *\n' >> "${RUNNER_TEMP}/_github_home/.gitconfig"
+
       - uses: ropensci-review-tools/pkgcheck-action@main

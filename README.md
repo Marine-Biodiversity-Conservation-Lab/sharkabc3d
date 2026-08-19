@@ -5,6 +5,8 @@
 
 <!-- badges: start -->
 [![pkgcheck](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/workflows/pkgcheck/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions?query=workflow%3Apkgcheck)
+[![R-CMD-check](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkABC3D/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkABC3D/graph/badge.svg)](https://app.codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkABC3D)
 <!-- badges: end -->
 
 **sharkabc3d** (Shark and Ray ABiotic Covariates in 3 Dimensions) is an
