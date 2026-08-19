@@ -4,7 +4,7 @@
 # sharkabc3d
 
 <!-- badges: start -->
-
+[![pkgcheck](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/workflows/pkgcheck/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions?query=workflow%3Apkgcheck)
 <!-- badges: end -->
 
 **sharkabc3d** (Shark and Ray ABiotic Covariates in 3 Dimensions) is an
