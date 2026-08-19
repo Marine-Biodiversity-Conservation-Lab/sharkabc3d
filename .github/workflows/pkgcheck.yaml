@@ -12,7 +12,6 @@ on:
   push:
     branches:
       - main
-      - chore/17-prepare-for-ropensci-submission
 
 jobs:
   pkgcheck:
