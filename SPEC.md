@@ -166,10 +166,6 @@ Aggregate environmental and trait data across species for comparative analysis.
 - `copernicus_load(file_path)` — Load Copernicus marine data .nc file. Standardize depth layer naming to match the package convention. Returns SpatRaster.
 - `copernicus_summarise(file_paths, fun)` — Summarise Copernicus data across time steps (e.g., monthly to annual min/max/mean). Returns named list of SpatRasters.
 
-### Retirements
-
-- Retire `woa_nc_extract()`. Superseded by `woa_load_nc()` but still exported. Removing it behind a deprecation warning is self-contained.
-
 ---
 
 ## Future directions

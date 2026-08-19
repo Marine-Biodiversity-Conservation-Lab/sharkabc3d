@@ -9,15 +9,20 @@ woa_load_nc(file_path, field = "an")
 \arguments{
 \item{file_path}{Character. Path to a WOA .nc file.}
 
-\item{field}{Character. Statistical field to select. Default \code{"an"}
-(objectively analyzed climatology). See \code{\link[=woa_nc_extract]{woa_nc_extract()}} for other codes.}
+\item{field}{Character. Statistical field to select. One of:
+\code{"an"} (objectively analyzed climatology), \code{"mn"} (statistical mean),
+\code{"dd"} (number of observations), \code{"sd"} (standard deviation),
+\code{"se"} (standard error), \code{"oa"} (mean minus climatology),
+\code{"gp"} (number of mean values within radius of influence),
+\code{"sdo"} (objectively analyzed standard deviation),
+\code{"sea"} (standard error of the analysis). See the
+\href{https://repository.library.noaa.gov/view/noaa/70581}{WOA 2023 Product Documentation}.}
 }
 \value{
 SpatRaster with standardized depth layer names.
 }
 \description{
-Load a WOA .nc file and select layers for a given statistical field. Wrapper
-around \code{\link[terra:rast]{terra::rast()}} + \code{\link[=woa_nc_extract]{woa_nc_extract()}}. Returns a SpatRaster with
-layer names already following the \verb{\{variable\}_depth=\{value\}} convention used
-throughout this package (native to WOA NetCDFs).
+Load a WOA .nc file and select layers for a given statistical field. Returns
+a SpatRaster with layer names already following the \verb{\{variable\}_depth=\{value\}}
+convention used throughout this package (native to WOA NetCDFs).
 }

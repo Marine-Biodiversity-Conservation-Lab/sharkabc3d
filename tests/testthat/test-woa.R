@@ -1,3 +1,17 @@
+#' test utility for creating small test netCDFs 
+make_file <- function(path, values_by_depth) {
+  layers <- lapply(names(values_by_depth), function(dn) {
+    r <- terra::rast(nrows = 2, ncols = 2,
+                      xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+                      crs = "EPSG:4326")
+    terra::values(r) <- values_by_depth[[dn]]
+    names(r) <- dn
+    r
+  })
+  stk <- terra::rast(layers)
+  terra::writeCDF(stk, path, overwrite = TRUE, split = TRUE)
+}
+
 test_that("woa_cache_dir returns a writable path", {
   path <- woa_cache_dir()
   expect_true(dir.exists(path))
@@ -82,30 +96,17 @@ test_that("woa_summarise_monthly errors on empty dir", {
   expect_error(woa_summarise_monthly(tmp), "No \\.nc files")
 })
 
-test_that("woa_summarise_monthly computes min/max/diff across files", {
+test_that("woa_summarise_monthly computes min/max/diff across files when abbreviated field is two characters long", {
   # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
   # Skips cleanly on systems without NetCDF write support in terra.
   tmp <- tempfile("woa_mon_"); dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE))
 
-  make_file <- function(path, values_by_depth) {
-    layers <- lapply(names(values_by_depth), function(dn) {
-      r <- terra::rast(nrows = 2, ncols = 2,
-                       xmin = 0, xmax = 2, ymin = 0, ymax = 2,
-                       crs = "EPSG:4326")
-      terra::values(r) <- values_by_depth[[dn]]
-      names(r) <- dn
-      r
-    })
-    stk <- terra::rast(layers)
-    terra::writeCDF(stk, path, overwrite = TRUE, split = TRUE)
-  }
-
   f1 <- file.path(tmp, "m01.nc")
   f2 <- file.path(tmp, "m02.nc")
   ok <- tryCatch({
-    make_file(f1, list(`tan_depth=0` = c(1, 2, 3, 4), `tan_depth=100` = c(5, 6, 7, 8)))
-    make_file(f2, list(`tan_depth=0` = c(2, 3, 4, 5), `tan_depth=100` = c(4, 5, 6, 7)))
+    make_file(f1, list(`t_an_depth=0` = c(1, 2, 3, 4), `t_an_depth=100` = c(5, 6, 7, 8)))
+    make_file(f2, list(`t_an_depth=0` = c(2, 3, 4, 5), `t_an_depth=100` = c(4, 5, 6, 7)))
     TRUE
   }, error = function(e) FALSE)
   skip_if_not(ok, "terra::writeCDF unavailable")
@@ -120,5 +121,71 @@ test_that("woa_summarise_monthly computes min/max/diff across files", {
   expect_equal(
     terra::values(result$diff[[1]])[, 1],
     c(1, 1, 1, 1)
+  )
+})
+
+test_that("woa_summarise_monthly computes min/max/diff across files when abbreviated field is three characters long", {
+  # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
+  # Skips cleanly on systems without NetCDF write support in terra.
+  tmp <- tempfile("woa_mon_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+
+  f1 <- file.path(tmp, "m01.nc")
+  f2 <- file.path(tmp, "m02.nc")
+  ok <- tryCatch({
+    make_file(f1, list(`t_sea_depth=0` = c(1, 2, 3, 4), `t_sea_depth=100` = c(5, 6, 7, 8)))
+    make_file(f2, list(`t_sea_depth=0` = c(2, 3, 4, 5), `t_sea_depth=100` = c(4, 5, 6, 7)))
+    TRUE
+  }, error = function(e) FALSE)
+  skip_if_not(ok, "terra::writeCDF unavailable")
+
+  result <- woa_summarise_monthly(tmp, field = "sea")
+  expect_named(result, c("min", "max", "diff"))
+  expect_equal(terra::nlyr(result$min), 2)
+  expect_equal(
+    terra::values(result$max[[1]])[, 1],
+    c(2, 3, 4, 5)
+  )
+  expect_equal(
+    terra::values(result$diff[[1]])[, 1],
+    c(1, 1, 1, 1)
+  )
+})
+
+test_that("woa_load_nc catches layer names that do not match WOA one-letter code for oceanographic variables", {
+  # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
+  # Skips cleanly on systems without NetCDF write support in terra.
+  tmp <- tempfile("woa_mon_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+
+  f1 <- file.path(tmp, "m01.nc")
+  ok <- tryCatch({
+    make_file(f1, list(`do_sea_depth=0` = c(1, 2, 3, 4), `do_sea_depth=100` = c(5, 6, 7, 8)))
+    TRUE
+  }, error = function(e) FALSE)
+  skip_if_not(ok, "terra::writeCDF unavailable")
+
+  expect_error(
+    woa_load_nc(paste0(tmp, "/m01.nc"), field = "sea"),
+    "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: t, s, o, n, p, i."
+  )
+})
+
+test_that("woa_load_nc catches layer names that do not match WOA code for abbreviated fields", {
+  # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
+  # Skips cleanly on systems without NetCDF write support in terra.
+  tmp <- tempfile("woa_mon_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+
+  f1 <- file.path(tmp, "m01.nc")
+  ok <- tryCatch({
+    make_file(f1, list(`o_inc_depth=0` = c(1, 2, 3, 4), `o_inc_depth=100` = c(5, 6, 7, 8)))
+    TRUE
+  }, error = function(e) FALSE)
+  skip_if_not(ok, "terra::writeCDF unavailable")
+
+  expect_error(
+    woa_load_nc(paste0(tmp, "/m01.nc"), field = "sea"),
+    "check raster layer names. For WOA data, field code must be one of: an, mn, dd, sd, se, oa, gp, sdo, sea."
   )
 })
