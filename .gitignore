@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 .Renviron
+.Rprofile
 inst/doc
 /tmp/
 
