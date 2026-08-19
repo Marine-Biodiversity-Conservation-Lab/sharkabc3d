@@ -1,7 +1,5 @@
 # Runs R CMD check on pushes and PRs to main.
 # Based on the standard r-lib/actions example workflow.
-# NOTE: this will not pass until the vcr test setup is fixed — see
-# CONTRIBUTING.md "Known rough edges" #2 and #3.
 on:
   push:
     branches: [main]
