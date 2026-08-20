@@ -4,10 +4,12 @@
 # sharkabc3d
 
 <!-- badges: start -->
-
+[![pkgcheck](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/workflows/pkgcheck/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions?query=workflow%3Apkgcheck)
+[![R-CMD-check](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d/graph/badge.svg)](https://app.codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d)
 <!-- badges: end -->
 
-**sharkabc3d** (Shark and Ray ABiotic Covariates in 3 Dimensions) is an
+**sharkabc3d** (Shark and Ray Abiotic Covariates in 3 Dimensions) is an
 R package for three-dimensional marine spatial analysis of sharks, rays,
 and chimaeras.
 
@@ -164,5 +166,5 @@ Rachel Aitchison, Wade VanderWright, Amanda Arnold, Dr. Samm Sherman, Dr. Alifa 
 
 ## Citation
 
-Matsushiba, J. H., & Dulvy, N. K. *SharkABC3D: An R Package for
+Matsushiba, J. H., & Dulvy, N. K. *sharkabc3d: An R Package for
 Three-Dimensional Marine Spatial Analyses of Abiotic Covariates.*

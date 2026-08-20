@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 .Renviron
+.Rprofile
 inst/doc
 /tmp/
 
@@ -17,3 +18,5 @@ example_data/*
 .quarto
 figures/fig-voxel-model_raw.pdf
 figures/fig-species-voxel_raw.pdf
+**/*.quarto_ipynb
+docs
