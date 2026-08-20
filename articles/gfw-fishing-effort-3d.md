@@ -1,0 +1,620 @@
+# Depth-Stratified Fishing Effort from Global Fishing Watch
+
+## Depth-Stratified Fishing Effort from Global Fishing Watch
+
+This vignette walks through turning Global Fishing Watch (GFW) apparent
+fishing-effort data from a flat, 2D per-cell product into a **3D,
+depth-stratified effort stack** that can be intersected with shark and
+ray ranges via \[calc_volume_overlap()\].
+
+Ingest is delegated to the
+[gfwr](https://globalfishingwatch.github.io/gfwr/) package, which
+queries the GFW 4Wings API and returns effort already aggregated per
+cell × group. `sharkabc3d` covers the two steps gfwr does not:
+rasterising onto the canonical study grid, and extending the 2D effort
+product into a 3D depth-stratified stack via gear-class depth priors and
+bathymetry. Both steps are implemented —
+[`gfw_effort_to_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_effort_to_raster.md)
+and
+[`gfw_gear_depth_bands()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_gear_depth_bands.md)
+— but chunks here are `eval = FALSE` because they need a `GFW_TOKEN` and
+a local bathymetry grid.
+
+### What GFW provides, and what we need
+
+GFW (Kroodsma et al. 2018, *Science*) publishes apparent fishing effort
+in fishing hours per grid cell × time × flag state × gear type. It is a
+**2D raster product**: a longline set hooks at 80 m and a bottom trawl
+scraping the seafloor at 400 m both appear as undifferentiated “effort”
+pixels. For species with strong vertical habitat partitioning, flat
+overlap over- or under-counts risk.
+
+The workflow has three steps:
+
+1.  **Fetch** effort for a region with
+    [`gfwr::gfw_ais_fishing_hours()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html),
+    grouped by gear type (and optionally flag).
+2.  **Rasterise** the returned tibble onto a target grid, one layer per
+    group level, with \[gfw_effort_to_raster()\].
+3.  **Extend into 3D** by attaching a depth window per gear class and
+    clamping benthic gears to bathymetry, producing a stack indexed by
+    `effort_<geartype>_depth=<value>` with \[gfw_gear_depth_bands()\].
+
+### Setup
+
+``` r
+
+# library(sharkabc3d)
+library(terra)
+library(here)
+library(gfwr)
+```
+
+`gfwr` requires an API token. Register at
+<https://globalfishingwatch.org/our-apis/tokens> and put the key in the
+`GFW_TOKEN` environment variable;
+[`gfwr::gfw_auth()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_auth.html)
+will pick it up.
+
+### Step 1: Fetch apparent fishing effort
+
+[`gfw_ais_fishing_hours()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html)
+returns a long-format tibble with one row per cell × time bucket × group
+level. For an EEZ, MPA, or RFMO region, first resolve the human-readable
+name to the numeric region ID with
+[`gfwr::gfw_region_id()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_region_id.html)
+— the API expects the ID, not an ISO3 string.
+
+``` r
+
+# Resolve the Japan EEZ to its numeric region ID.
+jpn_eez <- gfw_region_id(region = "JPN", region_source = "EEZ")$id
+
+effort <- gfw_ais_fishing_hours(
+  spatial_resolution  = "HIGH",        # 0.01 deg
+  temporal_resolution = "YEARLY",      # one bucket per year in [start, end]
+  start_date          = "2022-01-01",
+  end_date            = "2022-12-31",
+  region              = jpn_eez,
+  region_source       = "EEZ",
+  group_by            = "GEARTYPE"
+)
+
+head(effort)
+#> # A tibble: 6 x 6
+#>     Lat   Lon `Time Range` geartype           `Vessel IDs` `Apparent Fishing Hours`
+#>   <dbl> <dbl>        <dbl> <chr>                     <dbl>                    <dbl>
+#> 1  35.4 140.1         2022 trawlers                      1                     0.95
+#> 2  34.6 138.9         2022 inconclusive                  1                     1.85
+#> 3  35.1 139.7         2022 fishing                       1                     3.05
+#> 4  33.2 137.4         2022 drifting_longlines            1                     2.38
+#> ...
+```
+
+Note: GFW returns gear-class labels in lower-case (`geartype` column,
+values like `trawlers`, `drifting_longlines`). It also emits an
+`inconclusive` class for vessels the classifier could not assign — these
+are passed through and treated like `fishing` (unclassified) in the
+depth-band logic.
+
+### Step 2: Rasterise to a per-gear stack on the study grid
+
+Pick a target grid — typically the same grid used for species ranges and
+WOA extraction — and rasterise the effort tibble onto it. One SpatRaster
+layer is produced per unique level of `layer_by`.
+
+``` r
+
+# Use the bathymetry grid as the canonical study grid.
+bathy <- load_bathymetry(
+  here("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
+)
+
+# Crop bathymetry to the effort footprint (with a small buffer) before
+# any heavy raster ops. GEBCO is global at 15 arc-seconds; cropping first
+# turns a multi-GB reproject/aggregate into a few-MB one.
+effort_extent <- terra::ext(
+  min(effort$Lon) - 0.5, max(effort$Lon) + 0.5,
+  min(effort$Lat) - 0.5, max(effort$Lat) + 0.5
+)
+bathy_crop <- terra::crop(bathy, effort_extent)
+
+# Canonical study grid: positive-down depth on the effort footprint,
+# coarsened to ~0.04 deg for the worked example.
+study_grid <- (terra::project(bathy_crop, "EPSG:4326") * -1) |>
+  terra::aggregate(fact = 10)
+
+effort_by_gear <- gfw_effort_to_raster(
+  effort   = effort,
+  grid     = study_grid,
+  layer_by = "geartype",
+  value    = "Apparent Fishing Hours",
+  fun      = "sum"
+)
+
+names(effort_by_gear)
+#> [1] "effort_drifting_longlines" "effort_set_gillnets"
+#> [3] "effort_trawlers"           "effort_pots_and_traps"
+#> ...
+```
+
+If you need a different cut (e.g. one layer per flag, or per flag ×
+geartype), re-fetch with the appropriate `group_by` on the API — that’s
+cheaper and more honest than collapsing client-side.
+
+### Step 3: Extend into 3D with a user-supplied gear-depth lookup
+
+\[gfw_gear_depth_bands()\] needs a `depth_lookup` table mapping each GFW
+gear class to an operating depth band. **The package does not ship a
+default lookup**: operating depths vary by region, fleet, and time, and
+the right values for a given analysis depend on assumptions the analyst
+is responsible for. The example below is a placeholder used purely to
+demonstrate the function’s mechanics — it is *not* a recommendation for
+real analyses. Replace it with literature- or fishery-specific values
+appropriate to your study.
+
+The lookup has five columns:
+
+- `geartype` — the GFW gear class label (matching the `geartype` values
+  in the effort tibble).
+- `depth_min`, `depth_max` — shallowest and deepest operating depths in
+  metres, positive-down. Set both to `NA` for benthic gears whose band
+  is computed from bathymetry, and for unknown/unclassified gears.
+- `mode` — `"pelagic"` (fixed band in the water column), `"benthic"`
+  (band clamped to bathymetry ± `benthic_buffer`), or `"unknown"`
+  (handled via the `fallback` argument).
+- `benthic_buffer` — for `mode = "benthic"`, metres above the seafloor
+  the gear is assumed to fish. `NA` otherwise.
+
+``` r
+
+# Placeholder values for demonstration only — substitute literature- or
+# fishery-specific operating depths for real analyses.
+depth_lookup <- data.frame(
+  geartype = c(
+    "drifting_longlines", "set_longlines", "set_gillnets",
+    "trawlers", "dredge_fishing", "pole_and_line",
+    "trollers", "purse_seines", "tuna_purse_seines",
+    "other_purse_seines", "seiners", "squid_jigger",
+    "pots_and_traps", "fixed_gear", "fishing", "inconclusive"
+  ),
+  depth_min      = c(  0, NA,   0, NA, NA,   0,   0,   0,   0,   0,   0,   0, NA, NA, NA, NA),
+  depth_max      = c(400, NA, 140, NA, NA,  20, 150, 200, 250, 100, 200, 100, NA, NA, NA, NA),
+  mode = c(
+    "pelagic", "benthic", "pelagic",
+    "benthic", "benthic", "pelagic",
+    "pelagic", "pelagic", "pelagic",
+    "pelagic", "pelagic", "pelagic",
+    "benthic", "benthic", "unknown", "unknown"
+  ),
+  benthic_buffer = c( NA, 50,  NA, 50, 10,  NA,  NA,  NA,  NA,  NA,  NA,  NA, 50, 50, NA, NA),
+  stringsAsFactors = FALSE
+)
+```
+
+Pelagic gears use a fixed depth band. Benthic gears ride the seafloor:
+the band becomes `[max(bathy − buffer, 0), bathy]` per cell, handled by
+\[gfw_gear_depth_bands()\]. The function processes one gear at a time so
+peak memory stays bounded by a single gear’s depth-stratified stack
+rather than every gear at once. Loop over gears externally and
+concatenate the results — writing each per-gear stack to a tempfile in
+the loop body keeps the working set on disk for large analyses.
+
+``` r
+
+# Use WOA's 57 standard depths (0–1500 m) as the vertical grid.
+standard_depths <- c(
+  0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100,
+  125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500,
+  550, 600, 650, 700, 750, 800, 850, 900, 950, 1000,
+  1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500
+)
+
+# `study_grid` already carries positive-down depth on the cropped
+# footprint; clamp non-ocean cells to 0 to get the seafloor reference.
+seafloor <- terra::clamp(study_grid, lower = 0)
+
+# Build a depth-stratified stack for one mode (benthic or pelagic). The
+# per-gear loop writes each stack to a tempfile so peak memory stays
+# bounded by one gear at a time — essential at Japan-EEZ scale.
+build_mode_stack <- function(mode) {
+  gears <- intersect(
+    sub("^effort_", "", names(effort_by_gear)),
+    depth_lookup$geartype[depth_lookup$mode == mode]
+  )
+  per_gear <- lapply(gears, function(gear) {
+    s <- gfw_gear_depth_bands(
+      effort_layer    = effort_by_gear[[paste0("effort_", gear)]],
+      gear            = gear,
+      bathymetry      = seafloor,
+      standard_depths = standard_depths,
+      depth_lookup    = depth_lookup,
+      allocation      = "uniform"
+    )
+    terra::writeRaster(s, tempfile(fileext = ".tif"), overwrite = TRUE)
+  })
+  do.call(c, per_gear)
+}
+
+# Two stacks — benthic gears ride the seafloor, pelagic gears occupy a
+# fixed depth band — kept separate so the visualisation can render them
+# with distinct colour scales.
+benthic_3d <- build_mode_stack("benthic")
+pelagic_3d <- build_mode_stack("pelagic")
+
+names(benthic_3d)[1:5]
+#> [1] "effort_trawlers_depth=0"
+#> [2] "effort_trawlers_depth=5"
+#> [3] "effort_trawlers_depth=10"
+#> [4] "effort_trawlers_depth=15"
+#> [5] "effort_trawlers_depth=20"
+```
+
+### Visualising the 3D benthic-effort stack
+
+A 3D scene is the most direct way to read `benthic_3d`: the cubes sit on
+the seafloor, you can see whether effort is concentrated on the shelf or
+in deeper canyons, and the bathymetric surface gives every cube a
+spatial reference. We render with `plotly` so the scene stays
+interactive in the rendered HTML vignette. Pelagic effort is excluded —
+those gears occupy dozens of standard depths per cell and the cube count
+crashes plotly’s JSON serializer.
+
+``` r
+
+library(plotly)
+library(tidyr)
+library(dplyr)
+library(stringr)
+
+# `benthic_3d` and `pelagic_3d` are both produced by the gear-depth-bands
+# chunk above; we render them as two mesh3d traces with distinct colour
+# scales so the modes read as separate categories.
+
+# Vertical extent of each depth band: half-way to neighbouring standard
+# depths (so adjacent cubes meet without gaps or overlap).
+sd_sorted <- sort(unique(standard_depths))
+n_sd      <- length(sd_sorted)
+mids      <- (sd_sorted[-n_sd] + sd_sorted[-1]) / 2
+bands <- data.frame(
+  depth  = sd_sorted,
+  z_low  = c(max(sd_sorted[1] - (sd_sorted[2] - sd_sorted[1]) / 2, 0), mids),
+  z_high = c(mids, sd_sorted[n_sd] +
+                   (sd_sorted[n_sd] - sd_sorted[n_sd - 1]) / 2)
+)
+
+# Concatenate one mesh3d trace covering all cubes. Each cube has 8 vertices
+# and 12 triangles; vertex indices in plotly's mesh3d are 0-indexed.
+make_cube_mesh <- function(voxels, dx, dy) {
+  n <- nrow(voxels)
+  off <- as.matrix(expand.grid(sx = c(-1, 1), sy = c(-1, 1), sz = c(0, 1)))
+  rows <- voxels[rep(seq_len(n), each = 8), ]
+  o    <- off[rep(seq_len(8), times = n), ]
+
+  vx <- rows$x + o[, "sx"] * dx
+  vy <- rows$y + o[, "sy"] * dy
+  vz <- ifelse(o[, "sz"] == 0, rows$z_low, rows$z_high)
+
+  tris <- rbind(
+    c(0, 1, 2), c(1, 3, 2),  # shallow face
+    c(4, 5, 6), c(5, 7, 6),  # deep face
+    c(0, 4, 1), c(1, 4, 5),  # south face
+    c(2, 3, 6), c(3, 7, 6),  # north face
+    c(0, 2, 4), c(2, 6, 4),  # west face
+    c(1, 5, 3), c(3, 5, 7)   # east face
+  )
+  base_v <- rep(seq(0L, by = 8L, length.out = n), each = 12)
+  list(
+    x = vx, y = vy, z = vz,
+    i = rep(tris[, 1], n) + base_v,
+    j = rep(tris[, 2], n) + base_v,
+    k = rep(tris[, 3], n) + base_v,
+    intensity = rows$effort
+  )
+}
+
+# Turn a multi-layer effort stack into mesh3d cubes by collapsing across
+# gears at each (x, y, depth) and joining per-depth z-band extents.
+stack_to_cubes <- function(stack, dx, dy, bands) {
+  voxels <- terra::as.data.frame(stack, xy = TRUE, na.rm = FALSE) |>
+    pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "effort") |>
+    filter(!is.na(effort) & effort > 0) |>
+    mutate(depth = as.numeric(str_extract(layer, "(?<=depth=)-?[0-9.]+"))) |>
+    group_by(x, y, depth) |>
+    summarise(effort = sum(effort), .groups = "drop") |>
+    left_join(bands, by = "depth")
+  make_cube_mesh(voxels, dx = dx, dy = dy)
+}
+
+# Only render benthic effort. Pelagic gears occupy dozens of standard
+# depths per cell, so the cube count blows past plotly's JSON serializer
+# (R's 2 GB string limit) even after threshold-thinning. `pelagic_3d` is
+# still produced by the gear-depth-bands chunk for the species-overlap
+# analysis below.
+res           <- terra::res(study_grid)
+benthic_cubes <- stack_to_cubes(benthic_3d, res[1] / 2, res[2] / 2, bands)
+
+# Log-scale colour mapping. Plotly's mesh3d colourscale is linear in
+# `intensity`, so we feed it log10(effort) directly, then relabel the
+# colourbar ticks back to the original-scale values (1, 10, 100, ...).
+benthic_log_intensity <- log10(benthic_cubes$intensity)
+log_breaks <- 10 ^ seq(floor(min(benthic_log_intensity)),
+                       ceiling(max(benthic_log_intensity)))
+
+# Bathymetry surface and a flat sea surface at z = 0. Plotly expects the
+# i-th row of z to align with y[i], so flip both together south-to-north.
+bathy_x   <- terra::xFromCol(seafloor, seq_len(terra::ncol(seafloor)))
+bathy_y   <- terra::yFromRow(seafloor, seq_len(terra::nrow(seafloor)))
+bathy_mat <- terra::as.matrix(seafloor, wide = TRUE)
+bathy_mat <- bathy_mat[nrow(bathy_mat):1, ]
+bathy_y   <- rev(bathy_y)
+sea_z     <- matrix(0, nrow = length(bathy_y), ncol = length(bathy_x))
+
+
+# Coastline: contour the *native-resolution* `bathy_crop` (positive
+# elevation on land, negative below sea level) at 0 — the actual coast.
+# Using `seafloor` instead loses the coast geometry: aggregation by
+# fact=10 flattens 10×10 GEBCO cells, and clamp(lower = 0) snaps
+# negative-elevation cells onto the same plane as sea-level cells, so
+# the contour zigzags through the coarsened grid rather than tracing
+# real shorelines. Project onto the same CRS as the plot if needed.
+coast_lines <- terra::as.contour(bathy_crop, levels = 0)
+if (!terra::same.crs(coast_lines, study_grid)) {
+  coast_lines <- terra::project(coast_lines, terra::crs(study_grid))
+}
+# Flatten each line segment into one (x, y) sequence and separate
+# segments with NAs so plotly's scatter3d breaks the line at NA,
+# preserving disconnected coastline pieces (islands, archipelagos).
+coast_xy    <- sf::st_coordinates(sf::st_as_sf(coast_lines))
+coast_split <- split(seq_len(nrow(coast_xy)),
+                     paste(coast_xy[, "L1"], coast_xy[, "L2"]))
+coast_x <- unlist(lapply(coast_split, function(idx) c(coast_xy[idx, "X"], NA)))
+coast_y <- unlist(lapply(coast_split, function(idx) c(coast_xy[idx, "Y"], NA)))
+coast_z <- ifelse(is.na(coast_x), NA_real_, 0)
+
+# Namespace-qualify every plotly call: `terra` (loaded earlier in this
+# vignette) exports a `layout` generic, and `graphics::layout` is on the
+# search path too. Either can mask `plotly::layout` and trigger
+# "unused argument (scene = ...)".
+build_benthic_scene <- function(camera = NULL) {
+  scene <- list(
+    xaxis = list(title = "Longitude"),
+    yaxis = list(title = "Latitude"),
+    zaxis = list(title = "Depth (m)", autorange = "reversed"),
+    # Compress the z-axis so depth doesn't dominate the scene. Tune the
+    # `z` value down for less vertical stretch, up for more.
+    aspectmode  = "manual",
+    aspectratio = list(x = 1, y = 1, z = 0.05)
+  )
+  if (!is.null(camera)) scene$camera <- camera
+
+  plotly::plot_ly() |>
+    plotly::add_surface(
+      x = bathy_x, y = bathy_y, z = bathy_mat,
+      # Single surface keeps the coast geometry continuous — splitting
+      # land/ocean into two NA-masked surfaces drops faces that bridge
+      # the boundary, leaving ragged edges. Plotly interpolates colours
+      # across faces, so the green→tan transition smears across the
+      # 1-cell-wide coastal band; the coastline scatter trace below
+      # overlays a sharp dark line that visually anchors the boundary.
+      colorscale = list(
+        c(0,    "rgb(140, 170, 110)"),  # land (z = 0): muted green
+        c(1e-4, "rgb(180, 170, 150)"),  # shallow ocean: tan
+        c(1,    "rgb( 60,  45,  30)")   # deep ocean: dark brown
+      ),
+      cmin = 0,
+      cmax = max(bathy_mat, na.rm = TRUE),
+      showscale = FALSE, opacity = 1, name = "Seafloor"
+    ) |>
+    plotly::add_trace(
+      type = "scatter3d", mode = "lines",
+      x = coast_x, y = coast_y, z = coast_z,
+      line = list(color = "rgb(30, 25, 20)", width = 3),
+      hoverinfo = "skip", showlegend = FALSE, name = "Coastline"
+    ) |>
+    plotly::add_trace(
+      type = "mesh3d",
+      x = benthic_cubes$x, y = benthic_cubes$y, z = benthic_cubes$z,
+      i = benthic_cubes$i, j = benthic_cubes$j, k = benthic_cubes$k,
+      intensity = benthic_log_intensity,
+      colorscale = "Viridis", opacity = 0.5, flatshading = TRUE,
+      colorbar = list(
+        title    = "Effort\n(hours)",
+        tickvals = log10(log_breaks),
+        ticktext = format(log_breaks, big.mark = ",", scientific = FALSE,
+                          trim = TRUE)
+      ),
+      name = "Benthic effort"
+    ) |>
+    plotly::layout(scene = scene)
+}
+
+build_benthic_scene()
+```
+
+**Figure 1.** Depth-stratified benthic fishing effort in the Japanese
+EEZ (2022), rendered as an interactive 3D scene. Each cube is one
+study-grid cell spanning one World Ocean Atlas standard depth band,
+coloured by apparent fishing effort in hours — summed across benthic
+gear types — on a log₁₀ scale. The shaded surface is GEBCO bathymetry,
+from muted green land through tan shelf to dark brown deep water, and
+the dark line traces the coastline. The depth axis is reversed so the
+sea surface sits at the top and the seafloor at the bottom.
+
+### Exporting an animation for slides
+
+Plotly widgets are interactive in HTML but PowerPoint can’t embed them.
+The path below renders the same scene at a series of camera angles
+(turntable rotation), captures each frame as a PNG via `webshot2`, and
+stitches the frames into an MP4 with `av` (which wraps ffmpeg). MP4
+embeds natively in PowerPoint and Keynote.
+
+`webshot2` needs a Chrome/Chromium install (one-time:
+`webshot2::install_chrome()`). `av` pulls ffmpeg via the bundled binary
+on most platforms, no system install required.
+
+``` r
+
+library(webshot2)
+library(av)
+
+# Turntable parameters. Plotly's camera works in scene-coordinate units;
+# `eye` is the camera position relative to the scene's centre. Distance
+# from origin is sqrt(x^2 + y^2 + z^2) ≈ 1.8 here. Adjust `elev_z` for
+# pitch (higher = more top-down) and `radius` for zoom.
+n_frames <- 60
+radius   <- 1.7
+elev_z   <- 0.6
+angles   <- seq(0, 2 * pi, length.out = n_frames + 1)[-(n_frames + 1)]
+
+frame_dir   <- tempfile("benthic_frames_")
+dir.create(frame_dir)
+frame_files <- character(n_frames)
+
+for (i in seq_along(angles)) {
+  theta <- angles[i]
+  cam <- list(
+    eye    = list(x = radius * cos(theta), y = radius * sin(theta), z = elev_z),
+    center = list(x = 0, y = 0, z = 0),
+    up     = list(x = 0, y = 0, z = 1)
+  )
+  fig <- build_benthic_scene(camera = cam)
+
+  html_path <- tempfile(fileext = ".html")
+  png_path  <- file.path(frame_dir, sprintf("frame_%03d.png", i))
+  htmlwidgets::saveWidget(fig, html_path, selfcontained = TRUE)
+  # `delay` gives the WebGL canvas time to render before screenshot.
+  webshot2::webshot(html_path, png_path,
+                    vwidth = 1280, vheight = 720, delay = 1.5)
+  frame_files[i] <- png_path
+}
+
+# 24 fps × 60 frames = 2.5 s loop. Bump n_frames or fps for smoother
+# rotation; keep the file under ~10 MB for easy slide embedding.
+out_mp4 <- here("figures/benthic_effort_3d.mp4")
+av::av_encode_video(frame_files, output = out_mp4, framerate = 24)
+
+# Optional GIF fallback for venues that block MP4 (rarer).
+# magick::image_animate(magick::image_read(frame_files), fps = 24) |>
+#   magick::image_write(here("presentation/benthic_effort_3d.gif"))
+```
+
+Drop the resulting `.mp4` straight into a slide via **Insert → Video →
+Video on My PC** (PowerPoint) or **Insert → Movie** (Keynote).
+PowerPoint will play it in-place; for a presentation-mode auto-loop, set
+the playback options to *Start: Automatically* and *Loop until Stopped*.
+
+### Intersecting with a species’ 3D range
+
+Once `benthic_3d` / `pelagic_3d` follow the `{variable}_depth=<value>`
+convention, they compose with the rest of the package the same way WOA
+rasters do:
+
+``` r
+
+# Example: silky shark (epipelagic, shallow exposure to longlines).
+# The IUCN shark/ray/chimaera shapefile carries one row per species range
+# polygon. Filter at read time with SQL so the in-memory object is small.
+iucn_shp <- "/home/jay/Programming_Projects/Big_Data/SHARKS_RAYS_CHIMAERAS/SHARKS_RAYS_CHIMAERAS.shp"
+
+sp_range <- sf::st_read(
+  iucn_shp,
+  query = "SELECT * FROM SHARKS_RAYS_CHIMAERAS WHERE sci_name = 'Carcharhinus falciformis'",
+  quiet = TRUE
+)
+
+# Depth limits are placeholder values for demonstration; in practice pull
+# them per-species via fetch_species_assessments() / fill_missing_depths()
+# from the IUCN Red List API.
+range_rast <- voxelize_range(
+  polygons   = sp_range,
+  voxel      = study_grid,
+  bathymetry = seafloor,
+  depth_min  = 0,
+  depth_max  = 500
+)
+
+# Mask the 3D effort stack to cells + depths inside the species' per-cell
+# depth window. extract_rast_range() reads the `effort_<gear>_depth=<value>`
+# layer names and keeps each layer's effort only where the species is
+# present at that depth.
+longline_layers <- pelagic_3d[[grep("drifting_longlines", names(pelagic_3d))]]
+exposed_effort  <- extract_rast_range(range_rast, longline_layers)
+
+# Total longline effort-hours overlapping the silky shark's 3D range.
+total_exposed <- sum(
+  terra::global(exposed_effort, "sum", na.rm = TRUE)$sum,
+  na.rm = TRUE
+)
+total_exposed
+#> [1] <hours>
+
+# Per-depth exposure profile (effort-hours summed across cells, per layer).
+per_depth <- terra::global(exposed_effort, "sum", na.rm = TRUE)
+per_depth$depth <- as.numeric(
+  stringr::str_extract(rownames(per_depth), "(?<=_depth=)-?[0-9.]+")
+)
+per_depth[!is.na(per_depth$sum) & per_depth$sum > 0,
+          c("depth", "sum")]
+```
+
+### Caveats worth surfacing
+
+These split into two groups: limitations of the underlying GFW AIS
+effort product (sourced from
+<https://globalfishingwatch.org/data-documentation/apparent-fishing-effort-ais/>),
+and limitations of the depth-stratification step this package adds on
+top.
+
+#### Inherited from GFW AIS effort
+
+- **AIS coverage skews to large, offshore vessels.** AIS carriage is
+  primarily mandated for vessels over 24 m operating offshore;
+  small-scale and artisanal fleets are largely absent from the dataset.
+  SAR dark-vessel detections (Paolo et al. 2024) are the complementary
+  layer for artisanal-fleet coverage.
+- **Class A vs. Class B reception is uneven.** Smaller AIS-equipped
+  vessels carry Class B units, which transmit at lower power and are
+  detected less reliably by satellites — so smaller-vessel effort is
+  systematically under-represented even within the AIS-equipped fleet.
+- **AIS can be disabled or spoofed.** Deliberate gaps and falsified
+  identities produce missing or misattributed positions.
+- **Signal interference in busy areas.** In high-traffic regions
+  overlapping AIS transmissions degrade satellite detection, reducing
+  apparent effort.
+- **“Apparent” fishing is a behavioural inference.** The classifier
+  flags movement patterns consistent with searching, setting, soaking,
+  and hauling — not just confirmed gear deployment. Expect false
+  positives where vessels slow or change course for non-fishing reasons.
+- **Vessel-type and gear misclassification.** Registry data is
+  inconsistent; MMSI recycling can mix two vessels’ tracks; vessels that
+  switch gears are inherently hard to classify. Treat per-gear effort as
+  a best-available label, not a measurement.
+- **Temporal comparisons are confounded by AIS adoption.** Year-on-year
+  changes in apparent effort partly reflect changes in AIS uptake,
+  satellite coverage, and terrestrial-station access, not just changes
+  in real fishing activity.
+
+#### Added by this package’s depth-stratification
+
+- **The depth lookup is the analyst’s responsibility.** The package does
+  not ship a default `depth_lookup`. GFW does not publish set depth, so
+  any per-gear band is an assumption — and the right assumption depends
+  on the region, fleet, and time period being analysed.
+- **Pelagic vs. benthic variants of gillnets and trawls are not always
+  distinguished** in GFW’s classification. The midwater/bottom trawl
+  case is the clearest example: in 2D the distinction is invisible, but
+  in 3D the two gears live in completely different parts of the water
+  column. Whatever you assign in `depth_lookup` will carry that
+  uncertainty until GFW separates them.
+- **`allocation = "uniform"` preserves total effort-hours** but assumes
+  gear distributes evenly across its band; `"presence"` is cheaper but
+  double counts and is only appropriate for footprint maps.
+
+### Function summary
+
+| Function | Purpose |
+|----|----|
+| [`gfwr::gfw_ais_fishing_hours()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html) | Fetch GFW apparent fishing effort for a region, aggregated server-side by `group_by` |
+| \[gfw_effort_to_raster()\] | Rasterise the gfwr tibble onto the study grid, one layer per group level |
+| \[gfw_gear_depth_bands()\] | Extend a per-gear effort raster into a 3D depth-stratified stack using a user-supplied gear → depth-band lookup |

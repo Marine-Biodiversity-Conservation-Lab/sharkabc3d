@@ -1,0 +1,401 @@
+# Contributing to sharkabc3d
+
+Thanks for your interest in contributing! **sharkabc3d** is an R package
+for three-dimensional marine spatial analysis of sharks, rays, and
+chimaeras. It grew out of several lab analyses (Bangladesh fisheries
+overlap, WOA environmental extraction, deep-sea depth refuge) and is
+being generalised into reusable, tested functions.
+
+This document covers how to get set up, how we branch and coordinate,
+and what a contribution needs to look like to be merged.
+
+- [Quick orientation](#quick-orientation)
+- [Development setup](#development-setup)
+- [Data setup](#data-setup)
+- [Branching and coordination](#branching-and-coordination)
+- [What a good contribution looks
+  like](#what-a-good-contribution-looks-like)
+- [Coding conventions](#coding-conventions)
+- [Testing](#testing)
+- [Documentation and vignettes](#documentation-and-vignettes)
+- [Known rough edges / good first
+  issues](#known-rough-edges--good-first-issues)
+
+------------------------------------------------------------------------
+
+## Why contribute to **sharkabc3d**?
+
+**sharkabc3d** is an open-source package, built on collaboration across
+researchers and projects. Currently, **sharkabc3d** is a very new
+project undergoing active development, which means that you can shape
+and directly contribute to the work done. Functionality that you wished
+existed? You can write an issue with what you would like, reaching
+contributors with your direct feedback. Even better, you can develop
+that functionality and add it to **sharkabc3d** yourself, broadening the
+impact of your work. Other people can then come along and use your code
+to use in their projects, making science overall more efficient and
+impactful.
+
+------------------------------------------------------------------------
+
+## How contributing works for **sharkabc3d**
+
+### The loop
+
+    GitHub issue  →  self-assign  →  branch  →  PR  →  squash-merge
+
+We use issues as the unit of work and the record of its current state.
+
+1.  **Find or open an issue.** Every piece of work starts as an issue.
+    - Issues describe anything that needs to be developed, fixed,
+      refined within this codebase. The easiest way to open issues is
+      via this package’s [GitHub
+      repository](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues).
+      When creating the issue, choose any template that fits (or write
+      your own from scratch). You can write issues without implementing
+      it; it’s totally acceptable and encouraged to write issues about
+      what you wish this package did or problems that you have found
+      with it, without intention of coding those actual fixes yourself.
+2.  **Claim it.**
+    - Assign yourself and comment before you start coding. You can claim
+      your own issues, or claim another issue that someone else has
+      written but it currently unassigned. This is how we avoid two
+      people extracting the same function from the same prior analysis.
+      If an issue has been assigned, but it’s been silent for a month,
+      comment and see if the assigned contributor is still working on
+      it.
+3.  **Branch from an up-to-date `main`.**
+    - Create a new branch from the most recent commit on `main`. Easiest
+      way is click `Create a branch` under `Development`, within the
+      sidebar of the Issue page in GitHub. We use short-lived branches
+      off `main`, with **one issue per branch**.
+    - Branches will be named with the format of
+      `<issue-number>-<short-slug>`. Using the above `Create a branch`
+      procedure should automatically generate branch names based on the
+      issue number and title of the issue.
+4.  **Open a Pull Request early**
+    - A draft Pull Request is fine. This way, others can see what areas
+      are being worked on. A Pull Request is a review of the work done
+      on the branch, so that it can be merged with the main branch. This
+      is the main gate for coordinating work done. Ideally, we would
+      have some formal process for PRs, but for now Jay will review
+      these before merging with main to keep work coordinated.
+5.  **Merge** and delete the branch.
+    - Reference the issue from the PR so it closes automatically. This
+      should happen automatically if the branch is created from the
+      issue.
+
+`main` must always be installable — never push work-in-progress directly
+to it. All changes to `main` should be done via a Pull Request.
+
+### Ownership map — how to avoid collisions
+
+Work is naturally partitioned by file. Coordinate before crossing these
+lines, because these files are where merge conflicts actually happen:
+
+| Area | Files | Typical SPEC section |
+|----|----|----|
+| Volume / voxelisation | `R/volume.R`, `R/load_data.R` | Volume calculation |
+| Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
+| Fisheries | `R/gfw.R` | Data source utilities (GFW) |
+| Species data | `R/iucn_utils.R` | Data loading and preparation |
+| Geometry utilities (**unstarted, medium**) | new `R/geometry.R` | Geometry utilities |
+| Plotting | `R/plot.R` | Visualization |
+
+Two people *can* work in the same area — just make the split explicit in
+the issue thread (e.g. “I’ll take `fix_dateline_geometry()`, you take
+`validate_geometry()`”).
+
+### Labels
+
+Please apply these when you open an issue:
+
+The templates apply a type label for you; add priority and area
+yourself.
+
+- Priority: `high`, `medium`, `low`
+- Type (one per branch type): `bug`, `enhancement`, `documentation`,
+  `test`, `refactor`, `chore`
+- Extra: `good first issue`, `needs-data` (= blocked on a dataset the
+  contributor may not have)
+
+### Review and merge
+
+- Every PR needs one approving review from a maintainer (currently
+  [@JayMatsushiba](https://github.com/JayMatsushiba)) before merge.
+- CI (`R CMD check`) must be green.
+- Merge with a message referencing the issue:
+  `Add load_eez() for Marine Regions EEZ polygons (#12)`.
+- Delete the branch after merging.
+
+### Versioning
+
+Development version is `0.1.0`. Bump the third component in
+`DESCRIPTION` (`0.1.1`, …) when a PR adds or changes an exported
+function.
+
+------------------------------------------------------------------------
+
+## What a good contribution looks like
+
+A PR implementing a SPEC function should include **all** of:
+
+1.  The function in the appropriate `R/*.R` file, with full roxygen2
+    docs (`@param`, `@returns`, `@examples`, `@export`).
+2.  Tests in the mirroring `tests/testthat/test-*.R` file, covering the
+    happy path, input validation errors, and at least one edge case.
+3.  `devtools::document()` run, so `man/` and `NAMESPACE` are updated.
+4.  `devtools::check()` passing locally with no new NOTEs.
+
+If you are generalising code from one of the prior analyses, the goal is
+**generalisation**, not a copy-paste. Parameterise the hard-coded
+species lists, study areas, and file paths, and make the function work
+for any input meeting the documented contract.
+
+------------------------------------------------------------------------
+
+## Quick orientation
+
+| Path | What lives there |
+|----|----|
+| `R/` | Package functions, one file per topic: `extract.R`, `gfw.R`, `iucn_utils.R`, `load_data.R`, `plot.R`, `volume.R`, `woa.R` |
+| `tests/testthat/` | One test file per `R/` file (`test-volume.R` ↔︎ `R/volume.R`) |
+| `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for API tests |
+| `man/` | roxygen2-generated docs — **never edit by hand** |
+| `vignettes/` | Long-form worked analyses; these are the reproductions of the source papers |
+| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. |
+| `CLAUDE.md` | Short architecture summary read by AI coding assistants |
+| `renv.lock` | Pinned dependency versions |
+
+**Read `SPEC.md` before proposing work.** Its *Architecture and
+conventions* section is binding on any new code, and its *Planned work*
+section specifies the things that still need building — each entry is
+written to seed an issue, with an intended signature and, where one
+exists, a note on the prior analysis it should be generalised from (that
+source material is not in this repo — ask the maintainer).
+
+To see what needs working on, see the [open
+issues](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues)
+and the package reference (`man/`,
+[`?sharkabc3d`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/sharkabc3d-package.md)).
+
+------------------------------------------------------------------------
+
+## Development setup
+
+### 1. Requirements
+
+- **R 4.4.3** (the version `renv.lock` was resolved against)
+- Git, and system GDAL/GEOS/PROJ + NetCDF libraries for `sf` and `terra`
+  - Ubuntu/Debian:
+    `sudo apt install libgdal-dev libgeos-dev libproj-dev libudunits2-dev netcdf-bin libnetcdf-dev`
+  - macOS: `brew install gdal geos proj udunits netcdf`
+
+### 2. Clone and restore the environment
+
+``` bash
+git clone https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d.git
+cd sharkabc3d
+```
+
+``` r
+
+renv::restore()   # installs pinned dependency versions
+devtools::load_all()
+```
+
+If `renv::status()` reports the project is out of sync, run
+`renv::restore()` to match the lockfile. Only run `renv::snapshot()` —
+and commit the resulting `renv.lock` change — when your PR
+**intentionally** adds or upgrades a dependency; say so in the PR
+description.
+
+Note that `gfwr` is installed from GitHub (`Remotes:` field in
+`DESCRIPTION`), not CRAN.
+
+### 3. API keys
+
+Several functions and vignettes need credentials. Put them in
+`~/.Renviron` (`usethis::edit_r_environ()`) — **never** commit them:
+
+    IUCN_REDLIST_KEY="..."   # https://api.iucnredlist.org/  — fetch_species_assessments()
+    GFW_TOKEN="..."          # https://globalfishingwatch.org/our-apis/tokens — gfwr::gfw_auth()
+
+Code and tests must degrade gracefully without these: use
+`testthat::skip_if(identical(Sys.getenv("IUCN_REDLIST_KEY"), ""))` or a
+recorded `vcr` cassette rather than assuming a key exists.
+
+### 4. Everyday commands
+
+``` r
+
+devtools::load_all()          # load package for interactive work
+devtools::document()          # regenerate man/ + NAMESPACE from roxygen comments
+devtools::test()              # run the full test suite
+testthat::test_file("tests/testthat/test-volume.R")   # one file
+devtools::check()             # full R CMD check — run before opening a PR
+```
+
+------------------------------------------------------------------------
+
+## Data setup
+
+**This is the biggest onboarding hurdle, so read it carefully.**
+
+The package deliberately ships **no** large spatial data.
+`example_data/` is gitignored (~1.4 GB locally) and the vignettes read
+from large third-party datasets that you must download yourself:
+
+| Dataset | Used for | Where to get it |
+|----|----|----|
+| GEBCO 2025 sub-ice topo (`.nc`) | The common bathymetry grid for everything | <https://www.gebco.net/data_and_products/gridded_bathymetry_data/> |
+| IUCN Red List `SHARKS_RAYS_CHIMAERAS` range shapefile | Species ranges | <https://www.iucnredlist.org/resources/spatial-data-download> (requires a data request) |
+| Marine Regions World EEZ v12 | Study-area clipping | <https://www.marineregions.org/downloads.php> |
+| World Ocean Atlas 2023 | Environmental covariates | Downloaded automatically by [`woa_download()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_download.md) into a cache dir; see [`woa_cache_dir()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_dir.md) |
+| Global Fishing Watch effort | Fisheries effort | Fetched via `gfwr` with `GFW_TOKEN` |
+| Bangladesh participatory-mapping fishery footprints | `bangladesh-fisheries-3d-overlap` vignette | Not public — contact the maintainer |
+
+⚠️ **Current limitation:** vignettes still contain hard-coded absolute
+paths (e.g. `/home/jay/Programming_Projects/Big_Data/...`). They will
+not run on your machine as-is. Until this is fixed (see [Known rough
+edges](#known-rough-edges--good-first-issues)), the convention we are
+moving to is a single environment variable in `~/.Renviron`:
+
+    SHARKABC3D_DATA="/path/to/your/big/data"
+
+…with vignettes resolving paths as
+`file.path(Sys.getenv("SHARKABC3D_DATA"), "gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")`.
+**If you touch a vignette, please convert its paths to this pattern**
+rather than adding new hard-coded ones.
+
+All vignette chunks are currently `eval = FALSE` for exactly this reason
+— they are documentation of a real analysis, not something CI can
+reproduce. Tests, by contrast, must run on synthetic in-memory rasters
+with **no external data and no network**.
+
+------------------------------------------------------------------------
+
+## Coding conventions
+
+- **Style:** tidyverse style (`styler::style_pkg()` if in doubt).
+  Snake_case function and argument names.
+- **Imports:** `terra` is imported wholesale; `sf`, `stringr`,
+  `ggplot2`, `rlang`, `magrittr` are imported selectively via
+  `@importFrom`. Elsewhere prefer explicit `pkg::fun()` calls. Add new
+  dependencies to `DESCRIPTION` deliberately — this package is already
+  heavy, so justify each one in the PR.
+- **Optional dependencies:** guard with
+  [`requireNamespace("pkg", quietly = TRUE)`](https://rdrr.io/r/base/ns-load.html)
+  and give a clear error telling the user what to install (see
+  [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
+  and `rredlist`).
+- **Errors:** validate inputs early and fail with an actionable message
+  naming the offending argument.
+- **Depth layers:** anything producing a multi-depth `SpatRaster`
+  **must** emit `{variable}_depth={value}` layer names.
+- **Units:** volumes in km³, areas in km², depths in metres as
+  **positive numbers increasing downward** (bathymetry from GEBCO is
+  negative below sea level — be explicit in your docs about which
+  convention a given argument uses).
+- **No side effects on load**, no
+  [`library()`](https://rdrr.io/r/base/library.html) calls inside `R/`,
+  no writing to the user’s filesystem outside
+  [`tools::R_user_dir()`](https://rdrr.io/r/tools/userdir.html) (see
+  [`woa_cache_dir()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_dir.md)
+  for the pattern).
+
+------------------------------------------------------------------------
+
+## Testing
+
+- `testthat` edition 3. One test file per source file.
+- **Tests must not require external data, API keys, or network access.**
+  Construct small synthetic `SpatRaster`s / `sf` objects in the test
+  itself — see `tests/testthat/test-volume.R` for the pattern to copy.
+- HTTP-dependent tests use `vcr` cassettes stored in
+  `tests/testthat/_vcr/`. If you add an API-backed test, record a
+  cassette rather than hitting the live service; scrub API keys from the
+  recorded YAML before committing.
+- Use `skip_if_not_installed()` for optional-dependency tests and
+  `skip_on_cran()` for anything slow.
+- Keep the suite fast. If a test needs more than a few seconds, it
+  probably needs smaller synthetic inputs.
+
+------------------------------------------------------------------------
+
+## Documentation and vignettes
+
+- Roxygen2 with markdown enabled. Every exported function needs a
+  runnable `@examples` block (wrap in `\dontrun{}` only if it genuinely
+  needs external data or a key — prefer building a tiny synthetic
+  example instead).
+- Regenerate docs with `devtools::document()`; never hand-edit `man/`.
+- `README.md` is generated from `README.Rmd` — edit the `.Rmd` and knit
+  with `devtools::build_readme()`.
+- Vignettes reproduce real analyses end-to-end. Keep chunks
+  `eval = FALSE` unless the analysis can run from data the package can
+  fetch itself. Structure them as: study question → data loading →
+  analysis → figures → interpretation.
+
+------------------------------------------------------------------------
+
+## Known rough edges / good first issues
+
+These are real, currently-open gaps in the repo. Each is a good first
+contribution — open an issue and claim it:
+
+1.  **Hard-coded data paths in vignettes.** All four vignettes point at
+    `/home/jay/Programming_Projects/Big_Data/...`. Convert to the
+    `SHARKABC3D_DATA` environment-variable pattern described above.
+    (`area:infra`, `good first issue`)
+2.  **Test coverage for the IUCN helpers is cassette-bound.** The IUCN
+    Red List tests replay recorded HTTP interactions from
+    `tests/testthat/_vcr/` (see `tests/testthat/setup-vcr.R`), so they
+    need no API key — but any *new* test that hits a URL not already in
+    a cassette has to be recorded once with a real `IUCN_REDLIST_KEY`,
+    then committed. `_vcr/group_code.yml` is ~42 MB and its test is
+    currently `skip()`ped; slimming or dropping it would shrink the repo
+    considerably. (`area:infra`, `good first issue`)
+3.  **Test coverage gaps.** `test-plot.R` has only a handful of
+    assertions for five exported plotting functions;
+    [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)’s
+    main test skips when
+    [`terra::writeCDF`](https://rspatial.github.io/terra/reference/writeCDF.html)
+    is unavailable.
+4.  **Legacy function pending retirement.** `woa_nc_extract()` (in
+    `R/woa.R`) is superseded by
+    [`woa_load_nc()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_load_nc.md)
+    but is still exported (see SPEC *Planned work → Retirements*). Its
+    counterpart `woa_volume_extract()` has already been removed in
+    favour of
+    [`extract_rast_volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_volume.md).
+    Retiring `woa_nc_extract()` behind a deprecation warning is a clean,
+    self-contained PR.
+5.  **Whole unstarted areas.** The geometry-utility, species
+    summary-metric, and Copernicus entries under `SPEC.md` *Planned
+    work* have no code at all. If you want a substantial, collision-free
+    chunk of work, start there.
+
+------------------------------------------------------------------------
+
+## Questions, and how to get help
+
+- For usage, methods, or interpretation questions, open a [GitHub
+  Discussion](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/discussions).
+- For bugs or feature/function work, open a [GitHub
+  issue](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues).
+- For access to non-public data (the Bangladesh fishery footprints),
+  contact the maintainer directly: Jay Matsushiba
+  <hello@jmatsushiba.com>.
+
+## Attribution
+
+Contributors who add substantive code or analysis will be added to
+`Authors@R` in `DESCRIPTION` with an appropriate role (`aut` for
+substantial contributions, `ctb` otherwise). If your contribution feeds
+into a manuscript, authorship will be discussed openly on the relevant
+issue. Please add your ORCID when you’re added.
+
+By contributing you agree that your contributions are licensed under the
+project’s [GNU General Public License
+v3.0](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/LICENSE.md).

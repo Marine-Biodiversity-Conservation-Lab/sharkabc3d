@@ -1,0 +1,948 @@
+# 3D Volume Overlap Between Species and Fisheries
+
+## 3D Volume Overlap Between Species and Fisheries
+
+This vignette recreates the Bangladesh fisheries analysis (Haque et
+al.), which quantified the three-dimensional overlap between critically
+endangered shark and ray species and artisanal fisheries in Bangladesh
+waters. The key insight from the original study was that horizontal (2D)
+overlap between species ranges and fisheries can be large, but the
+actual 3D volume overlap is often much smaller because species occupy
+depth ranges that provide refuge from fishing gear.
+
+The original analysis used a hexagonal grid, custom depth-overlap
+calculations, and participatory mapping data. Here we reproduce the same
+methodology using the `sharkabc3d` raster-based volume functions.
+
+### Overview
+
+The workflow has four steps:
+
+1.  **Load inputs**: species ranges, fishery footprints, bathymetry
+2.  **Rasterize** each species and fishery onto the bathymetry grid
+3.  **Calculate 3D volume overlap** between each species-fishery pair
+4.  **Visualise** cumulative pressure and overlap by depth
+
+### Setup
+
+``` r
+
+# devtools::load_all()
+library(sharkabc3d)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(here)
+
+sf::sf_use_s2(FALSE)
+```
+
+### Step 1: Load Input Data
+
+#### 1a: Bathymetry and EEZ
+
+The original analysis used GEBCO bathymetry for the Bangladesh EEZ at 1
+km resolution.
+[`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
+loads and standardises the raster (positive depth values, in metres).
+
+``` r
+
+# Load bathymetry
+bathy <- load_bathymetry(
+  "~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"
+)
+
+# Load Bangladesh EEZ
+bangladesh_eez <- sf::st_read(
+  "~/Programming_Projects/Big_Data/World_EEZ_v12_20231025/eez_v12.shp",
+  query = "SELECT * FROM eez_v12 WHERE TERRITORY1 = 'Bangladesh'",
+  quiet = TRUE
+) %>% rename(geometry = "_ogr_geometry_")
+```
+
+#### 1b: Species ranges with depth limits
+
+We read the study species list from the Excel file, query the IUCN Red
+List `SHARKS_RAYS_CHIMAERAS` shapefile for their global ranges, crop to
+the Bangladesh EEZ, then merge with the depth limits provided in the
+study and the IUCN depth limits fetched via the API.
+
+``` r
+
+# Load species depth information from Excel
+excel_path <- here(
+  "example_data",
+  "Maps for Jay_3D overlap", "Spp&Fisherydata_Jay.xlsx"
+)
+
+species_info <- read_excel(excel_path, sheet = "Spp. depth range") %>%
+  rename(
+    scientific_name = `Valid scientific name`,
+    depth_min_haque = Lowest_depth_m,
+    depth_max_haque = Highest_depth_m
+  )
+
+# Query the IUCN Red List shapefile for the study species.
+# Filter: presence = 1 (extant), origin in (1, 2) (native/reintroduced),
+# seasonal in (1, 2, 3) (resident/breeding/non-breeding).
+iucn_shp <- "~/Programming_Projects/Big_Data/SHARKS_RAYS_CHIMAERAS/SHARKS_RAYS_CHIMAERAS.shp"
+layer_name <- sf::st_layers(iucn_shp)$name[1]
+
+sp_list_sql <- paste0("'", species_info$scientific_name, "'", collapse = ", ")
+sp_query <- str_glue(
+  "SELECT sci_name, presence, origin, seasonal FROM \"{layer_name}\"",
+  " WHERE sci_name IN ({sp_list_sql})",
+  " AND presence IN (1) AND origin IN (1, 2) AND seasonal IN (1, 2, 3)"
+)
+
+species_global <- sf::st_read(iucn_shp, query = sp_query, quiet = TRUE) %>%
+  sf::st_transform(4326)
+
+# Crop to Bangladesh EEZ and dissolve multipolygons to one geometry per species
+species_ranges <- species_global %>%
+  sf::st_make_valid() %>%
+  sf::st_intersection(bangladesh_eez %>% select(geometry)) %>%
+  group_by(sci_name) %>%
+  summarise(geometry = sf::st_union(geometry), .groups = "drop")
+
+message("Loaded ", nrow(species_ranges), " species ranges from IUCN")
+
+# Fetch IUCN depth limits via API for species that have IUCN data
+api_key <- Sys.getenv("IUCN_REDLIST_KEY")
+species_iucn <- fetch_species_assessments(
+  api_key, species_names = species_ranges$sci_name
+)
+species_iucn <- species_iucn %>%
+  mutate(fill_missing_depths(upper_depth_limit, lower_depth_limit, genus_name))
+
+# Merge ranges + IUCN depths + provided depths into one sf object
+bangladesh_species <- species_ranges %>%
+  left_join(
+    species_iucn %>% select(
+      scientific_name,
+      depth_min_iucn = upper_depth,
+      depth_max_iucn = lower_depth
+    ),
+    by = c("sci_name" = "scientific_name")
+  ) %>%
+  left_join(
+    species_info,
+    by = c("sci_name" = "scientific_name")
+  ) %>%
+  mutate(
+    depth_min_sel = dplyr::coalesce(depth_min_haque, depth_min_iucn),
+    depth_max_sel = dplyr::coalesce(depth_max_haque, depth_max_iucn)
+  )
+```
+
+#### 1c: Fishery footprints with depth ranges
+
+The original study used participatory mapping (fisher interviews + KDE
+heatmaps) to define the spatial footprints and operating depth ranges of
+7 artisanal sub-fisheries. These are loaded as polygons with associated
+gear depth ranges.
+
+``` r
+
+# Load fishery depth information from Excel
+# Tidal correction: GEBCO bathymetry uses mean sea level (MSL) as its vertical
+# datum, but Bangladesh coastal waters experience 4-6 m spring tidal range.
+# Fishers operate on favourable tides, so a cell at e.g. 4 m MSL depth may
+# have 7 m of water at high tide — within a fishery's operating range.
+# Subtracting half the mean tidal range (~3 m) from the fishery depth_min
+# accounts for the tidal envelope that static MSL bathymetry misses.
+tidal_correction_m <- 3
+
+fishery_info <- read_excel(excel_path, sheet = "Fishery_depth range") %>%
+  rename(
+    fishery_type = `Fishery type`,
+    depth_min = `Depthrange_low_(m)`,
+    depth_max = `Depthrange_high_(m)`
+  ) %>%
+  mutate(depth_min = pmax(depth_min - tidal_correction_m, 0))
+
+# Load fishery footprint shapefiles
+fishery_shp_dir <- here(
+  "example_data",
+  "Maps for Jay_3D overlap", "Fisheries foot print_shapefiles"
+)
+
+# Map fishery type codes to shapefile subdirectory names
+fishery_shp_names <- c(
+  SGN = "SGN_eez_intersect",
+  MGN = "MGN",
+  LGN = "LGN_eez",
+  ULL = "ULL_eez",
+  BLL = "BLL_eez",
+  SBN = "SBN_eez",
+  PTN = "PTN_eez"
+)
+
+fishery_footprints <- lapply(fishery_info$fishery_type, function(ft) {
+  shp_name <- fishery_shp_names[[ft]]
+  sf::st_read(
+    file.path(fishery_shp_dir, shp_name, paste0(shp_name, ".shp")),
+    quiet = TRUE
+  )
+})
+names(fishery_footprints) <- fishery_info$fishery_type
+
+# Combine footprints into single sf, crop to the Bangladesh EEZ, and join
+# depth info. Project all to WGS84 (EPSG:4326) before binding since the raw
+# shapefiles have different CRS. The EEZ intersection ensures fishery extents
+# never extend past the analysis boundary.
+fisheries <- lapply(names(fishery_footprints), function(ft) {
+  fishery_footprints[[ft]] %>%
+    sf::st_transform(4326) %>%
+    sf::st_make_valid() %>%
+    sf::st_union() %>%
+    sf::st_as_sf() %>%
+    mutate(fishery_type = ft)
+}) %>%
+  bind_rows() %>%
+  sf::st_intersection(bangladesh_eez %>% select(geometry)) %>%
+  left_join(fishery_info, by = "fishery_type")
+```
+
+### Step 2: Create Study Area Grid and Rasterize Layers
+
+#### 2a: Create study area raster
+
+[`create_study_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/create_study_raster.md)
+computes a combined extent from a list of spatial objects and returns an
+empty raster grid at the desired resolution and CRS.
+
+``` r
+
+# Lambert Azimuthal Equal Area centered on Bangladesh waters
+bangladesh_crs <- "+proj=laea +lat_0=22 +lon_0=90 +datum=WGS84 +units=m"
+
+study_grid <- create_study_raster(
+  layers = list(bangladesh_eez),
+  res = 1000,
+  crs = bangladesh_crs
+)
+
+# Crop bathymetry to study area before projecting (avoids re-projecting
+# the full GEBCO raster). Use the WGS84 EEZ polygon directly for cropping
+# since reprojecting the LAEA grid to WGS84 gives a near-global extent.
+bathy_crop <- terra::crop(bathy, terra::vect(bangladesh_eez))
+seafloor <- terra::project(bathy_crop, study_grid)
+seafloor <- terra::clamp(-seafloor, lower = 0)
+```
+
+#### 2b: Rasterize species
+
+[`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md)
+converts each polygon + depth range into a multi-layer SpatRaster
+(presence, depth_min, depth_max) aligned to the study grid. The
+depth_max is clamped to the seafloor per cell so that no species or
+fishery extends deeper than the actual bathymetry.
+
+``` r
+
+species_rasters <- voxelize_ranges(
+  sf_data = bangladesh_species,
+  voxel = study_grid,
+  bathymetry = seafloor,
+  depth_min_col = "depth_min_sel",
+  depth_max_col = "depth_max_sel",
+  name_col = "sci_name"
+)
+```
+
+#### 2c: Rasterize fisheries
+
+``` r
+
+fishery_rasters <- voxelize_ranges(
+  sf_data = fisheries,
+  voxel = study_grid,
+  bathymetry = seafloor,
+  depth_min_col = "depth_min",
+  depth_max_col = "depth_max",
+  name_col = "fishery_type"
+)
+```
+
+### Step 3: Calculate 3D Volume Overlap
+
+For each species-fishery pair,
+[`calc_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume_overlap.md)
+computes the per-cell depth overlap and returns both the overlap raster
+and a summary with the overlap volume and proportion of each range’s
+total volume.
+
+#### 3a: Single species-fishery example
+
+``` r
+
+# Example: overlap between first species and first fishery
+overlap_rast <- calc_volume_overlap(
+  range_rast_a = species_rasters[[1]],
+  range_rast_b = fishery_rasters[[1]]
+)
+
+message(
+  "Overlap between ", names(species_rasters)[1],
+  " and ", names(fishery_rasters)[1]
+)
+
+# Per-cell volume raster stack (volume_a, volume_b, volume_overlap in km³)
+overlap_rast
+
+# Total volumes
+terra::global(overlap_rast, "sum", na.rm = TRUE)
+```
+
+#### 3b: All species-fishery combinations
+
+``` r
+
+# Compute overlap for every species x fishery pair
+pairs <- expand.grid(
+  species = names(species_rasters),
+  fishery = names(fishery_rasters),
+  stringsAsFactors = FALSE
+)
+
+n_pairs <- nrow(pairs)
+message("Computing ", n_pairs, " species x fishery overlaps...")
+pb <- txtProgressBar(min = 0, max = n_pairs, style = 3)
+
+# Store rasters and summary table
+overlap_rasters <- vector("list", n_pairs)
+overlap_summaries <- vector("list", n_pairs)
+
+for (i in seq_len(n_pairs)) {
+  sp <- pairs$species[i]
+  fi <- pairs$fishery[i]
+
+  ov <- calc_volume_overlap(
+    range_rast_a = species_rasters[[sp]],
+    range_rast_b = fishery_rasters[[fi]]
+  )
+
+  overlap_rasters[[i]] <- ov
+  totals <- terra::global(ov, "sum", na.rm = TRUE)
+  overlap_summaries[[i]] <- tibble::tibble(
+    species = sp,
+    fishery = fi,
+    volume_species_km3 = totals["volume_a", "sum"],
+    volume_fishery_km3 = totals["volume_b", "sum"],
+    volume_overlap_km3 = totals["volume_overlap", "sum"]
+  )
+
+  setTxtProgressBar(pb, i)
+}
+close(pb)
+
+names(overlap_rasters) <- paste(pairs$species, pairs$fishery, sep = " x ")
+overlap_results <- bind_rows(overlap_summaries)
+head(overlap_results)
+```
+
+#### 3c: Depth refuge — area overlap vs volume overlap
+
+The key finding of the original study: horizontal (2D) overlap between a
+species range and a fishery can be large, but the actual 3D volume
+overlap is much smaller when the species occupies depths below the
+fishing gear. Here we quantify that **depth refuge** for every species ×
+fishery pair by comparing the horizontal area overlap with the volume
+overlap.
+
+For each pair we compute the proportion of the species exposed to the
+fishery two ways: `area_overlap_prop` (share of the species’ horizontal
+footprint that the fishery covers) and `volume_overlap_prop` (share of
+the species’ 3D volume the fishery actually overlaps). The gap between
+them is the depth refuge:
+`depth_refuge = 1 - volume_overlap_prop / area_overlap_prop` (0 = no
+refuge, the 3D overlap matches the 2D footprint; → 1 = strong refuge,
+the species shares the map with the fishery but sits below it).
+
+``` r
+
+# For each species x fishery pair, compare the 2D (area) overlap with the
+# 3D (volume) overlap to quantify depth refuge.
+depth_refuge <- lapply(seq_len(n_pairs), function(i) {
+  sp <- pairs$species[i]
+  fi <- pairs$fishery[i]
+  ov <- overlap_rasters[[i]]
+
+  cell_area_km2 <- terra::cellSize(ov[["depth_min_a"]], unit = "km")
+
+  # Horizontal footprints (presence, ignoring depth)
+  sp_present   <- !is.na(ov[["depth_min_a"]])
+  both_present <- sp_present & !is.na(ov[["depth_min_b"]])
+
+  # 2D areas (km^2): species footprint and species x fishery intersection
+  species_area_km2 <- terra::global(
+    terra::mask(cell_area_km2, terra::ifel(sp_present, 1, NA)),
+    "sum", na.rm = TRUE)$sum
+  overlap_area_km2 <- terra::global(
+    terra::mask(cell_area_km2, terra::ifel(both_present, 1, NA)),
+    "sum", na.rm = TRUE)$sum
+
+  # 3D volumes (km^3): species volume and species x fishery overlap volume
+  totals <- terra::global(ov, "sum", na.rm = TRUE)
+  species_volume_km3 <- totals["volume_a", "sum"]
+  overlap_volume_km3 <- totals["volume_overlap", "sum"]
+
+  # Exposure of the species to the fishery, measured two ways
+  area_overlap_prop   <- overlap_area_km2 / species_area_km2
+  volume_overlap_prop <- overlap_volume_km3 / species_volume_km3
+
+  tibble::tibble(
+    species = sp,
+    fishery = fi,
+    species_area_km2 = species_area_km2,
+    overlap_area_km2 = overlap_area_km2,
+    species_volume_km3 = species_volume_km3,
+    overlap_volume_km3 = overlap_volume_km3,
+    area_overlap_prop = area_overlap_prop,
+    volume_overlap_prop = volume_overlap_prop,
+    # Depth refuge: fraction of the horizontal exposure removed once depth is
+    # accounted for. 0 = no refuge; -> 1 = strong depth refuge.
+    depth_refuge = ifelse(
+      area_overlap_prop > 0,
+      1 - volume_overlap_prop / area_overlap_prop,
+      NA_real_
+    )
+  )
+}) %>% bind_rows()
+
+# Save the per-pair area-vs-volume comparison to a CSV under tmp/
+tmp_dir <- here("tmp")
+dir.create(tmp_dir, showWarnings = FALSE, recursive = TRUE)
+depth_refuge_csv <- file.path(tmp_dir, "depth_refuge_area_vs_volume.csv")
+write.csv(depth_refuge, depth_refuge_csv, row.names = FALSE)
+message("Wrote depth refuge comparison to ", depth_refuge_csv)
+
+# Pairs with the greatest depth refuge: large horizontal overlap but small
+# volume overlap (species sits below the fishing gear).
+depth_refuge %>%
+  filter(overlap_area_km2 > 0) %>%
+  arrange(desc(depth_refuge)) %>%
+  select(species, fishery, area_overlap_prop, volume_overlap_prop, depth_refuge) %>%
+  head(10)
+```
+
+### Step 4: Comparison with Original Analysis
+
+Having computed the 3D overlaps, we now compare our raster-based results
+against the reference outputs from the original analysis (Haque et al.),
+which used a hexagonal grid approach. We expect `sharkabc3d` volumes to
+be systematically lower for two reasons:
+
+1.  **Per-cell bathymetry clamping**: The original analysis applied a
+    single uniform depth range across the entire intersection (volume =
+    area × depth_range). `sharkabc3d` clamps `depth_max` to the actual
+    seafloor in each cell, so cells shallower than the nominal depth
+    range contribute less volume. On the shallow Bangladesh continental
+    shelf, this significantly reduces effective depth.
+2.  **Raster vs hexagonal grid**: Minor differences in spatial footprint
+    from rasterization onto a square grid vs the original hexagonal
+    grid.
+
+> **Note:** This step compares against reference results from the
+> original Haque et al. analysis. That CSV is not distributed with the
+> package — contact the maintainer for it, and place it under
+> `example_data/` alongside the other inputs used above. The analysis
+> (Steps 1–3) and the visualisation below (Step 5) run without it.
+
+``` r
+
+# Load reference results from original analysis (per species-fishery pair)
+reference <- read.csv(
+  here("example_data", "bangladesh-fisheries-3d-overlap",
+       "230314_3D_species_fisheries_intersect.csv")
+) %>%
+  rename(species = genus_species)
+
+# Join our results to the reference
+comparison <- overlap_results %>%
+  left_join(reference, by = c("species", "fishery"))
+
+# Compute our area and mean depth for the overlap to compare with reference
+# (calc_volume_overlap returns volume rasters; extract area and depth separately)
+overlap_diagnostics <- lapply(seq_len(nrow(pairs)), function(i) {
+  sp <- pairs$species[i]
+  fi <- pairs$fishery[i]
+  ov <- overlap_rasters[[i]]
+
+  # Overlap cells: where volume_overlap > 0
+  ov_vol <- ov[["volume_overlap"]]
+  ov_present <- !is.na(ov_vol) & ov_vol > 0
+
+  # Count overlapping cells and their area
+  cell_area_m2 <- terra::cellSize(ov_vol, unit = "m")
+  area_rast <- terra::mask(cell_area_m2, terra::ifel(ov_present, 1, NA))
+  our_area_m2 <- terra::global(area_rast, "sum", na.rm = TRUE)$sum
+
+  # Total overlap volume in m³ for direct comparison
+  our_volume_m3 <- terra::global(ov_vol, "sum", na.rm = TRUE)$sum * 1e9
+
+  tibble::tibble(
+    species = sp,
+    fishery = fi,
+    our_intersect_area_m2 = our_area_m2,
+    our_intersect_volume_m3 = our_volume_m3
+  )
+}) %>% bind_rows()
+
+comparison <- comparison %>%
+  left_join(overlap_diagnostics, by = c("species", "fishery")) %>%
+  mutate(
+    area_ratio = our_intersect_area_m2 / intersect_area_m2,
+    volume_ratio = our_intersect_volume_m3 / intersect_volume_m3,
+    volume_diff_pct = (our_intersect_volume_m3 - intersect_volume_m3) /
+      intersect_volume_m3 * 100
+  )
+
+# Summary of agreement
+message("Matched pairs: ", sum(!is.na(comparison$intersect_volume_m3)),
+        " / ", nrow(comparison))
+
+message("\nArea ratio (ours / original):")
+summary(comparison$area_ratio)
+
+message("\nVolume ratio (ours / original):")
+summary(comparison$volume_ratio)
+
+# Is the discrepancy driven by area, depth, or both?
+comparison <- comparison %>%
+  mutate(
+    # Implied mean depth of overlap: volume / area
+    ref_mean_depth_m = intersect_volume_m3 / intersect_area_m2,
+    our_mean_depth_m = our_intersect_volume_m3 / our_intersect_area_m2,
+    depth_ratio = our_mean_depth_m / ref_mean_depth_m
+  )
+
+message("\nMean overlap depth ratio (ours / original):")
+summary(comparison$depth_ratio)
+```
+
+``` r
+
+par(mfrow = c(1, 3))
+
+# Area comparison
+plot(comparison$intersect_area_m2 / 1e6, comparison$our_intersect_area_m2 / 1e6,
+     xlab = "Original area (km²)", ylab = "sharkabc3d area (km²)",
+     main = "Intersection Area",
+     pch = 19, col = adjustcolor("steelblue", 0.6))
+abline(0, 1, lty = 2, col = "red")
+
+# Mean depth comparison
+plot(comparison$ref_mean_depth_m, comparison$our_mean_depth_m,
+     xlab = "Original mean depth (m)", ylab = "sharkabc3d mean depth (m)",
+     main = "Mean Overlap Depth",
+     pch = 19, col = adjustcolor("steelblue", 0.6))
+abline(0, 1, lty = 2, col = "red")
+
+# Volume comparison
+plot(comparison$intersect_volume_m3 / 1e9, comparison$our_intersect_volume_m3 / 1e9,
+     xlab = "Original volume (km³)", ylab = "sharkabc3d volume (km³)",
+     main = "Overlap Volume",
+     pch = 19, col = adjustcolor("steelblue", 0.6))
+abline(0, 1, lty = 2, col = "red")
+
+par(mfrow = c(1, 1))
+```
+
+| Aspect | Original (Haque et al.) | `sharkabc3d` |
+|----|----|----|
+| Grid type | Hexagonal grid (1 km cells) | Raster grid (1 km cells) |
+| Depth handling | Uniform depth range across entire intersection footprint | Per-cell depth clamped to bathymetry via [`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md) |
+| Volume formula | area × depth_range (single depth per pair) | Sum of per-cell (cell_area × clamped depth) via [`calc_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume_overlap.md) |
+| Fishery/species richness maps | Custom ggplot code | `count_3d_overlaps()` + ggplot2 |
+| Species × fishery overlap maps | Custom ggplot code | [`calc_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume_overlap.md) + ggplot2/patchwork |
+| **Reproducibility** | **Single-use scripts** | **Reusable for any species x fishery** |
+
+`sharkabc3d` produces lower volume estimates than the original analysis
+(median volume ratio ~0.33). The difference is driven primarily by
+per-cell bathymetry clamping (~56% of the reduction) and secondarily by
+raster vs hexagonal grid edge effects (~25%). The per-cell approach is
+more physically accurate: cells on the shallow continental shelf where
+the seafloor is shallower than the nominal depth range contribute
+proportionally less volume, rather than being assigned the full depth
+range of the species-fishery pair.
+
+### Step 5: Visualisation
+
+This step recreates the three sets of maps from the original analysis:
+
+- **Fishery richness per species**: For each species, how many fisheries
+  have 3D overlap at each grid cell
+- **Species richness per fishery**: For each fishery, how many species
+  have 3D overlap at each grid cell
+- **Individual species × fishery overlap**: Map of each range and their
+  intersection, with a depth profile sidebar
+
+#### 5a: Prepare map context and helpers
+
+``` r
+
+library(ggplot2)
+library(tidyterra)
+library(ggnewscale)
+library(patchwork)
+
+# Use the Bangladesh EEZ polygon itself for map context — it has the exact
+# same geometry used for the species-range intersection, so the boundary
+# drawn on the map lines up with the analysis extent.
+plot_bbox <- sf::st_bbox(bangladesh_eez)
+
+# Build a land mask from the plot bounding box by subtracting EEZ ocean areas.
+# Load neighbouring EEZs (India, Myanmar) so the full ocean extent is removed.
+neighbour_eez <- sf::st_read(
+
+  "~/Programming_Projects/Big_Data/World_EEZ_v12_20231025/eez_v12.shp",
+  query = "SELECT * FROM eez_v12 WHERE TERRITORY1 IN ('India', 'Myanmar')",
+  quiet = TRUE
+) %>% rename(geometry = "_ogr_geometry_")
+
+all_eez <- sf::st_union(
+  sf::st_geometry(bangladesh_eez),
+  sf::st_union(sf::st_geometry(neighbour_eez))
+)
+
+bbox_poly <- sf::st_as_sfc(plot_bbox)
+land_mask <- sf::st_difference(bbox_poly, all_eez)
+
+# Remove the furthest-south polygon (ocean gap between EEZ boundaries)
+land_parts <- sf::st_cast(land_mask, "POLYGON") %>% sf::st_as_sf()
+centroids_y <- sf::st_coordinates(sf::st_centroid(land_parts))[, "Y"]
+land_mask <- sf::st_union(land_parts[-which.min(centroids_y), ]) 
+
+# Colour palette for species/fishery/intersect maps and depth profiles
+col_species   <- "#440154"
+col_intersect <- "#21918c"
+col_fishery   <- "#fde725"
+
+theme_map <- function() {
+  theme_minimal() +
+    theme(
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 1)
+    )
+}
+```
+
+#### 5b: Fishery richness per species
+
+For each species, a map showing how many fisheries have 3D volume
+overlap at each grid cell. Cells are coloured only where the species is
+present and at least one fishery overlaps in depth. Recreates the
+`all_fishery_by_species/` plots from the original analysis.
+
+``` r
+
+cr_species <- species_iucn %>%
+  filter(red_list_category == "CR") %>%
+  pull(scientific_name)
+cr_species <- intersect(cr_species, names(species_rasters))
+
+fishery_richness_plots <- lapply(cr_species, function(sp) {
+  sp_rast <- species_rasters[[sp]]
+
+  # Stack of 1/NA overlap rasters, summed across layers, gives the number of
+  # fisheries that overlap the species in 3D at each cell
+  overlap_stack <- terra::rast(lapply(fishery_rasters, function(fi_rast) {
+    count_3d_overlap(sp_rast, fi_rast)
+  }))
+  count_rast <- sum(overlap_stack, na.rm = TRUE) %>% project("EPSG:4326")
+
+  # Species presence raster for background
+  sp_presence <- terra::ifel(!is.na(sp_rast[["depth_min"]]), 1, NA) %>%
+    terra::project("EPSG:4326", method = "near")
+
+  ggplot() +
+    geom_sf(data = bangladesh_eez, aes(colour = "Bangladesh EEZ"),
+            fill = "white", linewidth = 0.4, linetype = "dashed") +
+    geom_sf(data = land_mask, fill = "grey90", colour = "grey50", linewidth = 0.5) +
+    geom_spatraster(data = sp_presence) +
+    scale_fill_gradient(
+      low = "#a3fff9", high = "#a3fff9", na.value = "transparent",
+      guide = guide_legend(title = NULL,
+                           override.aes = list(fill = "#a3fff9")),
+      labels = "Species range"
+    ) +
+    new_scale_fill() +
+    geom_spatraster(data = count_rast) +
+    scale_fill_viridis_c(
+      name = "# Fisheries",
+      limits = c(1, length(fishery_rasters)),
+      breaks = c(1, length(fishery_rasters)),
+      na.value = "transparent",
+      guide = guide_colorbar(title.position = "right", ticks = FALSE,
+                             ticks.colour = "transparent")
+    ) +
+    scale_colour_manual(
+      values = c("Bangladesh EEZ" = "red"),
+      name = NULL
+    ) +
+    guides(colour = guide_legend(
+      override.aes = list(fill = "white", linetype = "dashed", linewidth = 0.4)
+    )) +
+    coord_sf(xlim = plot_bbox[c("xmin", "xmax")],
+             ylim = plot_bbox[c("ymin", "ymax")], expand = FALSE) +
+    annotate("rect",
+             xmin = plot_bbox[["xmin"]] + 0.02 * diff(plot_bbox[c("xmin", "xmax")]),
+             xmax = plot_bbox[["xmin"]] + 0.55 * diff(plot_bbox[c("xmin", "xmax")]),
+             ymin = plot_bbox[["ymax"]] - 0.05 * diff(plot_bbox[c("ymin", "ymax")]),
+             ymax = plot_bbox[["ymax"]] - 0.00 * diff(plot_bbox[c("ymin", "ymax")]),
+             fill = "grey90", colour = NA) +
+    annotate("text",
+             x = plot_bbox[["xmin"]] + 0.03 * diff(plot_bbox[c("xmin", "xmax")]),
+             y = plot_bbox[["ymax"]] - 0.02 * diff(plot_bbox[c("ymin", "ymax")]),
+             label = sp, fontface = "italic", hjust = 0, vjust = 1, size = 4) +
+    theme_map()
+})
+names(fishery_richness_plots) <- cr_species
+
+# Tile 9 random species into a 3x3 grid with shared legend
+set.seed(42)
+tile_species <- sample(cr_species, min(9, length(cr_species)))
+tile_plots <- fishery_richness_plots[tile_species]
+fishery_richness_grid <- wrap_plots(tile_plots, ncol = 3) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 13),
+        legend.key.size = unit(1, "cm"))
+
+out_dir_fb <- here("output", "bangladesh-fisheries-3d-overlap", "fishery_by_species")
+dir.create(out_dir_fb, recursive = TRUE, showWarnings = FALSE)
+ggsave(file.path(out_dir_fb, "fishery_richness_grid.png"),
+       fishery_richness_grid, width = 10, height = 17, dpi = 300)
+lapply(names(fishery_richness_plots), function(sp) {
+  ggsave(file.path(out_dir_fb, paste0(sp, ".png")),
+         fishery_richness_plots[[sp]], width = 8, height = 8, dpi = 300)
+})
+```
+
+#### 5c: Species richness per fishery
+
+For each fishery, a map showing how many species have 3D volume overlap
+at each grid cell. Recreates the `all_species_by_fishery/` plots from
+the original analysis.
+
+``` r
+
+species_richness_plots <- lapply(names(fishery_rasters), function(fi) {
+  fi_rast <- fishery_rasters[[fi]]
+
+  cr_rasters <- species_rasters[cr_species]
+  overlap_stack <- terra::rast(lapply(cr_rasters, function(sp_rast) {
+    count_3d_overlap(fi_rast, sp_rast)
+  }))
+  count_rast <- sum(overlap_stack, na.rm = TRUE) %>% project("EPSG:4326")
+
+  ggplot() +
+    geom_sf(data = bangladesh_eez, aes(colour = "Bangladesh EEZ"),
+            fill = "white", linewidth = 0.4, linetype = "dashed") +
+    geom_sf(data = land_mask, fill = "grey90", colour = "grey50", linewidth = 0.5) +
+    geom_spatraster(data = count_rast) +
+    scale_fill_viridis_c(
+      name = "# Species",
+      limits = c(1, length(cr_species)),
+      breaks = c(1, length(cr_species)),
+      na.value = "transparent",
+      guide = guide_colorbar(title.position = "right", ticks = FALSE,
+                             ticks.colour = "transparent")
+    ) +
+    scale_colour_manual(
+      values = c("Bangladesh EEZ" = "red"),
+      name = NULL
+    ) +
+    guides(colour = guide_legend(
+      override.aes = list(fill = "white", linetype = "dashed", linewidth = 0.4)
+    )) +
+    coord_sf(xlim = plot_bbox[c("xmin", "xmax")],
+             ylim = plot_bbox[c("ymin", "ymax")], expand = FALSE) +
+    annotate("rect",
+             xmin = plot_bbox[["xmin"]] + 0.02 * diff(plot_bbox[c("xmin", "xmax")]),
+             xmax = plot_bbox[["xmin"]] + 0.55 * diff(plot_bbox[c("xmin", "xmax")]),
+             ymin = plot_bbox[["ymax"]] - 0.05 * diff(plot_bbox[c("ymin", "ymax")]),
+             ymax = plot_bbox[["ymax"]] - 0.00 * diff(plot_bbox[c("ymin", "ymax")]),
+             fill = "grey90", colour = NA) +
+    annotate("text",
+             x = plot_bbox[["xmin"]] + 0.03 * diff(plot_bbox[c("xmin", "xmax")]),
+             y = plot_bbox[["ymax"]] - 0.02 * diff(plot_bbox[c("ymin", "ymax")]),
+             label = fi, hjust = 0, vjust = 1, size = 4) +
+    theme_map()
+})
+names(species_richness_plots) <- names(fishery_rasters)
+
+# Tile fisheries into a grid with shared legend (exclude LGN)
+grid_plots <- species_richness_plots[setdiff(names(species_richness_plots), "LGN")]
+species_richness_grid <- wrap_plots(grid_plots, ncol = 2) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 13),
+        legend.key.size = unit(1, "cm"))
+
+out_dir_sb <- here("output", "bangladesh-fisheries-3d-overlap", "species_by_fishery")
+dir.create(out_dir_sb, recursive = TRUE, showWarnings = FALSE)
+ggsave(file.path(out_dir_sb, "species_richness_grid.png"),
+       species_richness_grid, width = 10, height = 17, dpi = 300)
+lapply(names(species_richness_plots), function(fi) {
+  ggsave(file.path(out_dir_sb, paste0(fi, ".png")),
+         species_richness_plots[[fi]], width = 8, height = 8, dpi = 300)
+})
+```
+
+#### 5d: Individual species × fishery overlap maps
+
+For each species–fishery pair, a compound figure with a map panel
+(right) showing species range (purple), fishery footprint (yellow), and
+their 3D intersection (teal), plus a depth profile sidebar (left)
+showing the number of cells at each depth occupied by the species only,
+fishery only, or both. Recreates the
+`species_fishery_overlap_plots_png/` set.
+
+``` r
+
+# Filter to CR species only, exclude LGN fishery
+cr_pairs <- pairs %>% filter(species %in% cr_species, fishery != "LGN")
+cr_overlap_rasters <- overlap_rasters[pairs$species %in% cr_species & pairs$fishery != "LGN"]
+```
+
+``` r
+
+# Map panel for each species x fishery pair
+overlap_map_plots <- lapply(seq_len(nrow(cr_pairs)), function(i) {
+  sp <- cr_pairs$species[i]
+  fi <- cr_pairs$fishery[i]
+  ov <- cr_overlap_rasters[[i]]
+
+  # Classify cells: 1 = species only, 2 = intersect, 3 = fishery only
+  has_a <- !is.na(ov[["volume_a"]]) & ov[["volume_a"]] > 0
+  has_b <- !is.na(ov[["volume_b"]]) & ov[["volume_b"]] > 0
+  has_ov <- !is.na(ov[["volume_overlap"]]) & ov[["volume_overlap"]] > 0
+  categ <- terra::ifel(has_ov, 2,
+    terra::ifel(has_a & has_b, 2,
+      terra::ifel(has_a, 1,
+        terra::ifel(has_b, 3, NA))))
+  levels(categ) <- data.frame(
+    id = 1:3,
+    category = c(sp, "Intersect", fi)
+  )
+
+  ggplot() +
+    geom_sf(data = bangladesh_eez, fill = "white", colour = "red",
+            linewidth = 0.4, linetype = "dashed") +
+    geom_sf(data = land_mask, fill = "grey90", colour = "grey50", linewidth = 0.5) +
+    geom_spatraster(data = categ, show.legend = TRUE) +
+    scale_fill_manual(
+      values = setNames(
+        c(col_species, col_intersect, col_fishery),
+        c(sp, "Intersect", fi)
+      ),
+      limits = c(sp, "Intersect", fi),
+      name = NULL,
+      na.translate = FALSE,
+      drop = FALSE
+    ) +
+    coord_sf(xlim = plot_bbox[c("xmin", "xmax")],
+             ylim = plot_bbox[c("ymin", "ymax")], expand = FALSE) +
+    theme_map() +
+    theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.7, 0.10),
+      legend.background = element_rect(fill = "white", colour = NA),
+      legend.key.size = unit(0.4, "cm"),
+      legend.text = element_text(size = 8)
+    )
+})
+names(overlap_map_plots) <- paste(cr_pairs$species, cr_pairs$fishery, sep = " x ")
+```
+
+``` r
+
+# Depth profile line plot for each species x fishery pair
+# Shows bathymetry cross-section with species/fishery depth ranges
+overlap_depth_plots <- lapply(seq_len(nrow(cr_pairs)), function(i) {
+  ov <- cr_overlap_rasters[[i]]
+
+  # Stack overlap depth layers with bathymetry, extract all values at once
+  stack <- c(ov[["depth_min_a"]], ov[["depth_max_a"]],
+             ov[["depth_min_b"]], ov[["depth_max_b"]],
+             ov[["depth_min_overlap"]], ov[["depth_max_overlap"]],
+             seafloor)
+  df <- as.data.frame(terra::values(stack)) %>%
+    setNames(c("sp_depth_min", "sp_depth_max", "fi_depth_min", "fi_depth_max",
+               "intersect_min", "intersect_max", "seafloor_depth")) %>%
+    filter(!is.na(sp_depth_min) & !is.na(fi_depth_min)) %>%
+    arrange(seafloor_depth) %>%
+    mutate(cell_index = row_number())
+
+  ggplot(df, aes(x = cell_index)) +
+    geom_line(aes(y = -seafloor_depth), colour = "grey30") +
+    geom_ribbon(aes(ymin = -sp_depth_max, ymax = -sp_depth_min),
+                fill = col_species, alpha = 1) +
+    geom_ribbon(aes(ymin = -fi_depth_max, ymax = -fi_depth_min),
+                fill = col_fishery, alpha = 1) +
+    geom_ribbon(aes(ymin = -intersect_max, ymax = -intersect_min),
+                fill = col_intersect, alpha = 1) +
+    annotate("text", x = max(df$cell_index) * 0.95, y = min(-df$seafloor_depth) * 0.95,
+             label = paste0("n = ", max(df$cell_index)),
+             hjust = 1, vjust = 0, size = 3) +
+    labs(x = NULL, y = "Depth (m)") +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme_minimal() +
+    theme(
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+      axis.title = element_text(size = 8),
+      axis.text.x = element_blank(),
+      axis.text.y = element_text(size = 7)
+    )
+})
+names(overlap_depth_plots) <- paste(cr_pairs$species, cr_pairs$fishery, sep = " x ")
+```
+
+``` r
+
+# Combine depth sidebar + map for each pair (1/4 + 3/4 width)
+overlap_plots <- lapply(seq_len(nrow(cr_pairs)), function(i) {
+  overlap_depth_plots[[i]] + overlap_map_plots[[i]] +
+    plot_layout(widths = c(1.5, 3)) &
+    theme(plot.margin = margin(0, 0, 2, 0))
+})
+names(overlap_plots) <- paste(cr_pairs$species, cr_pairs$fishery, sep = " x ")
+
+# Tile by species: 2 rows × 3 columns with collected legends
+cr_species_4d <- unique(cr_pairs$species)
+n_cols <- 2
+
+out_dir_ov <- here("output", "bangladesh-fisheries-3d-overlap", "species_fishery_overlap")
+dir.create(out_dir_ov, recursive = TRUE, showWarnings = FALSE)
+
+for (sp in cr_species_4d) {
+  sp_idx <- which(cr_pairs$species == sp)
+  sp_plots <- overlap_plots[sp_idx]
+  n_rows <- ceiling(length(sp_plots) / n_cols)
+
+  tiled <- wrap_plots(sp_plots, ncol = n_cols, nrow = n_rows)
+
+  fname <- gsub(" ", "_", sp)
+  ggsave(file.path(out_dir_ov, paste0(fname, ".png")),
+         tiled, width = 5 * n_cols, height = 6 * n_rows, dpi = 300)
+}
+```
+
+### Conclusion
+
+The raster-based approach in `sharkabc3d` generalises the hexagonal grid
+method and leverages `terra`’s optimised raster algebra, making the
+analysis faster and applicable to any region, species set, or fishery
+configuration.

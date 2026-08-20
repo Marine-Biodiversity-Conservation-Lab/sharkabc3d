@@ -1,0 +1,12 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  articles/bangladesh-fisheries-3d-overlap: bangladesh-fisheries-3d-overlap.html
+  articles/gfw-fishing-effort-3d: gfw-fishing-effort-3d.html
+  articles/woa-environmental-extraction-single-species: woa-environmental-extraction-single-species.html
+  articles/woa-environmental-extraction: woa-environmental-extraction.html
+last_built: 2026-08-20T02:38Z
+urls:
+  reference: https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference
+  article: https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/articles
