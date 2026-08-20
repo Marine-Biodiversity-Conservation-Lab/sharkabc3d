@@ -19,3 +19,7 @@
 ^CONTRIBUTING\.md$
 ^\.Rbuildignore$
 ^tmp$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^vignettes/articles$

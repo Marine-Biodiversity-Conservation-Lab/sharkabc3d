@@ -8,7 +8,7 @@ Description: Facilitates the analysis of shark and ray habitat in 3D, enabling
     descriptions of habitat by depth and area. Provides tools for volume
     calculation, environmental extraction, and spatial overlap analysis between
     species ranges, fisheries, and depth-stratified environmental data.
-URL: https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d
+URL: https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d, https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/
 BugReports: https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues
 License: GPL-3
 Imports:
@@ -37,3 +37,4 @@ VignetteBuilder: knitr
 Remotes: 
     GlobalFishingWatch/gfwr
 Config/roxygen2/version: 8.1.0
+Config/Needs/website: rmarkdown
