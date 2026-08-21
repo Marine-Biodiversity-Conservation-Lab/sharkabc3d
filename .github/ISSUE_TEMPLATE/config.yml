@@ -1,11 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Question about using the package
-    url: https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/discussions
-    about: Ask about usage, methods, or interpretation here rather than opening an issue.
-  - name: Access to non-public data
-    url: mailto:hello@jmatsushiba.com
-    about: The Bangladesh fishery footprints are not public — contact the maintainer.
   - name: Contributing guide
     url: https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/blob/main/CONTRIBUTING.md
     about: Setup, data requirements, branching, and review process.
