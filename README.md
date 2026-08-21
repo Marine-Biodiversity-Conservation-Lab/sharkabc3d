@@ -7,6 +7,7 @@
 [![pkgcheck](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/workflows/pkgcheck/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions?query=workflow%3Apkgcheck)
 [![R-CMD-check](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml)
 [![Codecov test coverage](https://codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d/graph/badge.svg)](https://app.codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d)
+[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 <!-- badges: end -->
 
 **sharkabc3d** (Shark and Ray Abiotic Covariates in 3 Dimensions) is an
