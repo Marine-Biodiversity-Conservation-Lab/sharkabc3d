@@ -131,19 +131,6 @@ usethis::edit_r_environ()
   depth-stratified effort stack (pelagic, benthic, midwater, or
   unknown).
 
-### Plotting
-
-- `plot_depth_profile()` — vertical depth profile (mean ± min–max
-  ribbon) of an environmental variable within a species range.
-- `plot_range_at_depth()` — map view of a species range with an
-  environmental variable at a specific depth layer.
-- `plot_volume_overlap()` — map view of per-cell 3D volume overlap
-  between two ranges (e.g., species vs fishery).
-- `plot_cumulative_pressure()` — map of cumulative fishing pressure on a
-  species, coloured by the number of overlapping fisheries.
-- `plot_overlap_by_depth()` — per-depth-bin bar chart of species,
-  fishery, and overlap cell counts across multiple sub-fisheries.
-
 ## Contributing
 
 Contributions are welcome. `sharkabc3d` is being actively built out from a set
