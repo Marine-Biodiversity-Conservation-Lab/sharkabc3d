@@ -61,7 +61,7 @@
 <a class="anchor" aria-label="anchor" href="#how-contributing-works-for-sharkabc3d"></a></h2>
 <div class="section level3">
 <h3 id="the-loop">The loop<a class="anchor" aria-label="anchor" href="#the-loop"></a></h3>
-<pre><code>GitHub issue  →  self-assign  →  branch  →  PR  →  squash-merge</code></pre>
+<pre><code>GitHub issue  →  self-assign  →  branch  →  PR  →  merge</code></pre>
 <p>We use issues as the unit of work and the record of its current state.</p>
 <ol style="list-style-type: decimal"><li>
 <strong>Find or open an issue.</strong> Every piece of work starts as an issue.
@@ -108,14 +108,10 @@
 </tr><tr><td>Species data</td>
 <td><code>R/iucn_utils.R</code></td>
 <td>Data loading and preparation</td>
-</tr><tr><td>Geometry utilities (<strong>unstarted, medium</strong>)</td>
-<td>new <code>R/geometry.R</code>
-</td>
-<td>Geometry utilities</td>
 </tr><tr><td>Plotting</td>
 <td><code>R/plot.R</code></td>
 <td>Visualization</td>
-</tr></tbody></table><p>Two people <em>can</em> work in the same area — just make the split explicit in the issue thread (e.g. “I’ll take <code>fix_dateline_geometry()</code>, you take <code>validate_geometry()</code>”).</p>
+</tr></tbody></table><p>Two people <em>can</em> work in the same area — just make the split explicit in the issue thread.</p>
 </div>
 <div class="section level3">
 <h3 id="labels">Labels<a class="anchor" aria-label="anchor" href="#labels"></a></h3>
@@ -155,8 +151,7 @@
 <table class="table"><colgroup><col width="50%"><col width="50%"></colgroup><thead><tr><th>Path</th>
 <th>What lives there</th>
 </tr></thead><tbody><tr><td><code>R/</code></td>
-<td>Package functions, one file per topic: <code>extract.R</code>, <code>gfw.R</code>, <code>iucn_utils.R</code>, <code>load_data.R</code>, <code>plot.R</code>, <code>volume.R</code>, <code>woa.R</code>
-</td>
+<td>Package functions, one file per topic</td>
 </tr><tr><td><code>tests/testthat/</code></td>
 <td>One test file per <code>R/</code> file (<code>test-volume.R</code> ↔︎ <code>R/volume.R</code>)</td>
 </tr><tr><td><code>tests/testthat/_vcr/</code></td>
@@ -164,13 +159,12 @@
 </tr><tr><td><code>man/</code></td>
 <td>roxygen2-generated docs — <strong>never edit by hand</strong>
 </td>
-</tr><tr><td><code>vignettes/</code></td>
-<td>Long-form worked analyses; these are the reproductions of the source papers</td>
+</tr><tr><td><code>vignettes</code></td>
+<td>Shorter examples or tutorials; these are easy to follow directions for using the package. Included in package build</td>
+</tr><tr><td><code>vignettes/articles</code></td>
+<td>Long-form worked analyses; these are the reproductions of the source papers. Not included in package build</td>
 </tr><tr><td><code>SPEC.md</code></td>
-<td>
-<strong>The design doc.</strong> Why the package works the way it does, decisions taken, and specs for work not yet built.</td>
-</tr><tr><td><code>CLAUDE.md</code></td>
-<td>Short architecture summary read by AI coding assistants</td>
+<td>Why the package works the way it does, decisions taken, and specs for work not yet built.</td>
 </tr><tr><td><code>renv.lock</code></td>
 <td>Pinned dependency versions</td>
 </tr></tbody></table><p><strong>Read <code>SPEC.md</code> before proposing work.</strong> Its <em>Architecture and conventions</em> section is binding on any new code, and its <em>Planned work</em> section specifies the things that still need building — each entry is written to seed an issue, with an intended signature and, where one exists, a note on the prior analysis it should be generalised from (that source material is not in this repo — ask the maintainer).</p>
@@ -180,8 +174,7 @@
 <h2 id="development-setup">Development setup<a class="anchor" aria-label="anchor" href="#development-setup"></a></h2>
 <div class="section level3">
 <h3 id="id_1-requirements">1. Requirements<a class="anchor" aria-label="anchor" href="#id_1-requirements"></a></h3>
-<ul><li>
-<strong>R 4.4.3</strong> (the version <code>renv.lock</code> was resolved against)</li>
+<ul><li><strong>R 4.5.3</strong></li>
 <li>Git, and system GDAL/GEOS/PROJ + NetCDF libraries for <code>sf</code> and <code>terra</code>
 <ul><li>Ubuntu/Debian: <code>sudo apt install libgdal-dev libgeos-dev libproj-dev libudunits2-dev netcdf-bin libnetcdf-dev</code>
 </li>
@@ -213,13 +206,12 @@
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">document</span><span class="op">(</span><span class="op">)</span>          <span class="co"># regenerate man/ + NAMESPACE from roxygen comments</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">test</span><span class="op">(</span><span class="op">)</span>              <span class="co"># run the full test suite</span></span>
 <span><span class="fu">testthat</span><span class="fu">::</span><span class="fu"><a href="https://testthat.r-lib.org/reference/test_file.html" class="external-link">test_file</a></span><span class="op">(</span><span class="st">"tests/testthat/test-volume.R"</span><span class="op">)</span>   <span class="co"># one file</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">check</span><span class="op">(</span><span class="op">)</span>             <span class="co"># full R CMD check — run before opening a PR</span></span></code></pre></div>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">check</span><span class="op">(</span><span class="op">)</span>             <span class="co"># full R CMD check — run before opening a PR</span></span>
+<span><span class="fu">pkgcheck</span><span class="fu">::</span><span class="fu">pkgcheck</span><span class="op">(</span><span class="op">)</span>          <span class="co"># pkgcheck for rOpenSci submission</span></span></code></pre></div>
 <hr></div>
 </div>
 <div class="section level2">
 <h2 id="data-setup">Data setup<a class="anchor" aria-label="anchor" href="#data-setup"></a></h2>
-<p><strong>This is the biggest onboarding hurdle, so read it carefully.</strong></p>
-<p>The package deliberately ships <strong>no</strong> large spatial data. <code>example_data/</code> is gitignored (~1.4 GB locally) and the vignettes read from large third-party datasets that you must download yourself:</p>
 <table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>Dataset</th>
 <th>Used for</th>
 <th>Where to get it</th>
@@ -245,11 +237,7 @@
 <td>
 <code>bangladesh-fisheries-3d-overlap</code> vignette</td>
 <td>Not public — contact the maintainer</td>
-</tr></tbody></table><p>⚠️ <strong>Current limitation:</strong> vignettes still contain hard-coded absolute paths (e.g. <code>/home/jay/Programming_Projects/Big_Data/...</code>). They will not run on your machine as-is. Until this is fixed (see <a href="#known-rough-edges--good-first-issues">Known rough edges</a>), the convention we are moving to is a single environment variable in <code>~/.Renviron</code>:</p>
-<pre><code><span><span class="va">SHARKABC3D_DATA</span><span class="op">=</span><span class="st">"/path/to/your/big/data"</span></span></code></pre>
-<p>…with vignettes resolving paths as <code>file.path(Sys.getenv("SHARKABC3D_DATA"), "gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")</code>. <strong>If you touch a vignette, please convert its paths to this pattern</strong> rather than adding new hard-coded ones.</p>
-<p>All vignette chunks are currently <code>eval = FALSE</code> for exactly this reason — they are documentation of a real analysis, not something CI can reproduce. Tests, by contrast, must run on synthetic in-memory rasters with <strong>no external data and no network</strong>.</p>
-<hr></div>
+</tr></tbody></table></div>
 <div class="section level2">
 <h2 id="coding-conventions">Coding conventions<a class="anchor" aria-label="anchor" href="#coding-conventions"></a></h2>
 <ul><li>
@@ -272,7 +260,7 @@
 <ul><li>
 <code>testthat</code> edition 3. One test file per source file.</li>
 <li>
-<strong>Tests must not require external data, API keys, or network access.</strong> Construct small synthetic <code>SpatRaster</code>s / <code>sf</code> objects in the test itself — see <code>tests/testthat/test-volume.R</code> for the pattern to copy.</li>
+<strong>Tests must not require external data, API keys, or network access.</strong> Construct small synthetic objects in the test itself — see <code>tests/testthat/test-volume.R</code> for the pattern to copy.</li>
 <li>HTTP-dependent tests use <code>vcr</code> cassettes stored in <code>tests/testthat/_vcr/</code>. If you add an API-backed test, record a cassette rather than hitting the live service; scrub API keys from the recorded YAML before committing.</li>
 <li>Use <code>skip_if_not_installed()</code> for optional-dependency tests and <code>skip_on_cran()</code> for anything slow.</li>
 <li>Keep the suite fast. If a test needs more than a few seconds, it probably needs smaller synthetic inputs.</li>
@@ -285,20 +273,6 @@
 <code>README.md</code> is generated from <code>README.Rmd</code> — edit the <code>.Rmd</code> and knit with <code>devtools::build_readme()</code>.</li>
 <li>Vignettes reproduce real analyses end-to-end. Keep chunks <code>eval = FALSE</code> unless the analysis can run from data the package can fetch itself. Structure them as: study question → data loading → analysis → figures → interpretation.</li>
 </ul><hr></div>
-<div class="section level2">
-<h2 id="known-rough-edges--good-first-issues">Known rough edges / good first issues<a class="anchor" aria-label="anchor" href="#known-rough-edges--good-first-issues"></a></h2>
-<p>These are real, currently-open gaps in the repo. Each is a good first contribution — open an issue and claim it:</p>
-<ol style="list-style-type: decimal"><li>
-<strong>Hard-coded data paths in vignettes.</strong> All four vignettes point at <code>/home/jay/Programming_Projects/Big_Data/...</code>. Convert to the <code>SHARKABC3D_DATA</code> environment-variable pattern described above. (<code>area:infra</code>, <code>good first issue</code>)</li>
-<li>
-<strong>Test coverage for the IUCN helpers is cassette-bound.</strong> The IUCN Red List tests replay recorded HTTP interactions from <code>tests/testthat/_vcr/</code> (see <code>tests/testthat/setup-vcr.R</code>), so they need no API key — but any <em>new</em> test that hits a URL not already in a cassette has to be recorded once with a real <code>IUCN_REDLIST_KEY</code>, then committed. <code>_vcr/group_code.yml</code> is ~42 MB and its test is currently <code>skip()</code>ped; slimming or dropping it would shrink the repo considerably. (<code>area:infra</code>, <code>good first issue</code>)</li>
-<li>
-<strong>Test coverage gaps.</strong> <code>test-plot.R</code> has only a handful of assertions for five exported plotting functions; <code><a href="reference/load_bathymetry.html">load_bathymetry()</a></code>’s main test skips when <code><a href="https://rspatial.github.io/terra/reference/writeCDF.html" class="external-link">terra::writeCDF</a></code> is unavailable.</li>
-<li>
-<strong>Legacy function pending retirement.</strong> <code>woa_nc_extract()</code> (in <code>R/woa.R</code>) is superseded by <code><a href="reference/woa_load_nc.html">woa_load_nc()</a></code> but is still exported (see SPEC <em>Planned work → Retirements</em>). Its counterpart <code>woa_volume_extract()</code> has already been removed in favour of <code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code>. Retiring <code>woa_nc_extract()</code> behind a deprecation warning is a clean, self-contained PR.</li>
-<li>
-<strong>Whole unstarted areas.</strong> The geometry-utility, species summary-metric, and Copernicus entries under <code>SPEC.md</code> <em>Planned work</em> have no code at all. If you want a substantial, collision-free chunk of work, start there.</li>
-</ol><hr></div>
 <div class="section level2">
 <h2 id="questions-and-how-to-get-help">Questions, and how to get help<a class="anchor" aria-label="anchor" href="#questions-and-how-to-get-help"></a></h2>
 <ul><li>For usage, methods, or interpretation questions, open a <a href="https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/discussions" class="external-link">GitHub Discussion</a>.</li>

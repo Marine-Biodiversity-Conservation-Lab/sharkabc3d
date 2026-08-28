@@ -41,195 +41,119 @@
 
 <div id="project-spec" class="section level1">
 
-<p><strong>What this document is.</strong> The design rationale for sharkabc3d: what the package is for, the conventions everything else depends on, the decisions taken along the way, and the shape of the work that hasn’t been built yet.</p>
-<p><strong>What it is not.</strong> A status tracker. Per-function progress is not recorded here, because a hand-maintained checklist drifts from the code — it did, for most of this project’s history. Instead:</p>
-<table class="table"><colgroup><col width="50%"><col width="50%"></colgroup><thead><tr><th>To find out…</th>
-<th>Look at…</th>
-</tr></thead><tbody><tr><td>What functions exist today and how to call them</td>
-<td>The package reference — <code>man/</code>, <code><a href="reference/sharkabc3d-package.html">?sharkabc3d</a></code>, or the pkgdown site once it is up. <code>NAMESPACE</code> is authoritative.</td>
-</tr><tr><td>What is being worked on, by whom</td>
-<td><a href="https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues" class="external-link">GitHub issues</a></td>
-</tr><tr><td>Why the package is built the way it is, and what is still planned</td>
-<td>This document</td>
-</tr></tbody></table><p>Items under <a href="#planned-work">Planned work</a> are written to be pasted into an issue more or less as-is. Open one before starting; see <a href="CONTRIBUTING.html">CONTRIBUTING.md</a>.</p>
+<p>This document describes the overall design decisions for the <code>sharkabc3d</code> (Shark and Ray Abiotic Covariates in 3 Dimensions) project. <code>sharkabc3d</code> is an R package that is designed to facilitate the analysis of marine habitats in 3D, enabling descriptions of interaction between different marine entities, including species, anthropogenic activities, and environmental variables. <code>sharkabc3d</code> is intended to empower users to conduct analyses in the 3D marine environment within the R ecosystem.</p>
+<p>The primary operation that <code>sharkabc3d</code> is focused on is the spatial querying of large 3D marine datasets. <code>sharkabc3d</code> enables asking questions like 1. What range of environmental conditions is a species found in? 2. How much does a given anthropogenic activity affect a species? 3. What impact could protective measures have on a species?</p>
+<p>while considering three-dimensional space.</p>
+<p>Technically, this means that <code>sharkabc3d</code> needs to be able to take 1D (points), 2D (polygons), and 3D (raster stack) and query how these intersect with one another.</p>
 <div class="section level2">
-<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a></h2>
-<p>This document describes the intended outcomes for the sharkabc3d (Shark and Ray Abiotic Covariates in 3 Dimensions) project. sharkabc3d is an R package that is designed to facilitate the analysis of shark and ray habitat in 3D, enabling descriptions of habitat by depth and area.</p>
-<p>The idea is to create a R package that encapsulates the work across these papers, so that we can reproduce the work done and repeat depending on new data, params, etc.</p>
-<p>I had some grand ideas about creating a space-time cube model, combining raster and vector data. But this is probably overkill for now, point towards it as a future direction. Just refactor and implement the code used across the previous projects above.</p>
+<h2 id="vector-representations-in-3d-space">Vector Representations in 3D space<a class="anchor" aria-label="anchor" href="#vector-representations-in-3d-space"></a></h2>
+<p>For more background: <a href="https://en.wikipedia.org/wiki/Geometric_primitive" class="external-link uri">https://en.wikipedia.org/wiki/Geometric_primitive</a> ### 0D (Points / Vertices) These are 0-dimensional, without length, width, or height dimensions. Points can be located in 3-dimensional space though, with 3 coordinate values. They are called vertices in the 3D graphics / modelling field.</p>
+<p>For <code>sharkabc3d</code>, these will be lon (longitude), lat (latitude), and depth (metres).</p>
+<div class="section level3">
+<h3 id="id_1d-lines--edges">1D (Lines / Edges)<a class="anchor" aria-label="anchor" href="#id_1d-lines--edges"></a></h3>
+<p>Lines are two points connected, having a length but no width, therefore considered to be 1-dimensional. These are called edges in the 3D graphics / modelling field.</p>
+<p>Currently, <code>sharkabc3d</code> doesn’t handle lines / edges, but it would be useful for working with things like fishing boat routes or tagging data. See <a href="#future-directions">Future Directions</a>.</p>
+</div>
+<div class="section level3">
+<h3 id="id_2d-polygons--faces">2D (Polygons / Faces)<a class="anchor" aria-label="anchor" href="#id_2d-polygons--faces"></a></h3>
+<p>Polygons are constructed from points that exist on the same 2D plane, that are connected in order that creates a closed shape. With length and width, these are 2-dimensional shapes. In 3D graphics / modelling field, they are called faces.</p>
+<p>Currently, <code>sharkabc3d</code> doesn’t handle faces that are natively 3D. These are cases where each point that is part of the polygon has a meaningful depth coordinate. Instead, we work with polygons that have depth values associated with the entire polygon. I.e. the polygon is represented on planes that aligned with depth levels. For example, IUCN Red List species ranges that have a species range represented as a 2D polygon with no depths, with separate depth range values provided. This is often called 2.5D representation.</p>
+</div>
+<div class="section level3">
+<h3 id="id_3d-volumes">3D (Volumes)<a class="anchor" aria-label="anchor" href="#id_3d-volumes"></a></h3>
+<p>Volumes are closed geometries that are formed by multiple polygons.</p>
+<p>Currently, <code>sharkabc3d</code> does not handle volumes. This might become useful to work with if we input 3D models, derived from techniques like photogrammetry.</p>
+</div>
 </div>
 <div class="section level2">
-<h2 id="input-data-sources">Input data sources:<a class="anchor" aria-label="anchor" href="#input-data-sources"></a></h2>
-<ul><li>bathymetry</li>
-<li>species ranges from IUCN Red List (2.5D, with polygon areas with depth characteristics)</li>
-<li>species observations (3D, with points with X, Y, Z coordinates)</li>
-<li>species distribution models (continuous 2D rasters)</li>
-<li>satellite data (Copernicus, WOA datasets)
-<ul><li>have depth and time layers</li>
+<h2 id="raster-representations-in-3d-space">Raster Representations in 3D space<a class="anchor" aria-label="anchor" href="#raster-representations-in-3d-space"></a></h2>
+<div class="section level3">
+<h3 id="id_2d-raster">2D (Raster)<a class="anchor" aria-label="anchor" href="#id_2d-raster"></a></h3>
+<p>2D rasters are cellular representations with x, y dimensions. I.e. the whole study space is represented as a grid that has values in every cell.</p>
+</div>
+<div class="section level3">
+<h3 id="id_3d-voxel">3D (Voxel)<a class="anchor" aria-label="anchor" href="#id_3d-voxel"></a></h3>
+<div class="float">
+<img src="figures/fig-voxel-model.png" alt="alt text"><div class="figcaption">alt text</div>
+</div>
+<div class="float">
+<img src="figures/fig-species-voxel.png" alt="Figure 2"><div class="figcaption">Figure 2</div>
+</div>
+<p>To extend rasters into 3D, we simply create multiple rasters for a set of standard depths. This is the convention from oceanography datasets, like Copernicus Marine and World Ocean Atlas (WOA). This raster stack is supported with netCDF file type and with the <code>terra</code> and <code>ncdf4</code> packages. This raster stack is called a <strong>voxel model</strong> in 3D graphics / modelling field.</p>
+<p>Multi-depth rasters used by <code>sharkabc3d</code> must encode depth in layer names using the format <code>{variable}_{field}_depth={value}</code> (e.g., <code>t_an_depth=0</code>, <code>t_an_depth=100</code> for temperature with annual means at 0 and 100 m depths).</p>
+<p>The convention for the depth bounds that a given raster layer represents depends on source netCDF. For example, WOA provides standard depth levels and explicit depth_bnds. For example, the 0 m layer has bounds from 0 to 2.5 m, the 5 m layer 2.5–7.5 m, the 10 m layer 7.5–12.5 m, etc.</p>
+<p>In these rasters, there is a continuous representation of values across x, y, and depth dimensions. For environmental variables, this could be temperature in degrees C at each coordinate and depth. For a species range, this could be probability of occurrence at each coordinate an depth.</p>
+<p>Data source utilities are responsible for converting other formats into this convention. Functions like <code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code> parse layer names to determine which depth layers to select for a given depth range.</p>
+</div>
+<div class="section level3">
+<h3 id="id_3d-min-max-25d">3D (Min-max 2.5D)<a class="anchor" aria-label="anchor" href="#id_3d-min-max-25d"></a></h3>
+<p>Colloquially referred to as the 2.5D model, this is often used for terrain models in GIS. Think like Digital Elevation Models, where the raster values correspond with the height of the landscape.</p>
+<p>We can represent spaces, like species ranges, by describing the space that they occupy with a minimum depth and maximum depth raster. Maximum depth could be bound by the bathymetry raster, or by the maximum depth the species is found at.</p>
+<p>This representation is more efficient than the 3D Voxel representation, since it only needs two rasters for min and max respectively, compared to needing a raster for every standard depth. The downside is that the 2.5 representation doesn’t model situations where there may not be presences between the min and max depths.</p>
+</div>
+</div>
+<div class="section level2">
+<h2 id="sharkabc3d-functionality">
+<code>sharkabc3d</code> functionality<a class="anchor" aria-label="anchor" href="#sharkabc3d-functionality"></a></h2>
+<div class="section level3">
+<h3 id="spatial-extractions">Spatial extractions<a class="anchor" aria-label="anchor" href="#spatial-extractions"></a></h3>
+<ul><li>
+<strong>Point extraction</strong>. Extract the nearest value from multi-depth raster / voxel model (ex. environmental data) to an input point based on its longitude, latitude, depth, and, when available, time.</li>
+<li>
+<strong>Area extraction</strong>. Extract values from multi-depth raster / voxel model (ex. environmental data) within an input polygon at a specified depth.</li>
+<li>
+<strong>Volume extraction</strong>. Extract values from multi-depth raster / voxel model (ex. environmental data) within a three-dimensional spatial volume defined by horizontal extent and depth range.
+<ul><li>This should be possible for both 2.5D (two-raster stack) and 3D (multi-depth raster stack).</li>
 </ul></li>
-<li>species traits (Sharkipedia, other literature)</li>
-<li>fishing pressure (gear type)
-<ul><li>Global Fishing Watch (satellite imagery, 2D)</li>
-<li>Fishing grounds (polygons with depth, 2.5D)</li>
-</ul></li>
-</ul><div class="section level3">
-<h3 id="iucn-red-list-species-ranges">IUCN Red List species ranges:<a class="anchor" aria-label="anchor" href="#iucn-red-list-species-ranges"></a></h3>
-<ul><li><a href="https://www.iucnredlist.org/resources/spatial-data-download" class="external-link uri">https://www.iucnredlist.org/resources/spatial-data-download</a></li>
-<li>species ranges as polygons</li>
 </ul></div>
 <div class="section level3">
-<h3 id="aquamaps">AquaMaps:<a class="anchor" aria-label="anchor" href="#aquamaps"></a></h3>
-<ul><li><a href="https://www.aquamaps.org/main/home_orig.php" class="external-link uri">https://www.aquamaps.org/main/home_orig.php</a></li>
-<li><a href="https://www.biorxiv.org/content/10.1101/2025.10.19.683322v1.full.pdf" class="external-link uri">https://www.biorxiv.org/content/10.1101/2025.10.19.683322v1.full.pdf</a></li>
-<li>Species distribution models as 2D rasters</li>
+<h3 id="conversions-between-spatial-representations">Conversions between spatial representations<a class="anchor" aria-label="anchor" href="#conversions-between-spatial-representations"></a></h3>
+<ul><li>
+<strong>Create template voxel grid for study space</strong>. Create the 3D voxel grid for the study space, that can be used as a template to convert other spatial representations to be compatible with it.</li>
+<li>
+<strong>Convert 2D polygons with depth data to 2.5D.</strong> When separate depth ranges are available, use that to convert 2D polygons into 2.5D representations that are bound by bathymetry and depth ranges. Ex. IUCN Red List species ranges.</li>
+<li>
+<strong>Convert 2D rasters to 2.5D</strong>. When depth ranges are available, use that to convert 2D raster data into 2.5D representations. Ex. working with Global Fishing Watch data on fishing effort by gear type.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="volume-calculations">Volume calculations<a class="anchor" aria-label="anchor" href="#volume-calculations"></a></h3>
+<ul><li>
+<strong>Calculate the volume occupied by 2.5D representation</strong>. Each rasterized range stores presence plus <code>depth_min/depth_max</code> per cell, clamped to the seafloor. Volume is the sum of <code>cell_area × (depth_max - depth_min)</code> over present cells; overlap between two ranges is the same arithmetic on the intersected depth window.</li>
+<li>
+<strong>Calculate the volume occupied by 3D representation</strong>. Each raster layer has a height that it represents, which is defined by the height difference from the next raster layer. Ex. <code>t_an_depth=0</code>, <code>t_an_depth=100</code> would mean that the first <code>t_an_depth=0</code> layer has a height of 100m.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="utilities">Utilities<a class="anchor" aria-label="anchor" href="#utilities"></a></h3>
+<ul><li>
+<strong>Download and prepare data.</strong> Utilities for public APIs and open data incorporated into <code>sharkabc3d</code>. Includes WOA, Copernicus, IUCN Red List, Global Fishing Watch data.</li>
+<li>
+<strong>Downloads are cached, not manual.</strong> Downloaded big data is cached in location accessible by package functions. Different projects read off the same copy of the data. Keeps analysis reproducible while compact. Downloaded data that is cached is documented by the package, so that the code can be handed to another user with clear information about what versions were used without having to send the big data alongside the code.</li>
 </ul></div>
 </div>
 <div class="section level2">
-<h2 id="previous-projects-to-build-upon">Previous projects to build upon:<a class="anchor" aria-label="anchor" href="#previous-projects-to-build-upon"></a></h2>
-<ul><li>2.5D analysis with polygons with depth or depth range values</li>
-<li>Species ranges intersecting with fisheries (Alifa Haque Bangladesh)
-<ul><li>Haque et al. Bangladesh artisanal fisheries manuscript (unpublished; contact the maintainer)</li>
-<li>19 CR species × 7 artisanal sub-fisheries (gillnets, longlines, set-bag nets, prawn trawl)</li>
-<li>hexagonal grid over Bangladesh EEZ (1km cells), mean bathymetric depth per cell from GEBCO</li>
-<li>species presence/absence per cell from IUCN range polygons</li>
-<li>fishery presence/absence per cell from participatory mapping (fisher interviews + KDE heatmaps)</li>
-<li>depth overlap per cell: overlap of species depth range with gear depth range, constrained by bathymetry</li>
-<li>3D volume overlap = cell area × depth overlap, expressed as proportion of species total volume</li>
-<li>key finding: horizontal overlap can be large but 3D overlap much smaller due to depth refuge</li>
-</ul></li>
-<li>Species ranges with depth value intersecting with WOA datasets, .nc files (Rachel’s work)
-<ul><li>WOA data is represented as a set of points at standard depths</li>
-<li>species ranges represented as 2D polygons with depth range (2.5D)</li>
-</ul></li>
-<li>Deep sea sharks (see Brit’s paper: <a href="https://www.science.org/doi/10.1126/science.ade9121" class="external-link uri">https://www.science.org/doi/10.1126/science.ade9121</a>)
-<ul><li>vertical refuge</li>
-</ul></li>
-</ul><p><strong>Note on <code>Source:</code> pointers.</strong> Where an item below names a source, it names the prior analysis or manuscript the function is being generalised from, not a file in this repository. That source material is not distributed here — if you are picking up a planned item and need it, ask the maintainer.</p>
-<hr></div>
-<div class="section level2">
-<h2 id="project-milestones">Project milestones<a class="anchor" aria-label="anchor" href="#project-milestones"></a></h2>
-<p>Coarse, slow-moving goals for the package as a whole. These are the only checkboxes in this document; anything finer-grained belongs in an issue.</p>
-<ul class="task-list"><li><label><input type="checkbox" checked>Establish the core function set — intended params, then implementations</label></li>
-<li><label><input type="checkbox" checked>Documentation for every exported function (roxygen2 → <code>man/</code>)</label></li>
-<li><label><input type="checkbox" checked>Test suite that runs with no external data, API keys, or network</label></li>
-<li><label><input type="checkbox" checked>Package README (generated from <code>README.Rmd</code>)</label></li>
-<li>
-<label><input type="checkbox">Recreate past analyses as vignettes</label>
-<ul class="task-list"><li><label><input type="checkbox" checked>3D Bangladesh Fisheries (Alifa) — <code>vignettes/bangladesh-fisheries-3d-overlap.Rmd</code></label></li>
-<li><label><input type="checkbox" checked>Dispersal Potential (Rachel) — <code>vignettes/woa-environmental-extraction.Rmd</code> plus <code>vignettes/woa-environmental-extraction-single-species.Rmd</code></label></li>
-<li><label><input type="checkbox" checked>Depth-stratified GFW fishing effort — <code>vignettes/gfw-fishing-effort-3d.Rmd</code></label></li>
-<li><label><input type="checkbox">Deep sea sharks (Brit)</label></li>
-</ul></li>
-<li><label><input type="checkbox">Vignettes runnable by someone other than the maintainer — all four are written end-to-end but set <code>eval = FALSE</code>, because they read large third-party datasets through hard-coded absolute paths</label></li>
-<li><label><input type="checkbox">Green CI — <code>.github/workflows/R-CMD-check.yaml</code> exists but is blocked on undeclared <code>vcr</code> and missing cassettes</label></li>
-<li><label><input type="checkbox">Documentation website (pkgdown or Quarto). This also supersedes any need to list existing functions here.</label></li>
-</ul><hr></div>
-<div class="section level2">
-<h2 id="architecture-and-conventions">Architecture and conventions<a class="anchor" aria-label="anchor" href="#architecture-and-conventions"></a></h2>
-<div class="section level3">
-<h3 id="depth-layer-convention">Depth layer convention<a class="anchor" aria-label="anchor" href="#depth-layer-convention"></a></h3>
-<p>Multi-depth SpatRasters used by this package must encode depth in layer names using the format <code>{variable}_depth={value}</code> (e.g., <code>tan_depth=0</code>, <code>tan_depth=100</code>). This is the convention used by WOA NetCDF files natively. Data source utilities are responsible for converting other formats into this convention. Functions like <code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code> parse layer names to determine which depth layers to select for a given depth range.</p>
-<p><strong>Any new data-source utility must emit this naming convention.</strong></p>
-</div>
-<div class="section level3">
-<h3 id="volume-calculation-the-stacked-raster-approach">Volume calculation: the stacked raster approach<a class="anchor" aria-label="anchor" href="#volume-calculation-the-stacked-raster-approach"></a></h3>
-<p>3D volumes are computed on a stacked raster. The bathymetry raster serves as the common grid — species ranges and fishery footprints are rasterized onto it with <code><a href="https://rspatial.github.io/terra/reference/rasterize.html" class="external-link">terra::rasterize()</a></code>, and depth overlap is computed via raster algebra. This avoids creating intermediate hex/vector grids and leverages terra’s optimized operations.</p>
-<p>Each rasterized range stores presence plus <code>depth_min</code>/<code>depth_max</code> per cell, clamped to the seafloor. Volume is the sum of <code>cell_area × (depth_max - depth_min)</code> over present cells; overlap between two ranges is the same arithmetic on the intersected depth window.</p>
-<p>The approach was developed for the Bangladesh fisheries analysis (Haque et al.) on a hexagonal grid, and <strong>generalized here from that hex grid to raster algebra</strong>.</p>
-</div>
-<div class="section level3">
-<h3 id="uniform-depth-versus-variable-depth-data">Uniform-depth versus variable-depth data<a class="anchor" aria-label="anchor" href="#uniform-depth-versus-variable-depth-data"></a></h3>
-<p>Two different problems that are easy to confuse:</p>
+<h2 id="conventions">Conventions<a class="anchor" aria-label="anchor" href="#conventions"></a></h2>
 <ul><li>
-<strong>Uniform-depth ranges</strong> — a species range polygon plus a single min/max depth. Handled by the volume functions, which extrude the polygon through one depth window (clamped per-cell to bathymetry).</li>
-<li>
-<strong>Variable-depth environmental data</strong> — multi-layer rasters holding values at standard depth levels (e.g. WOA temperature at 57 depths). Handled by the extraction functions, which are raster-agnostic and work on anything following the depth layer convention.</li>
-</ul><p>Extraction comes in two flavours, and the distinction matters: one takes an area polygon plus a single depth window, the other takes a <em>rasterized</em> range and honours each cell’s own depth window — preserving per-cell vertical refuge rather than flattening it to one global window.</p>
-</div>
-<div class="section level3">
-<h3 id="design-decisions-and-deviations">Design decisions and deviations<a class="anchor" aria-label="anchor" href="#design-decisions-and-deviations"></a></h3>
-<p>Where the built package departs from what was first spec’d, and why. New deviations should be recorded here in the PR that introduces them.</p>
-<ul><li>
-<strong><code>load_species_ranges()</code> was dropped.</strong> Replaced by inline <code><a href="https://r-spatial.github.io/sf/reference/st_read.html" class="external-link">sf::st_read()</a></code> calls with SQL filtering in the vignettes — a wrapper added indirection without hiding real complexity.</li>
-<li>
-<strong><code>fetch_species_depths()</code> became <code><a href="reference/fetch_species_assessments.html">fetch_species_assessments()</a></code>.</strong> The IUCN API returns full assessments; narrowing the return value to depths alone threw away taxonomy and Red List category that callers then had to re-fetch.</li>
-<li>
-<strong>A <code>study_voxel</code> object replaces hand-prepared inputs.</strong> Every 3D operation needs the same three things — a horizontal grid template, positive-down seafloor depth on that grid, and the standard depth levels setting vertical resolution. Bundling them means callers no longer project and flip bathymetry by hand. Carries an S3 <code><a href="https://rdrr.io/r/base/print.html" class="external-link">print()</a></code> method.</li>
-<li>
 <strong>Depth sign convention.</strong> Depths are positive metres increasing downward, but GEBCO bathymetry is negative below sea level. The voxel constructor flips it and clamps land to 0. Document which convention any new argument uses.</li>
 <li>
-<strong>WOA downloads are cached, not manual.</strong> <code><a href="reference/woa_download.html">woa_download()</a></code> fetches from NCEI THREDDS into <code><a href="https://rdrr.io/r/tools/userdir.html" class="external-link">tools::R_user_dir()</a></code>, replacing manual URL lookup. Nothing writes outside that cache dir.</li>
-<li>
-<strong><code>woa_volume_extract()</code> was removed</strong> in favour of the generic <code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code>. <code>woa_nc_extract()</code> survives as a legacy export — see Planned work.</li>
-<li>
-<strong>GFW support was not originally spec’d.</strong> Global Fishing Watch publishes a flat 2D effort product; turning it into a depth-stratified stack needs gear-class depth priors plus bathymetry (pelagic gear gets a fixed band, benthic gear a seafloor-riding band). Ingest is delegated to <code>gfwr</code>. Depth-banding runs one gear at a time to bound memory — loop and combine for a multi-gear stack.</li>
-</ul><hr></div>
-</div>
-<div class="section level2">
-<h2 id="planned-work">Planned work<a class="anchor" aria-label="anchor" href="#planned-work"></a></h2>
-<p>Not yet built. Each entry gives an intended signature and behaviour; treat the signature as a starting proposal, not a contract — if implementation suggests better, say so in the issue and record the deviation above.</p>
-<p>All remaining items are secondary priority: everything in the original <strong>(high)</strong> tier is built. Use issue labels for priority from here on, since priority changes and this file shouldn’t have to.</p>
-<div class="section level3">
-<h3 id="data-loading-and-preparation">Data loading and preparation<a class="anchor" aria-label="anchor" href="#data-loading-and-preparation"></a></h3>
-<ul><li>
-<code>load_eez(file_path)</code> — Load Exclusive Economic Zone polygons (Marine Regions World EEZ) from geopackage. Returns sf with MRGID, GEONAME, geometry. Used for study-area clipping; the Bangladesh vignette currently reads the EEZ inline.</li>
+<strong><code>ncdf4</code> vs <code>terra</code></strong>. Work with <code>ncdf4</code> package to read netCDF directly for extraction of point data. Work with <code>terra</code> for large raster operations (1000s of cells), like extracting areas / volumes.</li>
 </ul></div>
-<div class="section level3">
-<h3 id="geometry-utilities">Geometry utilities<a class="anchor" aria-label="anchor" href="#geometry-utilities"></a></h3>
-<p>Reusable operations for cleaning polygon inputs — principally global IUCN species range polygons, which routinely cross the antimeridian and contain invalid rings.</p>
-<ul><li>
-<code>fix_dateline_geometry(x)</code> — Fix sf geometries that cross the international date line. Creates thin polygon slice at -180/+180, applies st_difference, then st_wrap_dateline for remaining issues. Returns corrected sf.</li>
-<li>
-<code>validate_geometry(x)</code> — Check if sf geometry is non-empty and S2-valid. Optionally repair with st_make_valid + st_buffer(0). Returns logical or repaired sf.</li>
-</ul></div>
-<div class="section level3">
-<h3 id="species-summary-metrics">Species summary metrics<a class="anchor" aria-label="anchor" href="#species-summary-metrics"></a></h3>
-<p>Aggregate environmental and trait data across species for comparative analysis.</p>
-<ul><li>
-<code>calc_species_richness_by_depth(species_ranges, depth_table, depth_breaks)</code> — Count number of species present at each depth bin across a grid or region. Returns raster stack or tibble by depth.
-<ul><li>Source: Finucci et al. 2024 Fig 4 concept</li>
-</ul></li>
-<li>
-<code>calc_trait_by_depth(species_ranges, depth_table, trait_table, trait_col, depth_breaks, fun = mean)</code> — Summarise a trait (e.g., caudal fin aspect ratio) by depth bin, weighted by species presence. Returns tibble.</li>
-<li>
-<code>calc_depth_restricted_range(species_range, depth_threshold, bathymetry)</code> — Calculate what portion of a species’ 2D range overlaps with ocean deeper than a depth threshold. Masks species range polygon to areas where bathymetry exceeds threshold. Returns sf with restricted geometry + area.
-<ul><li>Source: Finucci et al. 2024 Fig 5D concept — “range restricted by depth limit” vs “full range”</li>
-</ul></li>
-</ul></div>
-<div class="section level3">
-<h3 id="visualization">Visualization<a class="anchor" aria-label="anchor" href="#visualization"></a></h3>
-<ul><li>
-<code>plot_cross_section(rast_3d, transect_line, depth_range)</code> — Plot a vertical cross-section of environmental data along a transect. Filled contour with lon/lat on x-axis, depth on y-axis.</li>
-</ul></div>
-<div class="section level3">
-<h3 id="data-source-utilities">Data source utilities<a class="anchor" aria-label="anchor" href="#data-source-utilities"></a></h3>
-<ul><li>
-<code>copernicus_load(file_path)</code> — Load Copernicus marine data .nc file. Standardize depth layer naming to match the package convention. Returns SpatRaster.</li>
-<li>
-<code>copernicus_summarise(file_paths, fun)</code> — Summarise Copernicus data across time steps (e.g., monthly to annual min/max/mean). Returns named list of SpatRasters.</li>
-</ul><hr></div>
-</div>
 <div class="section level2">
 <h2 id="future-directions">Future directions<a class="anchor" aria-label="anchor" href="#future-directions"></a></h2>
-<p>Not part of the core package. These come after the sections above are established, and are not grounded in existing project code.</p>
+<p>These come after the sections above are established, and are not grounded in existing project code.</p>
+<div class="section level3">
+<h3 id="id_1d-lines--edges-1">1D (Lines / Edges)<a class="anchor" aria-label="anchor" href="#id_1d-lines--edges-1"></a></h3>
+<p>Currently, <code>sharkabc3d</code> doesn’t handle lines / edges, but it would be useful for working with things like fishing boat routes or tagging data. See Issue <a href="https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues/31#issue-5270698566" class="external-link">#31</a> for further discussion.</p>
+</div>
 <div class="section level3">
 <h3 id="id_3d-species-distribution-modelling">3D species distribution modelling<a class="anchor" aria-label="anchor" href="#id_3d-species-distribution-modelling"></a></h3>
-<p>Create 3D species distribution models from point observations, combining horizontal (X, Y) occurrence data with vertical (Z) depth information — extending traditional 2D SDMs by incorporating depth as an explicit dimension. Requires new R&amp;D.</p>
+<p>Create 3D species distribution models from point observations, combining horizontal (X, Y) occurrence data with vertical (Z) depth information — extending traditional 2D SDMs by incorporating depth as an explicit dimension.</p>
 <ul><li>
 <code>create_3d_sdm(occurrences, bathymetry, env_rasters, depth_breaks)</code> — Build a 3D species distribution model from point observations with depth (X, Y, Z). Fits a model (e.g., MaxEnt, GLM) at each depth layer using environmental covariates extracted at that depth. Returns a multi-layer SpatRaster of predicted habitat suitability by depth.</li>
 <li>
-<code>stack_2d_sdm_by_depth(sdm_raster, depth_table, bathymetry)</code> — Convert a traditional 2D SDM raster (e.g., from AquaMaps) into a 3D volume by extruding it through the species’ depth range, constrained by bathymetry. Returns a rasterized range compatible with the volume functions.
-<ul><li>Source: Input data sources — AquaMaps continuous 2D rasters + IUCN depth ranges</li>
-</ul></li>
-<li>
 <code>predict_3d_habitat(model, env_rasters, depth_breaks, bathymetry)</code> — Generate 3D habitat suitability predictions from a fitted model. For each depth layer, extract environmental values and predict suitability. Mask cells where depth layer exceeds bathymetry. Returns multi-layer SpatRaster.</li>
 <li>
-<code>validate_3d_sdm(model, test_occurrences, depth_breaks)</code> — Evaluate 3D SDM performance using held-out occurrence data with depth. Computes metrics (AUC, TSS) both overall and per depth layer. Returns tibble of validation metrics.</li>
+<strong>Handle spatial-autocorrelation in 3D</strong>. Spatial autocorrelation in 2D is known challenge, tools in spatial modelling exist to handle. Need to investigate what is available / possible for spatial-autocorrelation in 3D.</li>
 </ul></div>
-<div class="section level3">
-<h3 id="space-time-cube-model">Space-time cube model<a class="anchor" aria-label="anchor" href="#space-time-cube-model"></a></h3>
-<p>Combine raster and vector data into a unified space-time-depth data structure. Deferred as noted in the Overview — point towards as future direction after the core package is established.</p>
-</div>
 </div>
 </div>
 
