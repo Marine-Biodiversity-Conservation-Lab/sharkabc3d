@@ -13,18 +13,18 @@ Technically, this means that `sharkabc3d` needs to be able to take 1D (points), 
 
 ## Vector Representations in 3D space
 For more background: https://en.wikipedia.org/wiki/Geometric_primitive
-### 1D (Points / Vertices)
-Points need to have 3 coordinate values to be able to be located in 3D space. They are called vertices in the 3D graphics / modelling field. 
+### 0D (Points / Vertices)
+These are 0-dimensional, without length, width, or height dimensions. Points can be located in 3-dimensional space though, with 3 coordinate values. They are called vertices in the 3D graphics / modelling field. 
 
 For `sharkabc3d`, these will be lon (longitude), lat (latitude), and depth (metres). 
 
-### 2D (Lines / Edges)
-Lines are two points connected, having a length but no width. These are called edges in the 3D graphics / modelling field. 
+### 1D (Lines / Edges)
+Lines are two points connected, having a length but no width, therefore considered to be 1-dimensional. These are called edges in the 3D graphics / modelling field. 
 
-Currently, `sharkabc3d` doesn't handle lines / edges, but it would be useful for working with things like fishing boat routes or tagging data. 
+Currently, `sharkabc3d` doesn't handle lines / edges, but it would be useful for working with things like fishing boat routes or tagging data. See [Future Directions](#future-directions).
 
 ### 2D (Polygons / Faces)
-Polygons are constructed from points that exist on the same 2D plane, that are connected in order that creates a closed shape. In 3D graphics / modelling field, they are called faces. 
+Polygons are constructed from points that exist on the same 2D plane, that are connected in order that creates a closed shape. With length and width, these are 2-dimensional shapes. In 3D graphics / modelling field, they are called faces. 
 
 Currently, `sharkabc3d` doesn't handle faces that are natively 3D. These are cases where each point that is part of the polygon has a meaningful depth coordinate. Instead, we work with polygons that have depth values associated with the entire polygon. I.e. the polygon is represented on planes that aligned with depth levels. For example, IUCN Red List species ranges that have a species range represented as a 2D polygon with no depths, with separate depth range values provided. This is often called 2.5D representation. 
 
@@ -45,9 +45,11 @@ Currently, `sharkabc3d` does not handle volumes. This might become useful to wor
 
 ![Figure 2](figures/fig-species-voxel.png)
 
-To extend rasters into 3D, we simply create multiple rasters for a set of standard depths. This is the convention from oceanography datasets, like Copernicus Marine and World Ocean Atlas. This raster stack is supported with netCDF file type and with the `terra` and `ncdf4` packages. This raster stack is called a **voxel model** in 3D graphics / modelling field. 
+To extend rasters into 3D, we simply create multiple rasters for a set of standard depths. This is the convention from oceanography datasets, like Copernicus Marine and World Ocean Atlas (WOA). This raster stack is supported with netCDF file type and with the `terra` and `ncdf4` packages. This raster stack is called a **voxel model** in 3D graphics / modelling field. 
 
-Multi-depth rasters used by `sharkabc3d` must encode depth in layer names using the format `{variable}_{field}_depth={value}` (e.g., `t_an_depth=0`, `t_an_depth=100` for temperature with annual means at 0 and 100 m depths). This is the convention used by WOA NetCDF files natively. For the earlier example, it would mean that the first `t_an_depth=0` layer has a height of 100m. The convention for `sharkabc3d` voxel model is that the shallower raster layer name is the start of the voxel and continues until, but not including, the next deeper raster layer. 
+Multi-depth rasters used by `sharkabc3d` must encode depth in layer names using the format `{variable}_{field}_depth={value}` (e.g., `t_an_depth=0`, `t_an_depth=100` for temperature with annual means at 0 and 100 m depths). 
+
+The convention for the depth bounds that a given raster layer represents depends on source netCDF. For example, WOA provides standard depth levels and explicit depth_bnds. For example, the 0 m layer has bounds from 0 to 2.5 m, the 5 m layer 2.5–7.5 m, the 10 m layer 7.5–12.5 m, etc. 
 
 In these rasters, there is a continuous representation of values across x, y, and depth dimensions. For environmental variables, this could be temperature in degrees C at each coordinate and depth. For a species range, this could be probability of occurrence at each coordinate an depth. 
 
@@ -64,9 +66,9 @@ This representation is more efficient than the 3D Voxel representation, since it
 ## `sharkabc3d` functionality
 
 ### Spatial extractions 
-- **Point extraction**. Extract the nearest value to input point (ex. single observation) from voxel data (ex. oceanographic variables)
-- **Area extraction**. Extract the values that are within a polygon area (ex. species range without depths) from voxel data (ex. oceanographic variables)
-- **Volume extraction**. Extract the values that are within a volume (ex. species range with depths) from voxel data (ex. oceanographic variables)
+- **Point extraction**. Extract the nearest value from multi-depth raster / voxel model (ex. environmental data) to an input point based on its longitude, latitude, depth, and, when available, time.
+- **Area extraction**. Extract values from multi-depth raster / voxel model (ex. environmental data) within an input polygon at a specified depth. 
+- **Volume extraction**. Extract values from multi-depth raster / voxel model (ex. environmental data) within a three-dimensional spatial volume defined by horizontal extent and depth range. 
   - This should be possible for both 2.5D (two-raster stack) and 3D (multi-depth raster stack). 
 
 ### Conversions between spatial representations
@@ -79,8 +81,8 @@ This representation is more efficient than the 3D Voxel representation, since it
 - **Calculate the volume occupied by 3D representation**. Each raster layer has a height that it represents, which is defined by the height difference from the next raster layer. Ex. `t_an_depth=0`, `t_an_depth=100` would mean that the first `t_an_depth=0` layer has a height of 100m. 
 
 ### Utilities 
-- **Download and prepare data.** Utilities for public APIs and open data incorporated into `sharkabc3d`. Includes World Ocean Atlas, Copernicus, IUCN Red List, Global Fishing Watch data. 
-- **Downloads are cached, not manual.** Downloaded big data is cached in location accessible by package functions. Different projects read off the same copy of the data. Keeps analysis reproducible while compact. Data is automatically documented, so that the code can be handed to another user with download functions that handle the caching. 
+- **Download and prepare data.** Utilities for public APIs and open data incorporated into `sharkabc3d`. Includes WOA, Copernicus, IUCN Red List, Global Fishing Watch data. 
+- **Downloads are cached, not manual.** Downloaded big data is cached in location accessible by package functions. Different projects read off the same copy of the data. Keeps analysis reproducible while compact. Downloaded data that is cached is documented by the package, so that the code can be handed to another user with clear information about what versions were used without having to send the big data alongside the code. 
 
 ## Conventions
 - **Depth sign convention.** Depths are positive metres increasing downward, but GEBCO bathymetry is negative below sea level. The voxel constructor flips it and clamps land to 0. Document which convention any new argument uses.
@@ -89,6 +91,9 @@ This representation is more efficient than the 3D Voxel representation, since it
 ## Future directions
 
 These come after the sections above are established, and are not grounded in existing project code.
+
+### 1D (Lines / Edges)
+Currently, `sharkabc3d` doesn't handle lines / edges, but it would be useful for working with things like fishing boat routes or tagging data. See Issue [#31](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues/31#issue-5270698566) for further discussion.
 
 ### 3D species distribution modelling
 
