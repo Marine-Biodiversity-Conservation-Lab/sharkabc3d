@@ -368,7 +368,7 @@ woa_load_nc <- function(file_path, field = "an") {
 #' December) and computes the min, max, and max-minus-min (diff) across months
 #' at each depth layer. Works for any WOA variable.
 #'
-#' Replaces the ad-hoc loop in `data-raw/WOA.R`.
+#' Replaces the ad-hoc loop in `data-raw/WOA.R`. To be replaced by `temporal_summarise()`
 #'
 #' @param monthly_dir Character. Path to directory containing monthly WOA .nc
 #'   files. All `.nc` files in the directory are loaded.
@@ -379,7 +379,6 @@ woa_load_nc <- function(file_path, field = "an") {
 #'
 #' @returns Named list of SpatRasters: `min`, `max`, `diff`. Each uses the
 #'   `{variable}_depth={value}` layer naming convention.
-#' @export
 woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
                                   files = NULL) {
   if (is.null(files)) {

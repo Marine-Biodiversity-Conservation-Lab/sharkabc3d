@@ -26,5 +26,6 @@ December) and computes the min, max, and max-minus-min (diff) across months
 at each depth layer. Works for any WOA variable.
 }
 \details{
-Replaces the ad-hoc loop in \code{data-raw/WOA.R}.
+Replaces the ad-hoc loop in \code{data-raw/WOA.R}. To be replaced by \code{temporal_summarise()}
 }
+\keyword{internal}
