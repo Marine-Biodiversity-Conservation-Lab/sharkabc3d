@@ -15,3 +15,16 @@ Invisibly, \code{TRUE} on success.
 \description{
 Remove all cached WOA NetCDF files.
 }
+\examples{
+\dontrun{
+# Prompts for confirmation in an interactive session
+woa_cache_clear()
+
+# Delete without prompting (e.g. from a script or scheduled job)
+woa_cache_clear(confirm = FALSE)
+
+# The cache is recreated empty by the next call that needs it
+woa_cache_dir()
+}
+
+}

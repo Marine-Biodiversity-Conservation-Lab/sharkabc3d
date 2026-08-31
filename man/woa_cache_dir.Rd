@@ -14,3 +14,16 @@ Returns the path to the package's persistent cache directory for downloaded
 WOA NetCDF files. Uses \code{\link[tools:R_user_dir]{tools::R_user_dir()}} so the location survives across
 sessions and follows platform conventions.
 }
+\examples{
+# The cache location is derived from tools::R_user_dir(), so it is stable
+# across sessions and follows platform conventions:
+file.path(tools::R_user_dir("sharkabc3d", which = "cache"), "woa")
+
+\dontrun{
+# Calling the function also creates the directory if it does not exist,
+# and is what woa_download() uses when `output_dir` is not supplied.
+cache <- woa_cache_dir()
+list.files(cache, pattern = "\\\\.nc$")
+}
+
+}

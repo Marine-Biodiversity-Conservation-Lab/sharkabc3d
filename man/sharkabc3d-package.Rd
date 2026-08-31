@@ -8,6 +8,15 @@
 \description{
 Facilitates the analysis of shark and ray habitat in 3D, enabling descriptions of habitat by depth and area. Provides tools for volume calculation, environmental extraction, and spatial overlap analysis between species ranges, fisheries, and depth-stratified environmental data.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d}
+  \item \url{https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/}
+  \item Report bugs at \url{https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Jay Matsushiba \email{hello@jmatsushiba.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
 

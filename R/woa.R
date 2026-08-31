@@ -5,6 +5,23 @@
 #' sessions and follows platform conventions.
 #'
 #' @returns Character. Path to cache directory (created if missing).
+#' @examples
+#' # Redirect the cache into a temporary directory so this example does not
+#' # write to user filespace. In normal use you would skip this step and let
+#' # the cache live in its platform-conventional location.
+#' old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+#' Sys.setenv(R_USER_CACHE_DIR = tempdir())
+#'
+#' # The directory is created if it does not already exist
+#' cache <- woa_cache_dir()
+#' dir.exists(cache)
+#'
+#' # This is where woa_download() writes when `output_dir` is not supplied
+#' list.files(cache, pattern = "\\.nc$")
+#'
+#' if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+#'   Sys.setenv(R_USER_CACHE_DIR = old)
+#'
 #' @export
 woa_cache_dir <- function() {
   path <- file.path(tools::R_user_dir("sharkabc3d", which = "cache"), "woa")
@@ -21,6 +38,31 @@ woa_cache_dir <- function() {
 #' @param confirm Logical. Require interactive confirmation. Default `TRUE`.
 #'
 #' @returns Invisibly, `TRUE` on success.
+#' @examples
+#' # Redirect the cache into a temporary directory so this example does not
+#' # delete real downloads. In normal use you would skip this step.
+#' old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+#' Sys.setenv(R_USER_CACHE_DIR = tempdir())
+#'
+#' cache <- woa_cache_dir()
+#' file.create(file.path(cache, "woa23_decav_t00_01.nc"))
+#' list.files(cache)
+#'
+#' # confirm = FALSE deletes without prompting (e.g. from a script)
+#' woa_cache_clear(confirm = FALSE)
+#' dir.exists(cache)
+#'
+#' # The cache is recreated empty by the next call that needs it
+#' woa_cache_dir()
+#'
+#' if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+#'   Sys.setenv(R_USER_CACHE_DIR = old)
+#'
+#' \dontrun{
+#' # Called with no arguments it asks for confirmation when interactive
+#' woa_cache_clear()
+#' }
+#'
 #' @export
 woa_cache_clear <- function(confirm = TRUE) {
   path <- woa_cache_dir()
@@ -187,6 +229,32 @@ woa_cache_clear <- function(confirm = TRUE) {
 #' @param quiet Logical. Suppress download progress. Default `FALSE`.
 #'
 #' @returns Character vector of paths to downloaded .nc files.
+#' @examples
+#' \dontrun{
+#' # Annual temperature climatology at 1-degree resolution, cached in a
+#' # temporary directory so nothing is written to user filespace
+#' tmp <- file.path(tempdir(), "woa")
+#' f <- woa_download("temperature", period = "annual", resolution = "1",
+#'                   output_dir = tmp)
+#' woa_load_nc(f)
+#'
+#' # All 12 monthly files, downloaded in parallel, into the default cache
+#' monthly <- woa_download("temperature", period = "monthly",
+#'                         resolution = "1")
+#' length(monthly)
+#'
+#' # Specific periods: 0 = annual, 1:12 = monthly, 13:16 = seasonal
+#' winter <- woa_download("dissolved_oxygen", period = 13, resolution = "1")
+#'
+#' # Other variables use their own canonical decade codes. Note that
+#' # 0.25-degree files are large (~1 GB each for salinity).
+#' sal <- woa_download("salinity", period = "annual", resolution = "0.25")
+#'
+#' # Re-download a file that is already cached
+#' f <- woa_download("temperature", period = "annual", resolution = "1",
+#'                   output_dir = tmp, force = TRUE, quiet = TRUE)
+#' }
+#'
 #' @export
 woa_download <- function(variable,
                          period = "annual",
@@ -317,6 +385,34 @@ woa_download <- function(variable,
 #'   [WOA 2023 Product Documentation](https://repository.library.noaa.gov/view/noaa/70581).
 #'
 #' @returns SpatRaster with standardized depth layer names.
+#' @examples
+#' # Build a small WOA-style NetCDF to demonstrate field selection.
+#' # Real files come from woa_download().
+#' nc <- file.path(tempdir(), "woa_demo.nc")
+#' demo <- terra::rast(nrows = 2, ncols = 2, nlyrs = 4,
+#'                     xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+#'                     crs = "EPSG:4326")
+#' names(demo) <- c("t_an_depth=0", "t_an_depth=100",
+#'                  "t_sd_depth=0", "t_sd_depth=100")
+#' terra::values(demo) <- matrix(1:16, nrow = 4)
+#' terra::writeCDF(demo, nc, overwrite = TRUE, split = TRUE)
+#'
+#' # Objectively analyzed climatology (the default field)
+#' temp <- woa_load_nc(nc)
+#' names(temp)
+#'
+#' # Standard deviation layers from the same file
+#' names(woa_load_nc(nc, field = "sd"))
+#'
+#' unlink(nc)
+#'
+#' \dontrun{
+#' # Typical use on a downloaded file
+#' f <- woa_download("temperature", period = "annual", resolution = "1")
+#' temp <- woa_load_nc(f, field = "an")
+#' terra::plot(temp[["t_an_depth=0"]])
+#' }
+#'
 #' @export
 woa_load_nc <- function(file_path, field = "an") {
   if (!file.exists(file_path)) {
@@ -379,6 +475,7 @@ woa_load_nc <- function(file_path, field = "an") {
 #'
 #' @returns Named list of SpatRasters: `min`, `max`, `diff`. Each uses the
 #'   `{variable}_depth={value}` layer naming convention.
+#' @keywords internal
 woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
                                   files = NULL) {
   if (is.null(files)) {
