@@ -56,12 +56,12 @@ sf::sf_use_s2(FALSE)
 ### 1a: Bathymetry and EEZ
 
 The original analysis used GEBCO bathymetry for the Bangladesh EEZ at 1 km
-resolution. `load_bathymetry()` loads and standardises the raster (positive
+resolution. `load_gebco_bathymetry()` loads and standardises the raster (positive
 depth values, in metres).
 
 ```{r load-layers}
 # Load bathymetry
-bathy <- load_bathymetry(
+bathy <- load_gebco_bathymetry(
   "~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"
 )
 

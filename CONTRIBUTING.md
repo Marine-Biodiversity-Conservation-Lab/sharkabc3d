@@ -72,7 +72,8 @@ because these files are where merge conflicts actually happen:
 
 | Area | Files | Typical SPEC section |
 | --- | --- | --- |
-| Volume / voxelisation | `R/volume.R`, `R/load_data.R` | Volume calculation |
+| Volume / voxelisation | `R/volume.R` | Volume calculation |
+| Bathymetry | `R/gebco_bathymetry.R` | Data loading and preparation |
 | Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
 | Fisheries | `R/gfw.R` | Data source utilities (GFW) |
 | Species data | `R/iucn_utils.R` | Data loading and preparation |

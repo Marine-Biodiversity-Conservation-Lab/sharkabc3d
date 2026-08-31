@@ -172,3 +172,127 @@ test_that("calc_volume returns correct value for uniform grid", {
   # With 1km cells: 9 cells * 1 km² * 0.1 km depth = 0.9 km³
   expect_equal(vol, 0.9, tolerance = 0.01)
 })
+
+# ---------------------------------------------------------------------------
+# voxelize_range: core of the volume pipeline. Uses an in-memory grid and
+# bathymetry; no disk I/O needed.
+# ---------------------------------------------------------------------------
+
+make_grid <- function() {
+  # 5x5 grid covering a 5x5 degree box
+  terra::rast(nrows = 5, ncols = 5,
+              xmin = 0, xmax = 5, ymin = 0, ymax = 5,
+              crs = "EPSG:4326")
+}
+
+make_bathy <- function(depth_val = 500) {
+  r <- make_grid()
+  terra::values(r) <- depth_val
+  r
+}
+
+make_polygon <- function(xmin = 1, xmax = 4, ymin = 1, ymax = 4) {
+  poly <- sf::st_sfc(
+    sf::st_polygon(list(rbind(
+      c(xmin, ymin), c(xmax, ymin), c(xmax, ymax),
+      c(xmin, ymax), c(xmin, ymin)
+    ))),
+    crs = "EPSG:4326"
+  )
+  sf::st_sf(geometry = poly)
+}
+
+test_that("voxelize_range returns depth_min and depth_max layers", {
+  skip_if_not_installed("sf")
+  out <- voxelize_range(
+    polygons = make_polygon(),
+    voxel = make_grid(),
+    bathymetry = make_bathy(500),
+    depth_min = 0,
+    depth_max = 200
+  )
+  expect_named(out, c("depth_min", "depth_max"))
+  expect_s4_class(out, "SpatRaster")
+})
+
+test_that("voxelize_range assigns depth_min to cells inside polygon", {
+  skip_if_not_installed("sf")
+  out <- voxelize_range(
+    polygons = make_polygon(),
+    voxel = make_grid(),
+    bathymetry = make_bathy(500),
+    depth_min = 10,
+    depth_max = 200
+  )
+  vals <- terra::values(out[["depth_min"]])
+  inside <- vals[!is.na(vals)]
+  expect_true(all(inside == 10))
+  expect_true(any(is.na(vals)))  # cells outside polygon
+})
+
+test_that("voxelize_range clamps depth_max to seafloor where shallower", {
+  skip_if_not_installed("sf")
+  # Bathymetry 100m everywhere; requested depth_max = 500m -> clamp to 100.
+  out <- voxelize_range(
+    polygons = make_polygon(),
+    voxel = make_grid(),
+    bathymetry = make_bathy(100),
+    depth_min = 0,
+    depth_max = 500
+  )
+  vals <- terra::values(out[["depth_max"]])
+  vals <- vals[!is.na(vals)]
+  expect_true(all(vals == 100))
+})
+
+test_that("voxelize_range drops cells where seafloor is shallower than depth_min", {
+  skip_if_not_installed("sf")
+  # Bathymetry 50m; depth_min = 200m -> species cannot be present anywhere.
+  out <- voxelize_range(
+    polygons = make_polygon(),
+    voxel = make_grid(),
+    bathymetry = make_bathy(50),
+    depth_min = 200,
+    depth_max = 500
+  )
+  expect_true(all(is.na(terra::values(out[["depth_min"]]))))
+  expect_true(all(is.na(terra::values(out[["depth_max"]]))))
+})
+
+test_that("voxelize_range errors on mismatched bathymetry CRS", {
+  skip_if_not_installed("sf")
+  bad_bathy <- terra::rast(nrows = 5, ncols = 5,
+                           xmin = 0, xmax = 5, ymin = 0, ymax = 5,
+                           crs = "EPSG:3857")
+  terra::values(bad_bathy) <- 500
+  expect_error(
+    voxelize_range(make_polygon(), make_grid(), bad_bathy, 0, 100),
+    "CRS"
+  )
+})
+
+test_that("voxelize_range errors on mismatched bathymetry resolution", {
+  skip_if_not_installed("sf")
+  bad_bathy <- terra::rast(nrows = 10, ncols = 10,
+                           xmin = 0, xmax = 5, ymin = 0, ymax = 5,
+                           crs = "EPSG:4326")
+  terra::values(bad_bathy) <- 500
+  expect_error(
+    voxelize_range(make_polygon(), make_grid(), bad_bathy, 0, 100),
+    "resolution"
+  )
+})
+
+test_that("calc_volume of a voxelize_range output is positive and finite", {
+  skip_if_not_installed("sf")
+  out <- voxelize_range(
+    polygons = make_polygon(),
+    voxel = make_grid(),
+    bathymetry = make_bathy(500),
+    depth_min = 0,
+    depth_max = 200
+  )
+  v <- calc_volume(out)
+  expect_true(is.finite(v))
+  expect_gt(v, 0)
+})

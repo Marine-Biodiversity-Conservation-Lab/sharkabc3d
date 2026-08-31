@@ -21,3 +21,15 @@
     `extract3d_bottom()`
     `extract3d_nearest()`
     `extract3d_all()`
+
+# sharkabc3d 0.1.1.9003
+* Rename `load_bathymetry()` to `load_gebco_bathymetry()` and move it from
+  `R/load_data.R` to `R/gebco_bathymetry.R`. The new name makes the expected
+  data source explicit; the function is otherwise unchanged. Callers must
+  update to the new name.
+* Add a runnable worked example to `load_gebco_bathymetry()`, which builds a
+  small stand-in NetCDF rather than requiring a multi-gigabyte GEBCO
+  download (#37).
+* Add a runnable worked example to `fill_missing_depths()` and move it to
+  `R/iucn_utils.R`, alongside `fetch_species_assessments()` whose depth limits
+  it is designed to repair.

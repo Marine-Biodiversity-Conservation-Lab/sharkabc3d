@@ -68,7 +68,7 @@ usethis::edit_r_environ()
 
 ### Loading and preparing input data
 
-- `load_bathymetry()` — load a GEBCO bathymetry NetCDF as a
+- `load_gebco_bathymetry()` — load a GEBCO bathymetry NetCDF as a
   `SpatRaster`.
 - `fetch_species_assessments()` — query the IUCN Red List API for
   taxonomy, Red List category, and depth limits, by SIS ID, scientific
