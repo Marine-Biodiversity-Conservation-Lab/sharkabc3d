@@ -41,5 +41,5 @@ temporal_summarise <- function(file_paths,
                                  quiet = FALSE) {
   # TODO: Implement generic function for summarising multiple netCDF
   # Copernicus Marine and World Ocean Atlas datasets. 
-  
+  stop("this function is yet to be implemented.")
 }
