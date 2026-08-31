@@ -77,20 +77,48 @@ woa_cache_clear <- function(confirm = TRUE) {
   invisible(TRUE)
 }
 
-# Internal: accepted variable names
+# Internal: accepted variable names and the URL/filename components each maps
+# to. `code` is the one-letter code used both in WOA filenames and in the
+# `{code}_{field}_depth={value}` layer names inside the NetCDFs. Note that
+# codes are case-sensitive: "o"/"O" and "i"/"I" are different variables.
 .woa_variables <- function() {
-  list(
-    temperature       = list(dir = "temperature", code = "t", decade = "decav"),
-    salinity          = list(dir = "salinity",    code = "s", decade = "decav"),
-    dissolved_oxygen  = list(dir = "oxygen",      code = "o", decade = "all"),
-    oxygen_saturation = list(dir = "o2sat",       code = "O", decade = "all"),
-    AOU               = list(dir = "AOU",         code = "A", decade = "all"),
-    nitrate           = list(dir = "nitrate",     code = "n", decade = "all"),
-    phosphate         = list(dir = "phosphate",   code = "p", decade = "all"),
-    silicate          = list(dir = "silicate",    code = "i", decade = "all"),
-    density           = list(dir = "density",     code = "I", decade = "decav")
-  ) %>%
-    dplyr::bind_rows(.id = "name")
+  data.frame(
+    name = c("temperature", "salinity", "dissolved_oxygen",
+             "oxygen_saturation", "AOU", "nitrate", "phosphate",
+             "silicate", "density"),
+    dir = c("temperature", "salinity", "oxygen",
+            "o2sat", "AOU", "nitrate", "phosphate",
+            "silicate", "density"),
+    code = c("t", "s", "o",
+             "O", "A", "n", "p",
+             "i", "I"),
+    decade = c("decav", "decav", "all",
+               "all", "all", "all", "all",
+               "all", "decav"),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Internal: accepted statistical fields. `code` is the code used in WOA
+# filenames and in the `{variable}_{code}_depth={value}` layer names inside
+# the NetCDFs. See the WOA 2023 Product Documentation:
+# https://repository.library.noaa.gov/view/noaa/70581
+.woa_fields <- function() {
+  data.frame(
+    code = c("an", "mn", "dd",
+             "sd", "se", "oa",
+             "gp", "sdo", "sea"),
+    description = c("objectively analyzed climatology",
+                    "statistical mean",
+                    "number of observations",
+                    "standard deviation",
+                    "standard error",
+                    "mean minus climatology",
+                    "number of mean values within radius of influence",
+                    "objectively analyzed standard deviation",
+                    "standard error of the analysis"),
+    stringsAsFactors = FALSE
+  )
 }
 
 # Internal: map variable name to WOA URL/filename components
@@ -98,7 +126,7 @@ woa_cache_clear <- function(confirm = TRUE) {
   specs <- .woa_variables()
   if (!variable %in% specs$name) {
     stop("Unknown variable '", variable,
-         "'. Supported: ", paste(names(specs), collapse = ", "))
+         "'. Supported: ", paste(specs$name, collapse = ", "))
   }
   specs[specs$name == variable,]
 }
@@ -426,7 +454,7 @@ woa_load_nc <- function(file_path, field = "an") {
   }
   r <- terra::rast(file_path)
   
-  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
+  available_fields <- .woa_fields()$code
   if (!field %in% available_fields) {
     stop(
       "field must be one of: ",
@@ -461,6 +489,23 @@ woa_load_nc <- function(file_path, field = "an") {
   selected_names <- r %>%
     names() %>%
     stringr::str_subset(field_pattern)
+
+  # `field` is a valid WOA code, but this particular file may not carry it:
+  # NCEI ships some fields (e.g. "sea", "sdo") only for certain variables and
+  # periods. Report what the file does contain instead of letting the empty
+  # subset fail inside terra with "is.numeric(i) is not TRUE".
+  if (length(selected_names) == 0) {
+    present <- names(r) %>%
+      stringr::str_split_i(pattern = "_", 2) %>%
+      unique() %>%
+      sort()
+    stop(
+      "No layers for field '", field, "' in ", basename(file_path),
+      ". Fields present in this file: ", paste(present, collapse = ", "),
+      "."
+    )
+  }
+
   r[[selected_names]]
 }
 

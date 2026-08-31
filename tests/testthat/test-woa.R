@@ -168,7 +168,7 @@ test_that("woa_load_nc catches layer names that do not match WOA one-letter code
     make_file(f1, list(`do_sea_depth=0` = c(1, 2, 3, 4), `do_sea_depth=100` = c(5, 6, 7, 8)))
     TRUE
   }, error = function(e) FALSE)
-  skip_if_not(ok, "terra::writeCDF unavailable")
+  skip_if_not(ok, "error making netCDF test object, check if terra::writeCDF is available")
 
   expect_error(
     woa_load_nc(paste0(tmp, "/m01.nc"), field = "sea"),
@@ -187,10 +187,39 @@ test_that("woa_load_nc catches layer names that do not match WOA code for abbrev
     make_file(f1, list(`o_inc_depth=0` = c(1, 2, 3, 4), `o_inc_depth=100` = c(5, 6, 7, 8)))
     TRUE
   }, error = function(e) FALSE)
-  skip_if_not(ok, "terra::writeCDF unavailable")
+  skip_if_not(ok, "error making netCDF test object, check if terra::writeCDF is available")
 
   expect_error(
-    woa_load_nc(paste0(tmp, "/m01.nc"), field = "sea"),
+    woa_load_nc(paste0(tmp, "/m01.nc")),
     "check raster layer names. For WOA data, field code must be one of: an, mn, dd, sd, se, oa, gp, sdo, sea."
+  )
+})
+
+test_that("woa_load_nc provides descriptive error if standard field is missing from input netCDF", {
+  # Build a tiny synthetic NetCDF carrying only "an" layers.
+  # Skips cleanly on systems without NetCDF write support in terra.
+  tmp <- tempfile("woa_mon_"); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE))
+
+  f1 <- file.path(tmp, "m01.nc")
+  ok <- tryCatch({
+    make_file(f1, list(`t_an_depth=0` = c(1, 2, 3, 4), `t_an_depth=100` = c(5, 6, 7, 8)))
+    TRUE
+  }, error = function(e) FALSE)
+  skip_if_not(ok, "terra::writeCDF unavailable")
+
+  # "sea" is a valid WOA field code, so it clears the `field` argument check,
+  # but this file has no sea layers. Without the guard the empty subset fails
+  # inside terra with "is.numeric(i) is not TRUE".
+  expect_error(
+    woa_load_nc(f1, field = "sea"),
+    "No layers for field 'sea' in m01.nc. Fields present in this file: an.",
+    fixed = TRUE
+  )
+
+  # A field that is present still loads normally
+  expect_named(
+    woa_load_nc(f1, field = "an"),
+    c("t_an_depth=0", "t_an_depth=100")
   )
 })
