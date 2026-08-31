@@ -136,24 +136,6 @@ usethis::edit_r_environ()
   user-supplied gear-to-depth-band lookup to produce a depth-stratified
   effort stack (pelagic, benthic, midwater, or unknown).
 
-### Plotting
-
-- [`plot_depth_profile()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_depth_profile.md)
-  — vertical depth profile (mean ± min–max ribbon) of an environmental
-  variable within a species range.
-- [`plot_range_at_depth()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_range_at_depth.md)
-  — map view of a species range with an environmental variable at a
-  specific depth layer.
-- [`plot_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_volume_overlap.md)
-  — map view of per-cell 3D volume overlap between two ranges (e.g.,
-  species vs fishery).
-- [`plot_cumulative_pressure()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_cumulative_pressure.md)
-  — map of cumulative fishing pressure on a species, coloured by the
-  number of overlapping fisheries.
-- [`plot_overlap_by_depth()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_overlap_by_depth.md)
-  — per-depth-bin bar chart of species, fishery, and overlap cell counts
-  across multiple sub-fisheries.
-
 ## Contributing
 
 Contributions are welcome. `sharkabc3d` is being actively built out from

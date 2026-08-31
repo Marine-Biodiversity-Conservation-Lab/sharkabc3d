@@ -67,21 +67,6 @@
 - [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
   : Load bathymetry raster
 
-- [`plot_cumulative_pressure()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_cumulative_pressure.md)
-  : Plot cumulative fishing pressure on a species
-
-- [`plot_depth_profile()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_depth_profile.md)
-  : Plot environmental depth profile for a species
-
-- [`plot_overlap_by_depth()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_overlap_by_depth.md)
-  : Plot overlap by depth across fisheries
-
-- [`plot_range_at_depth()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_range_at_depth.md)
-  : Plot species range at a specific depth layer
-
-- [`plot_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_volume_overlap.md)
-  : Plot 3D volume overlap between two ranges
-
 - [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
   : Summarise environmental conditions within a species' 3D range
 

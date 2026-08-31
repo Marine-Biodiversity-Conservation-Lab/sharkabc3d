@@ -352,8 +352,90 @@ write.csv(summary_table, here("outputs/species_environment_summary.csv"),
 
 ### Visualisation
 
-The package also provides plotting functions to explore individual
-species results.
+The two helpers below are defined in this article rather than exported
+by the package. They are thin `ggplot2` wrappers used only for these
+examples.
+
+``` r
+
+library(ggplot2)
+library(tidyterra)
+
+# Parse the numeric depth out of the package's `{variable}_depth={value}`
+# layer-naming convention.
+parse_depth_layers <- function(rast) {
+  as.numeric(str_extract(names(rast), "(?<=_depth=)-?[0-9.]+"))
+}
+
+# Vertical depth profile of an environmental variable within a species range.
+# At each depth layer the spatial mean, min, and max are computed across the
+# cells where that depth falls inside the species' per-cell depth window
+# (bathymetry-clamped). Layers that are all-NA are dropped.
+plot_depth_profile <- function(species_name, range_rast, rast_3d) {
+  masked <- extract_rast_range(range_rast, rast_3d)
+  depths <- parse_depth_layers(masked)
+
+  summary_per_depth <- lapply(seq_len(terra::nlyr(masked)), function(i) {
+    v <- terra::values(masked[[i]])
+    if (all(is.na(v))) return(NULL)
+    data.frame(
+      depth = depths[i],
+      mean  = mean(v, na.rm = TRUE),
+      min   = min(v, na.rm = TRUE),
+      max   = max(v, na.rm = TRUE)
+    )
+  })
+  df <- do.call(rbind, Filter(Negate(is.null), summary_per_depth))
+  if (is.null(df) || nrow(df) == 0) {
+    stop("No cells overlap the species range and the raster's depth layers.",
+         call. = FALSE)
+  }
+
+  ggplot(df, aes(x = mean, y = depth)) +
+    geom_ribbon(aes(xmin = min, xmax = max), alpha = 0.2) +
+    geom_line() +
+    geom_point() +
+    scale_y_reverse() +
+    labs(title = species_name, x = "Value", y = "Depth (m)") +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "italic"))
+}
+
+# Map view of a species range with environmental values at the depth layer
+# nearest `depth`.
+plot_range_at_depth <- function(species_range, depth, rast_3d) {
+  depths <- parse_depth_layers(rast_3d)
+  idx <- which.min(abs(depths - depth))
+  layer <- rast_3d[[idx]]
+  actual_depth <- depths[idx]
+
+  range_vect <- if (inherits(species_range, "sf")) {
+    terra::vect(species_range)
+  } else {
+    species_range
+  }
+  if (terra::crs(range_vect) != terra::crs(layer) &&
+      terra::crs(range_vect) != "") {
+    range_vect <- terra::project(range_vect, terra::crs(layer))
+  }
+
+  cropped <- terra::crop(layer, range_vect, mask = TRUE, touches = TRUE)
+  range_sf <- if (inherits(species_range, "sf")) {
+    species_range
+  } else {
+    sf::st_as_sf(range_vect)
+  }
+
+  ggplot() +
+    geom_spatraster(data = cropped) +
+    geom_sf(data = range_sf, fill = NA, colour = "black", linewidth = 0.3) +
+    scale_fill_viridis_c(name = NULL, na.value = "transparent") +
+    coord_sf() +
+    labs(subtitle = paste0("Depth: ", actual_depth, " m")) +
+    theme_minimal() +
+    theme(axis.title = element_blank())
+}
+```
 
 #### Depth profile
 

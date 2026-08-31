@@ -15,3 +15,11 @@
   addressed issue with test objects that had layer names that didn’t
   follow package convention that caused failed tests, added check in the
   woa_load_nc() function for this.
+
+## sharkabc3d 0.1.1.9001
+
+- Retire `R/plot.R`. The `plot_*()` functions were used by a single
+  article and are no longer exported; `plot_depth_profile()` and
+  `plot_range_at_depth()` now live inline in the WOA environmental
+  extraction articles. `ggplot2` and `tidyterra` move from Imports to
+  Suggests.

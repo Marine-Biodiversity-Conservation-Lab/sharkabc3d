@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9001</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,10 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.1.9000" id="sharkabc3d-0119000">sharkabc3d 0.1.1.9000<a class="anchor" aria-label="anchor" href="#sharkabc3d-0119000"></a></h2>
 <ul><li>deprecate woa_nc_extract(), refactor to move functionality into woa_load_nc() since that is the only place woa_nc_extract() was used. addressed issue with test objects that had layer names that didn’t follow package convention that caused failed tests, added check in the woa_load_nc() function for this.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1.9001" id="sharkabc3d-0119001">sharkabc3d 0.1.1.9001<a class="anchor" aria-label="anchor" href="#sharkabc3d-0119001"></a></h2>
+<ul><li>Retire <code>R/plot.R</code>. The <code>plot_*()</code> functions were used by a single article and are no longer exported; <code>plot_depth_profile()</code> and <code>plot_range_at_depth()</code> now live inline in the WOA environmental extraction articles. <code>ggplot2</code> and <code>tidyterra</code> move from Imports to Suggests.</li>
 </ul></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

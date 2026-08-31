@@ -28,6 +28,7 @@ library(ggplot2)
 library(gganimate)
 library(tidyr)
 library(patchwork)
+library(tidyterra)
 
 # The single example species.
 sp_name <- "Orectolobus halei"
@@ -212,8 +213,47 @@ halfway_depth <- occupied_depths[which.min(abs(occupied_depths - halfway_target)
 panel_depths <- c(surface_depth, halfway_depth, deepest_depth)
 ```
 
-[`plot_range_at_depth()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/plot_range_at_depth.md)
-draws one map per depth; `patchwork` stacks them vertically.
+The `plot_range_at_depth()` helper below is defined in this article
+rather than exported by the package — it is a thin `ggplot2` wrapper
+that draws one map per depth. `patchwork` stacks them vertically.
+
+``` r
+
+# Map view of a species range with environmental values at the depth layer
+# nearest `depth`.
+plot_range_at_depth <- function(species_range, depth, rast_3d) {
+  depths <- as.numeric(str_extract(names(rast_3d), "(?<=_depth=)-?[0-9.]+"))
+  idx <- which.min(abs(depths - depth))
+  layer <- rast_3d[[idx]]
+  actual_depth <- depths[idx]
+
+  range_vect <- if (inherits(species_range, "sf")) {
+    terra::vect(species_range)
+  } else {
+    species_range
+  }
+  if (terra::crs(range_vect) != terra::crs(layer) &&
+      terra::crs(range_vect) != "") {
+    range_vect <- terra::project(range_vect, terra::crs(layer))
+  }
+
+  cropped <- terra::crop(layer, range_vect, mask = TRUE, touches = TRUE)
+  range_sf <- if (inherits(species_range, "sf")) {
+    species_range
+  } else {
+    sf::st_as_sf(range_vect)
+  }
+
+  ggplot() +
+    geom_spatraster(data = cropped) +
+    geom_sf(data = range_sf, fill = NA, colour = "black", linewidth = 0.3) +
+    scale_fill_viridis_c(name = NULL, na.value = "transparent") +
+    coord_sf() +
+    labs(subtitle = paste0("Depth: ", actual_depth, " m")) +
+    theme_minimal() +
+    theme(axis.title = element_blank())
+}
+```
 
 ``` r
 

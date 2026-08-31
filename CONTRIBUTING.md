@@ -99,7 +99,6 @@ lines, because these files are where merge conflicts actually happen:
 | Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
 | Fisheries | `R/gfw.R` | Data source utilities (GFW) |
 | Species data | `R/iucn_utils.R` | Data loading and preparation |
-| Plotting | `R/plot.R` | Visualization |
 
 Two people *can* work in the same area — just make the split explicit in
 the issue thread.

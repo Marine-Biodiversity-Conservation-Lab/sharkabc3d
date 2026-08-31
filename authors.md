@@ -11,13 +11,13 @@ Source:
 [`DESCRIPTION`](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/blob/main/DESCRIPTION)
 
 Matsushiba J (2026). *sharkabc3d: Shark and Ray Abiotic Covariates in 3
-Dimensions*. R package version 0.1.1.9000,
+Dimensions*. R package version 0.1.1.9001,
 <https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d>.
 
     @Manual{,
       title = {sharkabc3d: Shark and Ray Abiotic Covariates in 3 Dimensions},
       author = {Jay Matsushiba},
       year = {2026},
-      note = {R package version 0.1.1.9000},
+      note = {R package version 0.1.1.9001},
       url = {https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d},
     }
