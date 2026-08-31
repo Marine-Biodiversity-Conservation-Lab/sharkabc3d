@@ -16,15 +16,28 @@ Invisibly, \code{TRUE} on success.
 Remove all cached WOA NetCDF files.
 }
 \examples{
-\dontrun{
-# Prompts for confirmation in an interactive session
-woa_cache_clear()
+# Redirect the cache into a temporary directory so this example does not
+# delete real downloads. In normal use you would skip this step.
+old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+Sys.setenv(R_USER_CACHE_DIR = tempdir())
 
-# Delete without prompting (e.g. from a script or scheduled job)
+cache <- woa_cache_dir()
+file.create(file.path(cache, "woa23_decav_t00_01.nc"))
+list.files(cache)
+
+# confirm = FALSE deletes without prompting (e.g. from a script)
 woa_cache_clear(confirm = FALSE)
+dir.exists(cache)
 
 # The cache is recreated empty by the next call that needs it
 woa_cache_dir()
+
+if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+  Sys.setenv(R_USER_CACHE_DIR = old)
+
+\dontrun{
+# Called with no arguments it asks for confirmation when interactive
+woa_cache_clear()
 }
 
 }

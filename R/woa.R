@@ -126,7 +126,7 @@ woa_cache_clear <- function(confirm = TRUE) {
   specs <- .woa_variables()
   if (!variable %in% specs$name) {
     stop("Unknown variable '", variable,
-         "'. Supported: ", paste(specs$name, collapse = ", "))
+         "'. Supported: ", toString(specs$name))
   }
   specs[specs$name == variable,]
 }
@@ -155,7 +155,8 @@ woa_cache_clear <- function(confirm = TRUE) {
   }
   if (is.numeric(period)) {
     if (any(period < 0 | period > 16)) {
-      stop("Numeric period must be 0 (annual), 1:12 (monthly), or 13:16 (seasonal).")
+      stop("Numeric period must be 0 (annual), 1:12 (monthly), ",
+           "or 13:16 (seasonal).")
     }
     return(sprintf("%02d", period))
   }
@@ -404,9 +405,10 @@ woa_download <- function(variable,
 
 #' Load a WOA NetCDF file
 #'
-#' Load a WOA .nc file and select layers for a given statistical field. Returns 
-#' a SpatRaster with layer names already following the `{variable}_depth={value}` 
-#' convention used throughout this package (native to WOA NetCDFs).
+#' Load a WOA .nc file and select layers for a given statistical field.
+#' Returns a SpatRaster with layer names already following the
+#' `{variable}_depth={value}` convention used throughout this package
+#' (native to WOA NetCDFs).
 #'
 #' @param file_path Character. Path to a WOA .nc file.
 #' @param field Character. Statistical field to select. One of:
@@ -415,8 +417,9 @@ woa_download <- function(variable,
 #'   `"se"` (standard error), `"oa"` (mean minus climatology),
 #'   `"gp"` (number of mean values within radius of influence),
 #'   `"sdo"` (objectively analyzed standard deviation),
-#'   `"sea"` (standard error of the analysis). See the
-#'   [WOA 2023 Product Documentation](https://repository.library.noaa.gov/view/noaa/70581).
+#'   `"sea"` (standard error of the analysis). See the WOA 2023 Product
+#'   Documentation:
+#'   <https://repository.library.noaa.gov/view/noaa/70581>
 #'
 #' @returns SpatRaster with standardized depth layer names.
 #' @examples
@@ -458,29 +461,34 @@ woa_load_nc <- function(file_path, field = "an") {
   if (!field %in% available_fields) {
     stop(
       "field must be one of: ",
-      paste(available_fields, collapse = ", "),
+      toString(available_fields),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
 
   # WOA layers take the form of v_field_depth=123
   # v is the abbreviated variable, which has to be one character
-  var_abr <- r[[1]] %>% names() %>% stringr::str_split_i(pattern = "_", 1)
+  var_abr <- r[[1]] %>%
+    names() %>%
+    stringr::str_split_i(pattern = stringr::fixed("_"), 1)
 
   # check that layer names follow convention
-  layer_name_split <- r[[1]] %>% names() %>% stringr::str_split(pattern = "_")
+  layer_name_split <- r[[1]] %>%
+    names() %>%
+    stringr::str_split(pattern = stringr::fixed("_"))
   available_vars <- .woa_variables()$code
   if (!layer_name_split[[1]][1] %in% available_vars) {
     stop(
-      "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: ",
-      paste(available_vars, collapse = ", "),
+      "check raster layer names. For WOA data, oceanographic variable ",
+      "one-letter code must be one of: ",
+      toString(available_vars),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
   if (!layer_name_split[[1]][2] %in% available_fields) {
     stop(
       "check raster layer names. For WOA data, field code must be one of: ",
-      paste(available_fields, collapse = ", "),
+      toString(available_fields),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
@@ -496,69 +504,15 @@ woa_load_nc <- function(file_path, field = "an") {
   # subset fail inside terra with "is.numeric(i) is not TRUE".
   if (length(selected_names) == 0) {
     present <- names(r) %>%
-      stringr::str_split_i(pattern = "_", 2) %>%
+      stringr::str_split_i(pattern = stringr::fixed("_"), 2) %>%
       unique() %>%
       sort()
     stop(
       "No layers for field '", field, "' in ", basename(file_path),
-      ". Fields present in this file: ", paste(present, collapse = ", "),
+      ". Fields present in this file: ", toString(present),
       "."
     )
   }
 
   r[[selected_names]]
 }
-
-#' Summarise monthly WOA data across months
-#'
-#' Takes a directory of monthly WOA .nc files (e.g., 12 files for January to
-#' December) and computes the min, max, and max-minus-min (diff) across months
-#' at each depth layer. Works for any WOA variable.
-#'
-#' Replaces the ad-hoc loop in `data-raw/WOA.R`. To be replaced by `temporal_summarise()`
-#'
-#' @param monthly_dir Character. Path to directory containing monthly WOA .nc
-#'   files. All `.nc` files in the directory are loaded.
-#' @param field Character. Statistical field to select from each file.
-#'   Default `"an"`.
-#' @param files Character vector. Optional explicit list of files (overrides
-#'   `monthly_dir`).
-#'
-#' @returns Named list of SpatRasters: `min`, `max`, `diff`. Each uses the
-#'   `{variable}_depth={value}` layer naming convention.
-#' @keywords internal
-woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
-                                  files = NULL) {
-  if (is.null(files)) {
-    if (is.null(monthly_dir) || !dir.exists(monthly_dir)) {
-      stop("Directory not found: ", monthly_dir)
-    }
-    files <- list.files(monthly_dir, pattern = "\\.nc$",
-                        full.names = TRUE, ignore.case = TRUE)
-  }
-  if (length(files) == 0) {
-    stop("No .nc files found in: ", monthly_dir)
-  }
-
-  monthly <- lapply(files, function(f) woa_load_nc(f, field = field))
-  depth_names <- names(monthly[[1]])
-
-  # For each depth layer, stack that layer across all months, then reduce.
-  per_depth <- lapply(depth_names, function(dn) {
-    stk <- terra::rast(lapply(monthly, function(x) x[[dn]]))
-    mx <- terra::app(stk, fun = "max", na.rm = TRUE)
-    mn <- terra::app(stk, fun = "min", na.rm = TRUE)
-    df <- mx - mn
-    names(mx) <- dn
-    names(mn) <- dn
-    names(df) <- dn
-    list(max = mx, min = mn, diff = df)
-  })
-
-  list(
-    min  = terra::rast(lapply(per_depth, `[[`, "min")),
-    max  = terra::rast(lapply(per_depth, `[[`, "max")),
-    diff = terra::rast(lapply(per_depth, `[[`, "diff"))
-  )
-}
-

@@ -15,15 +15,20 @@ WOA NetCDF files. Uses \code{\link[tools:R_user_dir]{tools::R_user_dir()}} so th
 sessions and follows platform conventions.
 }
 \examples{
-# The cache location is derived from tools::R_user_dir(), so it is stable
-# across sessions and follows platform conventions:
-file.path(tools::R_user_dir("sharkabc3d", which = "cache"), "woa")
+# Redirect the cache into a temporary directory so this example does not
+# write to user filespace. In normal use you would skip this step and let
+# the cache live in its platform-conventional location.
+old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+Sys.setenv(R_USER_CACHE_DIR = tempdir())
 
-\dontrun{
-# Calling the function also creates the directory if it does not exist,
-# and is what woa_download() uses when `output_dir` is not supplied.
+# The directory is created if it does not already exist
 cache <- woa_cache_dir()
+dir.exists(cache)
+
+# This is where woa_download() writes when `output_dir` is not supplied
 list.files(cache, pattern = "\\\\.nc$")
-}
+
+if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+  Sys.setenv(R_USER_CACHE_DIR = old)
 
 }
