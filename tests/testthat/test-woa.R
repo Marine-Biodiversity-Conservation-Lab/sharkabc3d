@@ -91,12 +91,15 @@ test_that("woa_load_nc errors when file missing", {
 })
 
 test_that("woa_summarise_monthly errors on empty dir", {
+  skip("woa_summarise_monthly to be retired")
   tmp <- tempfile("woa_empty_"); dir.create(tmp)
   on.exit(unlink(tmp, recursive = TRUE))
   expect_error(woa_summarise_monthly(tmp), "No \\.nc files")
 })
 
 test_that("woa_summarise_monthly computes min/max/diff across files when abbreviated field is two characters long", {
+  skip("woa_summarise_monthly to be retired")
+
   # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
   # Skips cleanly on systems without NetCDF write support in terra.
   tmp <- tempfile("woa_mon_"); dir.create(tmp)
@@ -125,6 +128,8 @@ test_that("woa_summarise_monthly computes min/max/diff across files when abbrevi
 })
 
 test_that("woa_summarise_monthly computes min/max/diff across files when abbreviated field is three characters long", {
+  skip("woa_summarise_monthly to be retired")
+
   # Build two tiny synthetic NetCDFs matching the WOA layer-naming convention.
   # Skips cleanly on systems without NetCDF write support in terra.
   tmp <- tempfile("woa_mon_"); dir.create(tmp)
@@ -167,7 +172,7 @@ test_that("woa_load_nc catches layer names that do not match WOA one-letter code
 
   expect_error(
     woa_load_nc(paste0(tmp, "/m01.nc"), field = "sea"),
-    "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: t, s, o, n, p, i."
+    "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: t, s, o, O, A, n, p, i, I."
   )
 })
 

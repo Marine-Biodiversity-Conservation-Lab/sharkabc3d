@@ -77,9 +77,9 @@ woa_cache_clear <- function(confirm = TRUE) {
   invisible(TRUE)
 }
 
-# Internal: map variable name to WOA URL/filename components
-.woa_variable_spec <- function(variable) {
-  specs <- list(
+# Internal: accepted variable names
+.woa_variables <- function() {
+  list(
     temperature       = list(dir = "temperature", code = "t", decade = "decav"),
     salinity          = list(dir = "salinity",    code = "s", decade = "decav"),
     dissolved_oxygen  = list(dir = "oxygen",      code = "o", decade = "all"),
@@ -89,12 +89,18 @@ woa_cache_clear <- function(confirm = TRUE) {
     phosphate         = list(dir = "phosphate",   code = "p", decade = "all"),
     silicate          = list(dir = "silicate",    code = "i", decade = "all"),
     density           = list(dir = "density",     code = "I", decade = "decav")
-  )
-  if (!variable %in% names(specs)) {
+  ) %>%
+    dplyr::bind_rows(.id = "name")
+}
+
+# Internal: map variable name to WOA URL/filename components
+.woa_variable_spec <- function(variable) {
+  specs <- .woa_variables()
+  if (!variable %in% specs$name) {
     stop("Unknown variable '", variable,
          "'. Supported: ", paste(names(specs), collapse = ", "))
   }
-  specs[[variable]]
+  specs[specs$name == variable,]
 }
 
 # Internal: map resolution to URL dir + filename code
@@ -435,7 +441,7 @@ woa_load_nc <- function(file_path, field = "an") {
 
   # check that layer names follow convention
   layer_name_split <- r[[1]] %>% names() %>% stringr::str_split(pattern = "_")
-  available_vars <- c("t", "s", "o", "n", "p", "i")
+  available_vars <- .woa_variables()$code
   if (!layer_name_split[[1]][1] %in% available_vars) {
     stop(
       "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: ",
