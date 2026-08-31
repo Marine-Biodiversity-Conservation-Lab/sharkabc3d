@@ -20,10 +20,5 @@ Useful links:
 \author{
 \strong{Maintainer}: Jay Matsushiba \email{hello@jmatsushiba.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
 
-Authors:
-\itemize{
-  \item Jay Matsushiba \email{hello@jmatsushiba.com} (\href{https://orcid.org/0000-0003-0496-9188}{ORCID})
-}
-
 }
 \keyword{internal}

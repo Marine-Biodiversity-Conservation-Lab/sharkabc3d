@@ -39,3 +39,4 @@ Remotes:
     GlobalFishingWatch/gfwr
 Config/roxygen2/version: 8.1.0
 Config/Needs/website: rmarkdown
+RoxygenNote: 7.3.3
