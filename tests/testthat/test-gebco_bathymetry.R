@@ -16,6 +16,7 @@ test_that("load_gebco_bathymetry errors when file is not .nc", {
 })
 
 test_that("load_gebco_bathymetry happy path and extent validation", {
+  # Setup test raster
   tmp_good <- tempfile(fileext = ".nc")
   tmp_bad  <- tempfile(fileext = ".nc")
   on.exit(unlink(c(tmp_good, tmp_bad)))
@@ -44,4 +45,30 @@ test_that("load_gebco_bathymetry happy path and extent validation", {
   expect_s4_class(r, "SpatRaster")
 
   expect_error(load_gebco_bathymetry(tmp_bad), "global extent")
+})
+
+test_that("load_gebco_bathymetry checks variable name", {
+  # Setup test raster
+  tmp_good <- tempfile(fileext = ".nc")
+  tmp_bad  <- tempfile(fileext = ".nc")
+  on.exit(unlink(c(tmp_good, tmp_bad)))
+
+  global <- terra::rast(nrows = 6, ncols = 12,
+                        xmin = -180, xmax = 180,
+                        ymin = -90, ymax = 90,
+                        crs = "EPSG:4326")
+  terra::values(global) <- seq_len(terra::ncell(global)) - 1000
+  terra::varnames(global) <- "elevation"
+
+  ok <- tryCatch({
+    terra::writeCDF(global, tmp_good, overwrite = TRUE, varname = "elevation")
+    terra::writeCDF(global, tmp_bad, overwrite = TRUE, varname = "not_elevation")
+    TRUE
+  }, error = function(e) FALSE)
+  skip_if_not(ok, "terra::writeCDF unavailable")
+
+  r <- load_gebco_bathymetry(tmp_good)
+  expect_identical(names(r), "elevation")
+
+  expect_error(load_gebco_bathymetry(tmp_bad), "Expected variable 'elevation' in NetCDF, found: not_elevation")
 })
