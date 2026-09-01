@@ -31,7 +31,7 @@ a contribution needs to look like to be merged.
 
 ### The loop
 ```
-GitHub issue  →  self-assign  →  branch  →  PR  →  squash-merge
+GitHub issue  →  self-assign  →  branch  →  PR  →  merge
 ```
 
 We use issues as the unit of work and the record of its current state. 
@@ -63,12 +63,9 @@ because these files are where merge conflicts actually happen:
 | Environmental extraction | `R/extract.R`, `R/woa.R` | Environmental extraction, WOA utilities |
 | Fisheries | `R/gfw.R` | Data source utilities (GFW) |
 | Species data | `R/iucn_utils.R` | Data loading and preparation |
-| Geometry utilities (**unstarted, medium**) | new `R/geometry.R` | Geometry utilities |
-| Plotting | `R/plot.R` | Visualization |
 
 Two people *can* work in the same area — just make the split explicit in the
-issue thread (e.g. "I'll take `fix_dateline_geometry()`, you take
-`validate_geometry()`").
+issue thread.
 
 ### Labels
 
@@ -118,13 +115,13 @@ Parameterise the hard-coded species lists, study areas, and file paths, and make
 
 | Path | What lives there |
 | --- | --- |
-| `R/` | Package functions, one file per topic: `extract.R`, `gfw.R`, `iucn_utils.R`, `load_data.R`, `plot.R`, `volume.R`, `woa.R` |
+| `R/` | Package functions, one file per topic |
 | `tests/testthat/` | One test file per `R/` file (`test-volume.R` ↔ `R/volume.R`) |
 | `tests/testthat/_vcr/` | Recorded HTTP fixtures (cassettes) for API tests |
 | `man/` | roxygen2-generated docs — **never edit by hand** |
-| `vignettes/` | Long-form worked analyses; these are the reproductions of the source papers |
-| `SPEC.md` | **The design doc.** Why the package works the way it does, decisions taken, and specs for work not yet built. |
-| `CLAUDE.md` | Short architecture summary read by AI coding assistants |
+| `vignettes` | Shorter examples or tutorials; these are easy to follow directions for using the package. Included in package build |
+| `vignettes/articles` | Long-form worked analyses; these are the reproductions of the source papers. Not included in package build |
+| `SPEC.md` | Why the package works the way it does, decisions taken, and specs for work not yet built. |
 | `renv.lock` | Pinned dependency versions |
 
 **Read `SPEC.md` before proposing work.** Its *Architecture and conventions*
@@ -144,7 +141,7 @@ and the package reference (`man/`, `?sharkabc3d`).
 
 ### 1. Requirements
 
-- **R 4.4.3** (the version `renv.lock` was resolved against)
+- **R 4.5.3** 
 - Git, and system GDAL/GEOS/PROJ + NetCDF libraries for `sf` and `terra`
   - Ubuntu/Debian: `sudo apt install libgdal-dev libgeos-dev libproj-dev libudunits2-dev netcdf-bin libnetcdf-dev`
   - macOS: `brew install gdal geos proj udunits netcdf`
@@ -191,17 +188,12 @@ devtools::document()          # regenerate man/ + NAMESPACE from roxygen comment
 devtools::test()              # run the full test suite
 testthat::test_file("tests/testthat/test-volume.R")   # one file
 devtools::check()             # full R CMD check — run before opening a PR
+pkgcheck::pkgcheck()          # pkgcheck for rOpenSci submission
 ```
 
 ---
 
 ## Data setup
-
-**This is the biggest onboarding hurdle, so read it carefully.**
-
-The package deliberately ships **no** large spatial data. `example_data/` is
-gitignored (~1.4 GB locally) and the vignettes read from large third-party
-datasets that you must download yourself:
 
 | Dataset | Used for | Where to get it |
 | --- | --- | --- |
@@ -211,28 +203,6 @@ datasets that you must download yourself:
 | World Ocean Atlas 2023 | Environmental covariates | Downloaded automatically by `woa_download()` into a cache dir; see `woa_cache_dir()` |
 | Global Fishing Watch effort | Fisheries effort | Fetched via `gfwr` with `GFW_TOKEN` |
 | Bangladesh participatory-mapping fishery footprints | `bangladesh-fisheries-3d-overlap` vignette | Not public — contact the maintainer |
-
-⚠️ **Current limitation:** vignettes still contain hard-coded absolute paths
-(e.g. `/home/jay/Programming_Projects/Big_Data/...`). They will not run on your
-machine as-is. Until this is fixed (see
-[Known rough edges](#known-rough-edges--good-first-issues)), the convention we
-are moving to is a single environment variable in `~/.Renviron`:
-
-```
-SHARKABC3D_DATA="/path/to/your/big/data"
-```
-
-…with vignettes resolving paths as
-`file.path(Sys.getenv("SHARKABC3D_DATA"), "gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")`.
-**If you touch a vignette, please convert its paths to this pattern** rather
-than adding new hard-coded ones.
-
-All vignette chunks are currently `eval = FALSE` for exactly this reason — they
-are documentation of a real analysis, not something CI can reproduce. Tests, by
-contrast, must run on synthetic in-memory rasters with **no external data and
-no network**.
-
----
 
 ## Coding conventions
 
@@ -263,7 +233,7 @@ no network**.
 
 - `testthat` edition 3. One test file per source file.
 - **Tests must not require external data, API keys, or network access.**
-  Construct small synthetic `SpatRaster`s / `sf` objects in the test itself —
+  Construct small synthetic objects in the test itself —
   see `tests/testthat/test-volume.R` for the pattern to copy.
 - HTTP-dependent tests use `vcr` cassettes stored in `tests/testthat/_vcr/`. If
   you add an API-backed test, record a cassette rather than hitting the live
@@ -286,36 +256,6 @@ no network**.
 - Vignettes reproduce real analyses end-to-end. Keep chunks `eval = FALSE`
   unless the analysis can run from data the package can fetch itself. Structure
   them as: study question → data loading → analysis → figures → interpretation.
-
----
-
-## Known rough edges / good first issues
-
-These are real, currently-open gaps in the repo. Each is a good first
-contribution — open an issue and claim it:
-
-1. **Hard-coded data paths in vignettes.** All four vignettes point at
-   `/home/jay/Programming_Projects/Big_Data/...`. Convert to the
-   `SHARKABC3D_DATA` environment-variable pattern described above.
-   (`area:infra`, `good first issue`)
-2. **Test coverage for the IUCN helpers is cassette-bound.** The IUCN Red List
-   tests replay recorded HTTP interactions from `tests/testthat/_vcr/` (see
-   `tests/testthat/setup-vcr.R`), so they need no API key — but any *new* test
-   that hits a URL not already in a cassette has to be recorded once with a
-   real `IUCN_REDLIST_KEY`, then committed. `_vcr/group_code.yml` is ~42 MB and
-   its test is currently `skip()`ped; slimming or dropping it would shrink the
-   repo considerably. (`area:infra`, `good first issue`)
-3. **Test coverage gaps.** `test-plot.R` has only a handful of assertions for
-   five exported plotting functions; `load_bathymetry()`'s main test skips when
-   `terra::writeCDF` is unavailable.
-4. **Legacy function pending retirement.** `woa_nc_extract()` (in `R/woa.R`) is
-   superseded by `woa_load_nc()` but is still exported (see SPEC *Planned work →
-   Retirements*). Its counterpart `woa_volume_extract()` has already been removed
-   in favour of `extract_rast_volume()`. Retiring `woa_nc_extract()` behind a
-   deprecation warning is a clean, self-contained PR.
-5. **Whole unstarted areas.** The geometry-utility, species summary-metric, and
-   Copernicus entries under `SPEC.md` *Planned work* have no code at all. If you
-   want a substantial, collision-free chunk of work, start there.
 
 ---
 

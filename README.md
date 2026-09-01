@@ -7,6 +7,7 @@
 [![pkgcheck](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/workflows/pkgcheck/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions?query=workflow%3Apkgcheck)
 [![R-CMD-check](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/actions/workflows/R-CMD-check.yaml)
 [![Codecov test coverage](https://codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d/graph/badge.svg)](https://app.codecov.io/gh/Marine-Biodiversity-Conservation-Lab/sharkabc3d)
+[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
 <!-- badges: end -->
 
 **sharkabc3d** (Shark and Ray Abiotic Covariates in 3 Dimensions) is an
@@ -129,19 +130,6 @@ usethis::edit_r_environ()
   bathymetry and a user-supplied gear-to-depth-band lookup to produce a
   depth-stratified effort stack (pelagic, benthic, midwater, or
   unknown).
-
-### Plotting
-
-- `plot_depth_profile()` — vertical depth profile (mean ± min–max
-  ribbon) of an environmental variable within a species range.
-- `plot_range_at_depth()` — map view of a species range with an
-  environmental variable at a specific depth layer.
-- `plot_volume_overlap()` — map view of per-cell 3D volume overlap
-  between two ranges (e.g., species vs fishery).
-- `plot_cumulative_pressure()` — map of cumulative fishing pressure on a
-  species, coloured by the number of overlapping fisheries.
-- `plot_overlap_by_depth()` — per-depth-bin bar chart of species,
-  fishery, and overlap cell counts across multiple sub-fisheries.
 
 ## Contributing
 

@@ -7,9 +7,7 @@ body:
     attributes:
       value: |
         `man/` is generated — edit the roxygen
-        comments above the function and run `devtools::document()`. `README.md`
-        is generated from `README.Rmd` — edit the `.Rmd` and run
-        `devtools::build_readme()`.
+        comments above the function and run `devtools::document()`. 
 
         For a whole new worked analysis, use the *Vignette* template instead.
 
