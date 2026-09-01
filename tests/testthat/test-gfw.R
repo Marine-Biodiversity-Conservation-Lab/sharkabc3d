@@ -165,6 +165,24 @@ test_that("points in EPSG:4326 are reprojected onto a non-4326 grid", {
   )
 })
 
+test_that("gfw_effort_to_raster assumes extent and resolution from input gfwr effort object", {
+  effort <- make_effort(list(
+    lat      = c(0.5, 1.5, 2.5),
+    lon      = c(10.5, 11.5, 12.5),
+    geartype = c("trawlers", "trawlers", "trawlers"),
+    hours    = c(4, 5, 6)
+  ))
+
+  out <- gfw_effort_to_raster(effort)
+
+  # Check SpatRaster
+  expect_s4_class(out, "SpatRaster")
+  # Check correct resolution
+  expect_equal(res(out), c(1,1))
+  # Check correct extent
+  expect_true(terra::identical(ext(out), ext(10, 13, 0, 3)))
+})
+
 # -----------------------------------------------------------------------
 # build_pelagic_stack: pelagic / midwater / fixed-band gear handling.
 # -----------------------------------------------------------------------
