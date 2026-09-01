@@ -537,3 +537,87 @@ test_that("direct inputs recycle scalar values", {
   expect_length(out, 2)
   expect_equal(as.numeric(out), c(5, 10))
 })
+
+# Input validation -------------------------------------------------------------
+
+test_that("extract_to_point rejects sf geometries other than POINT", {
+  skip_if_not_installed("sf")
+  
+  x <- sf::st_sf(
+    depth = 60,
+    geometry = sf::st_sfc(
+      sf::st_linestring(matrix(c(0, 40, 1, 41), ncol = 2, byrow = TRUE)),
+      crs = 4326
+    )
+  )
+  
+  expect_error(
+    extract_to_point(
+      data = x,
+      nc = "unused.nc",
+      method = "nearest",
+      date_col = NULL
+    ),
+    "POINT geometries"
+  )
+})
+
+test_that("extract_to_point rejects projected sf input without a CRS", {
+  skip_if_not_installed("sf")
+  
+  x <- sf::st_sf(
+    depth = 60,
+    geometry = sf::st_sfc(sf::st_point(c(0, 40)))
+  )
+  
+  expect_error(
+    extract_to_point(
+      data = x,
+      nc = "unused.nc",
+      method = "nearest",
+      date_col = NULL
+    ),
+    "geographic CRS"
+  )
+})
+
+test_that("extract_to_point rejects matrices without column names", {
+  x <- matrix(c(0, 40, 60), nrow = 1)
+  
+  expect_error(
+    extract_to_point(
+      data = x,
+      nc = "unused.nc",
+      method = "nearest",
+      date_col = NULL
+    ),
+    "Matrix input must have column names"
+  )
+})
+
+test_that("extract_to_point rejects unnamed lists", {
+  x <- list(0, 40, 60)
+  
+  expect_error(
+    extract_to_point(
+      data = x,
+      nc = "unused.nc",
+      method = "nearest",
+      date_col = NULL
+    ),
+    "List input must be named"
+  )
+})
+
+test_that("extract_to_point rejects unsupported data input types", {
+  expect_error(
+    extract_to_point(
+      data = factor("a"),
+      nc = "unused.nc",
+      method = "2d",
+      date_col = NULL
+    ),
+    "`data` must be a data frame"
+  )
+})
+
