@@ -7,24 +7,46 @@
 extract3d_bottom(data, nc, var = NULL, ...)
 }
 \arguments{
-\item{data}{Data frame containing observation points.}
+\item{data}{Object containing observation points. Can be a data frame, tibble,
+\code{sf} object with POINT geometries, matrix with column names, or named list.}
 
 \item{nc}{netCDF source. Can be a file path, vector of file paths, list of file
 paths, opened \code{ncdf4} object, list of opened objects, or a data frame with a
 file column.}
 
 \item{var}{Name of the variable to extract from the netCDF file. If \code{NULL},
-the function tries to detect the variable automatically from each file. This
-only works when each netCDF file contains one single variable.}
+the function tries to detect the variable automatically from each file.
+This only works when each netCDF file contains one single variable.}
 
-\item{...}{Additional arguments passed to \code{\link[=extract_netcdf]{extract_netcdf()}}.}
+\item{...}{Additional arguments passed to \code{\link[=extract_to_point]{extract_to_point()}}.}
 }
 \value{
-The original \code{data} with extracted values appended.
+The input observations with extracted values appended. Data frames,
+tibbles and \code{sf} objects retain their structure; matrices and named lists
+are returned as data frames.
 }
 \description{
-For each observation, this function extracts the full vertical profile at the
-nearest longitude, latitude and time cell, then returns the deepest non-missing
-value. This is useful when the bathymetry of the netCDF grid means that deeper
-layers are missing over shallow areas.
+For each observation, this function extracts the full vertical profile at
+the nearest longitude, latitude and time cell, then returns the deepest
+non-missing value. This is useful when the bathymetry of the netCDF grid
+means that deeper layers are missing over shallow areas.
+}
+\examples{
+nc_file <- system.file(
+  "extdata", "example_3d.nc",
+  package = "sharkabc3d"
+)
+
+observations <- data.frame(
+  lon = c(0, 1),
+  lat = c(40, 41),
+  date = as.Date(c("2020-01-01", "2020-01-03"))
+)
+
+extract3d_bottom(
+  data = observations,
+  nc = nc_file,
+  var = "temp"
+)
+
 }

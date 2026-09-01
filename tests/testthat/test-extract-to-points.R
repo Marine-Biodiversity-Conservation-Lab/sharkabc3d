@@ -41,13 +41,13 @@ make_obs <- function(date = as.Date("2020-01-03"), depth = 60) {
 
 # Generic extraction -----------------------------------------------------------
 
-test_that("extract_netcdf extracts from a 2D netCDF variable", {
+test_that("extract_to_point extracts from a 2D netCDF variable", {
   skip_if_not_installed("ncdf4")
   f <- tempfile(fileext = ".nc")
   on.exit(unlink(f), add = TRUE)
   make_test_netcdf(f, with_depth = FALSE, with_time = FALSE)
 
-  out <- extract_netcdf(
+  out <- extract_to_point(
     data = data.frame(lon = 0, lat = 40),
     nc = f, var = "temp", method = "2d",
     date_col = NULL
@@ -57,7 +57,7 @@ test_that("extract_netcdf extracts from a 2D netCDF variable", {
   expect_equal(out$temp, 1)
 })
 
-test_that("extract_netcdf detects a single variable automatically", {
+test_that("extract_to_point detects a single variable automatically", {
   skip_if_not_installed("ncdf4")
   f <- tempfile(fileext = ".nc")
   on.exit(unlink(f), add = TRUE)
@@ -68,7 +68,7 @@ test_that("extract_netcdf detects a single variable automatically", {
   expect_true("surface_oxygen" %in% names(out))
 })
 
-test_that("extract_netcdf errors when automatic variable detection is ambiguous", {
+test_that("extract_to_point errors when automatic variable detection is ambiguous", {
   skip_if_not_installed("ncdf4")
   f <- tempfile(fileext = ".nc")
   on.exit(unlink(f), add = TRUE)
@@ -83,13 +83,14 @@ test_that("extract_netcdf errors when automatic variable detection is ambiguous"
   ncdf4::nc_close(nc)
 
   expect_error(
-    extract_netcdf(
+    extract_to_point(
       data.frame(lon = 0, lat = 40),
       f, var = NULL, method = "2d", date_col = NULL
     ),
     "exactly one variable"
   )
 })
+
 
 # Depth methods ----------------------------------------------------------------
 
@@ -173,7 +174,7 @@ test_that("max_time_diff limits nearest temporal matching", {
 
 test_that("max_time_diff rejects invalid values", {
   expect_error(
-    extract_netcdf(
+    extract_to_point(
       data.frame(lon = 0, lat = 40),
       nc = "unused.nc", var = "temp", method = "2d",
       date_col = NULL, max_time_diff = -1
@@ -217,7 +218,7 @@ test_that("netCDF input can be a list, opened connection, or data frame", {
   expect_equal(from_list$temp, from_df$temp)
 })
 
-test_that("extract_netcdf reports missing required observation columns", {
+test_that("extract_to_point reports missing required observation columns", {
   skip_if_not_installed("ncdf4")
   f <- tempfile(fileext = ".nc")
   on.exit(unlink(f), add = TRUE)
@@ -232,3 +233,307 @@ test_that("extract_netcdf reports missing required observation columns", {
   )
 })
 
+# Direct point extraction -------------------------------------------------------
+
+test_that("extract_to_point extracts a single value from coordinates", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  out <- extract_to_point(
+    nc = f,
+    lon = 0,
+    lat = 40,
+    depth = 60,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_length(out, 1)
+  expect_equal(as.numeric(out), 5)
+})
+
+test_that("extract_to_point requires a valid longitude", {
+  expect_error(
+    extract_to_point(
+      nc = "unused.nc",
+      lon = NULL,
+      lat = 40,
+      method = "2d",
+      date_col = NULL
+    ),
+    "`lon` must contain numeric values"
+  )
+})
+
+test_that("extract_to_point requires a valid latitude", {
+  expect_error(
+    extract_to_point(
+      nc = "unused.nc",
+      lon = 0,
+      lat = NULL,
+      method = "2d",
+      date_col = NULL
+    ),
+    "`lat` must contain numeric values"
+  )
+})
+
+test_that("extract_to_point requires depth for nearest extraction", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  expect_error(
+    extract_to_point(
+      nc = f,
+      lon = 0,
+      lat = 40,
+      method = "nearest",
+      date_col = NULL
+    ),
+    "`depth` must contain numeric values"
+  )
+})
+
+test_that("extract_to_point rejects invalid dates", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f)
+
+  expect_error(
+    extract_to_point(
+      nc = f,
+      lon = 0,
+      lat = 40,
+      depth = 60,
+      date = "not-a-date",
+      var = "temp",
+      method = "nearest"
+    ),
+    "`date` could not be converted to a valid date"
+  )
+})
+
+test_that("extract_to_point extracts 2d values without depth", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_depth = FALSE, with_time = FALSE)
+
+  out <- extract_to_point(
+    nc = f,
+    lon = 0,
+    lat = 40,
+    var = "temp",
+    method = "2d",
+    date_col = NULL
+  )
+
+  expect_length(out, 1)
+  expect_equal(as.numeric(out), 1)
+})
+
+
+# Input formats ---------------------------------------------------------------
+test_that("extract_to_point accepts a matrix", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- matrix(
+    c(0, 40, 60),
+    nrow = 1,
+    dimnames = list(NULL, c("lon", "lat", "depth"))
+  )
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_equal(as.numeric(out$temp), 5)
+})
+
+test_that("extract_to_point accepts a named list", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- list(
+    lon = 0,
+    lat = 40,
+    depth = 60
+  )
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_equal(as.numeric(out$temp), 5)
+})
+
+test_that("extract_to_point accepts sf point geometries", {
+  skip_if_not_installed("ncdf4")
+  skip_if_not_installed("sf")
+
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- sf::st_sf(
+    depth = 60,
+    geometry = sf::st_sfc(sf::st_point(c(0, 40)), crs = 4326)
+  )
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_equal(as.numeric(out$temp), 5)
+})
+
+test_that("extract_to_point transforms projected sf coordinates", {
+  skip_if_not_installed("ncdf4")
+  skip_if_not_installed("sf")
+
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- sf::st_sf(
+    depth = 60,
+    geometry = sf::st_sfc(sf::st_point(c(0, 40)), crs = 4326)
+  )
+  x <- sf::st_transform(x, 3857)
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_s3_class(out, "sf")
+  expect_equal(as.numeric(out$temp), 5)
+})
+
+test_that("extract_to_point accepts tibbles", {
+  skip_if_not_installed("ncdf4")
+  skip_if_not_installed("tibble")
+
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- tibble::tibble(
+    lon = 0,
+    lat = 40,
+    depth = 60
+  )
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_s3_class(out, "tbl_df")
+  expect_equal(as.numeric(out$temp), 5)
+})
+
+test_that("extract_to_point accepts coordinate vectors", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  out <- extract_to_point(
+    nc = f,
+    lon = c(0, 1),
+    lat = c(40, 41),
+    depth = c(60, 100),
+    var = "temp",
+    method = "nearest"
+  )
+
+  expect_length(out, 2)
+  expect_equal(as.numeric(out), c(5, 12))
+})
+
+test_that("direct coordinate vectors must have compatible lengths", {
+  expect_error(
+    extract_to_point(
+      nc = "unused.nc",
+      lon = c(0, 1),
+      lat = 40,
+      depth = c(50, 100, 150),
+      method = "nearest"
+    ),
+    "compatible lengths"
+  )
+})
+
+test_that("extract_to_point preserves data frame input behaviour", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  x <- data.frame(
+    lon = c(0, 1),
+    lat = c(40, 41),
+    depth = c(60, 100)
+  )
+
+  out <- extract_to_point(
+    data = x,
+    nc = f,
+    var = "temp",
+    method = "nearest",
+    date_col = NULL
+  )
+
+  expect_s3_class(out, "data.frame")
+  expect_equal(nrow(out), 2)
+  expect_equal(as.numeric(out$temp), c(5, 12))
+})
+
+test_that("direct inputs recycle scalar values", {
+  skip_if_not_installed("ncdf4")
+  f <- tempfile(fileext = ".nc")
+  on.exit(unlink(f), add = TRUE)
+  make_test_netcdf(f, with_time = FALSE)
+
+  out <- extract_to_point(
+    nc = f,
+    lon = c(0, 1),
+    lat = 40,
+    depth = c(60, 100),
+    var = "temp",
+    method = "nearest"
+  )
+
+  expect_length(out, 2)
+  expect_equal(as.numeric(out), c(5, 10))
+})

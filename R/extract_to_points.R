@@ -31,6 +31,88 @@
   inherits(x, "ncdf4")
 }
 
+
+.normalize_points_input <- function(x, lon_col = "lon", lat_col = "lat") {
+  # data.frame subclasses such as tibbles already use the internal format.
+  if (is.data.frame(x) && !inherits(x, "sf")) {
+    return(x)
+  }
+
+  # sf objects can provide longitude and latitude directly from POINT geometry.
+  if (inherits(x, "sf")) {
+    geom_type <- unique(as.character(sf::st_geometry_type(x)))
+
+    if (length(geom_type) != 1L || geom_type != "POINT") {
+      stop("`sf` input must contain POINT geometries.", call. = FALSE)
+    }
+
+    coords_source <- x
+
+    if (!isTRUE(sf::st_is_longlat(coords_source))) {
+      if (is.na(sf::st_crs(coords_source))) {
+        stop(
+          "`sf` input must have a geographic CRS or a CRS that can be transformed to longitude/latitude.",
+          call. = FALSE
+        )
+      }
+
+      coords_source <- sf::st_transform(coords_source, 4326)
+    }
+
+    coords <- sf::st_coordinates(coords_source)
+    x[[lon_col]] <- coords[, 1]
+    x[[lat_col]] <- coords[, 2]
+
+    return(x)
+  }
+
+  # Matrices are converted to a data frame while preserving column names.
+  if (is.matrix(x)) {
+    if (is.null(colnames(x))) {
+      stop("Matrix input must have column names.", call. = FALSE)
+    }
+
+    return(as.data.frame(x))
+  }
+
+  # Named lists are converted to a data frame.
+  if (is.list(x)) {
+    if (is.null(names(x)) || any(names(x) == "")) {
+      stop("List input must be named.", call. = FALSE)
+    }
+
+    return(as.data.frame(x))
+  }
+
+  stop(
+    "`data` must be a data frame, tibble, sf object, matrix, or named list.",
+    call. = FALSE
+  )
+}
+
+
+.recycle_point_inputs <- function(lon, lat, depth = NULL, date = NULL) {
+  inputs <- list(lon = lon, lat = lat, depth = depth, date = date)
+  lengths <- vapply(inputs[!vapply(inputs, is.null, logical(1))], length, integer(1))
+  n <- max(lengths)
+
+  incompatible <- lengths != 1L & lengths != n
+  if (any(incompatible)) {
+    stop(
+      "Direct coordinate inputs must have compatible lengths: each must have length 1 or the same maximum length.",
+      call. = FALSE
+    )
+  }
+
+  recycle <- function(x) {
+    if (is.null(x)) return(NULL)
+    if (length(x) == 1L && n > 1L) rep(x, n) else x
+  }
+
+  lapply(inputs, recycle)
+}
+
+
 .flatten_list <- function(x) {
   # Users often pass nested lists when they group files by variable or by year.
   # This helper flattens nested lists while preserving names where possible.
@@ -665,30 +747,46 @@
 # Main extraction function
 # -----------------------------------------------------------------------------
 
-#' Extract values from one or more netCDF files
-
-#' This is the general extraction interface. The user chooses the type of
+#' Extract values from netCDFs to one or more point observations
+#'
+#' This is the general point-extraction interface. It can extract environmental
+#' values for one or multiple observations. The user chooses the type of
 #' extraction with the `method` argument. The more specific functions
-#' `extract2d()`, `extract3d_surface()`, `extract3d_bottom()`, `extract3d_nearest()`
-#' and `extract3d_all()` are wrappers around this function.
-
-
-#' @param data Data frame containing observation points.
+#' `extract2d()`, `extract3d_surface()`, `extract3d_bottom()`,
+#' `extract3d_nearest()` and `extract3d_all()` are wrappers around this function.
+#'
+#' @param data Optional object containing observation points. Can be a data frame,
+#'   tibble, `sf` object with POINT geometries, matrix with column names, or named
+#'   list. If `NULL`, coordinates can be supplied directly through `lon`, `lat`,
+#'   and optionally `depth` and `date`. For `sf` objects, longitude and latitude
+#'   are obtained from the POINT geometries; projected geometries are transformed
+#'   internally to longitude and latitude when a CRS is available.
 #' @param nc netCDF source. Can be a file path, vector of file paths, list of file
 #'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
 #'   file column.
+#' @param lon Optional numeric longitude value or vector for direct point
+#'   extraction when `data = NULL`.
+#' @param lat Optional numeric latitude value or vector for direct point
+#'   extraction when `data = NULL`.
+#' @param depth Optional numeric observation depth value or vector for direct
+#'   point extraction. Required when `data = NULL` and `method = "nearest"` or
+#'   `method = "all"`.
+#' @param date Optional observation date or vector of dates for direct point
+#'   extraction. Used when `data = NULL` and the netCDF variable has a time
+#'   dimension. Character dates should use `"YYYY-MM-DD"` format. Direct input
+#'   vectors may have length 1 or a common compatible length.
 #' @param var Name of the variable to extract from the netCDF file. If `NULL`,
-#'   the function tries to detect the variable automatically from each file. This
-#'   only works when each netCDF file contains one single variable.
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
 #' @param method Extraction method. Options are `"2d"`, `"surface"`, `"bottom"`,
 #'   `"nearest"` and `"all"`. With `method = "all"`, the function returns
-#'   nearest, surface and bottom outputs together. 
+#'   nearest, surface and bottom outputs together.
 #' @param lon_col Name of the longitude column in `data`.
 #' @param lat_col Name of the latitude column in `data`.
 #' @param date_col Name of the date column in `data`. Required only when the
 #'   netCDF variable has a time dimension.
-#' @param depth_col Name of the observation-depth column in `data`. Required only
-#'   when `method = "nearest"` or `method = "all"`.
+#' @param depth_col Name of the observation-depth column in `data`. Required
+#'   only when `method = "nearest"` or `method = "all"`.
 #' @param id_col Optional observation identifier column. It is not required for
 #'   extraction, but it is checked when provided to help users detect mistakes.
 #' @param file_col Column containing file paths when `nc` is a data frame.
@@ -705,34 +803,75 @@
 #'   temporal distance is imposed. Ignored when `time_match = "exact"`.
 #' @param output_prefix Optional name used for the extracted output column. If
 #'   omitted, `var` is used.
-#' @param output_col Optional alias for `output_prefix`. Use this when you want to
-#'   define the exact name of the output column directly. If both `output_col` and
-#'   `output_prefix` are provided, `output_col` is used. With `method = "all"`,
-#'   this name is used as the suffix in `nearest_*`, `surface_*` and
-#'   `seabottom_*` columns. 
-#' @param verbose Logical. If `TRUE`, progress messages are printed every 100 rows.
-
-#' @return The original `data` with extracted values appended.
+#' @param output_col Optional alias for `output_prefix`. Use this when you want
+#'   to define the exact name of the output column directly. If both
+#'   `output_col` and `output_prefix` are provided, `output_col` is used. With
+#'   `method = "all"`, this name is used as the suffix in `nearest_*`,
+#'   `surface_*` and `seabottom_*` columns.
+#' @param verbose Logical. If `TRUE`, progress messages are printed every 100
+#'   rows.
+#'
+#' @return If `data` is provided, the input observations with extracted values
+#'   appended. Data frames, tibbles and `sf` objects retain their structure;
+#'   matrices and named lists are returned as data frames. If `data = NULL`,
+#'   direct extraction returns a numeric value for one point and one output, a
+#'   numeric vector for multiple points and one output, a named numeric vector
+#'   for one point and multiple outputs (for example, `method = "all"`), or a
+#'   data frame for multiple points and multiple outputs.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_3d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' # Extract the value closest to a single observation
+#' extract_to_point(
+#'   nc = nc_file,
+#'   lon = 0,
+#'   lat = 40,
+#'   depth = 60,
+#'   date = "2020-01-03",
+#'   var = "temp",
+#'   method = "nearest"
+#' )
+#'
+#' # Extract values for multiple observations
+#' extract_to_point(
+#'   nc = nc_file,
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   depth = c(60, 100),
+#'   date = "2020-01-03",
+#'   var = "temp",
+#'   method = "nearest"
+#' )
+#'
 #' @export
-extract_netcdf <- function(data,
-                           nc,
-                           var = NULL,
-                           method = c("2d", "surface", "bottom", "nearest", "all"),
-                           lon_col = "lon",
-                           lat_col = "lat",
-                           date_col = "date",
-                           depth_col = "depth",
-                           id_col = NULL,
-                           file_col = "file",
-                           lon_dim = NULL,
-                           lat_dim = NULL,
-                           depth_dim = NULL,
-                           time_dim = NULL,
-                           time_match = c("nearest", "exact"),
-                           max_time_diff = NULL,
-                           output_prefix = NULL,
-                           output_col = NULL, 
-                           verbose = FALSE) {
+
+extract_to_point <- function(data = NULL,
+                             nc,
+                             lon = NULL,
+                             lat = NULL,
+                             depth = NULL,
+                             date = NULL,
+                             var = NULL,
+                             method = c("2d", "surface", "bottom", "nearest", "all"),
+                             lon_col = "lon",
+                             lat_col = "lat",
+                             date_col = "date",
+                             depth_col = "depth",
+                             id_col = NULL,
+                             file_col = "file",
+                             lon_dim = NULL,
+                             lat_dim = NULL,
+                             depth_dim = NULL,
+                             time_dim = NULL,
+                             time_match = c("nearest", "exact"),
+                             max_time_diff = NULL,
+                             output_prefix = NULL,
+                             output_col = NULL,
+                             verbose = FALSE) {
   method <- match.arg(method)
   time_match <- match.arg(time_match)
 
@@ -743,8 +882,71 @@ extract_netcdf <- function(data,
          call. = FALSE)
   }
 
-  if (!is.data.frame(data)) {
-    stop("`data` must be a data frame.", call. = FALSE)
+  direct_input <- is.null(data)
+
+  if (direct_input) {
+    if (!is.numeric(lon) || length(lon) == 0L || anyNA(lon)) {
+      stop("`lon` must contain numeric values.", call. = FALSE)
+    }
+
+    if (!is.numeric(lat) || length(lat) == 0L || anyNA(lat)) {
+      stop("`lat` must contain numeric values.", call. = FALSE)
+    }
+
+    if (method %in% c("nearest", "all") &&
+        (!is.numeric(depth) || length(depth) == 0L || anyNA(depth))) {
+      stop(
+        "`depth` must contain numeric values for `nearest` and `all` extraction.",
+        call. = FALSE
+      )
+    }
+
+    direct_values <- .recycle_point_inputs(
+      lon = lon,
+      lat = lat,
+      depth = depth,
+      date = date
+    )
+
+    data <- data.frame(
+      lon = direct_values$lon,
+      lat = direct_values$lat
+    )
+
+    lon_col <- "lon"
+    lat_col <- "lat"
+
+    if (!is.null(direct_values$depth)) {
+      data$depth <- direct_values$depth
+      depth_col <- "depth"
+    }
+
+    if (!is.null(direct_values$date)) {
+      date_value <- suppressWarnings(
+        tryCatch(
+          as.Date(direct_values$date),
+          error = function(e) rep(as.Date(NA), length(direct_values$date))
+        )
+      )
+
+      if (anyNA(date_value)) {
+        stop(
+          "`date` could not be converted to a valid date. Use `YYYY-MM-DD` format, for example `2020-01-03`.",
+          call. = FALSE
+        )
+      }
+
+      data$date <- date_value
+      date_col <- "date"
+    } else {
+      date_col <- NULL
+    }
+  } else {
+    data <- .normalize_points_input(
+      data,
+      lon_col = lon_col,
+      lat_col = lat_col
+    )
   }
 
   if (!is.null(var) && (!is.character(var) || length(var) != 1L || is.na(var))) {
@@ -801,7 +1003,23 @@ extract_netcdf <- function(data,
     )
   })
 
-  .merge_source_outputs(outputs, original_names = names(data))
+  out <- .merge_source_outputs(outputs, original_names = names(data))
+
+  if (direct_input) {
+    value_cols <- setdiff(names(out), names(data))
+
+    if (length(value_cols) == 1L) {
+      return(out[[value_cols]])
+    }
+
+    if (nrow(out) == 1L) {
+      return(unlist(out[1, value_cols], use.names = TRUE))
+    }
+
+    return(out[value_cols])
+  }
+
+  out
 }
 
 # -----------------------------------------------------------------------------
@@ -809,76 +1027,224 @@ extract_netcdf <- function(data,
 # -----------------------------------------------------------------------------
 # These functions keep explicit names for the most common extraction modes. They
 # are easier to discover and easier to document, while the internal workflow stays
-# centralised in `extract_netcdf()`.
+# centralised in `extract_to_point()`.
 # -----------------------------------------------------------------------------
 
 #' Extract values from a 2D netCDF variable
 #'
-#' Use this function when the variable has longitude and latitude dimensions, and
-#' optionally a time dimension, but no depth dimension.
+#' Use this function when the variable has longitude and latitude dimensions,
+#' and optionally a time dimension, but no depth dimension.
 #'
-#' @inheritParams extract_netcdf
-#' @param ... Additional arguments passed to [extract_netcdf()].
-#' @return The original `data` with extracted values appended.
+#' @param data Object containing observation points. Can be a data frame, tibble,
+#'   `sf` object with POINT geometries, matrix with column names, or named list.
+#' @param nc netCDF source. Can be a file path, vector of file paths, list of file
+#'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
+#'   file column.
+#' @param var Name of the variable to extract from the netCDF file. If `NULL`,
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
+#' @param ... Additional arguments passed to [extract_to_point()].
+#'
+#' @return The input observations with extracted values appended. Data frames,
+#'   tibbles and `sf` objects retain their structure; matrices and named lists
+#'   are returned as data frames.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_2d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' observations <- data.frame(
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   date = as.Date(c("2020-01-01", "2020-01-03"))
+#' )
+#'
+#' extract2d(
+#'   data = observations,
+#'   nc = nc_file,
+#'   var = "temp"
+#' )
+#'
 #' @export
 extract2d <- function(data, nc, var = NULL, ...) {
-  extract_netcdf(data = data, nc = nc, var = var, method = "2d", ...)
+  extract_to_point(data = data, nc = nc, var = var, method = "2d", ...)
 }
 
 #' Extract the surface layer from a 3D netCDF variable
 #'
-#' The surface layer is defined as the first available depth layer in the netCDF
-#' file. This is usually the shallowest layer.
+#' The surface layer is defined as the first available depth layer in the
+#' netCDF file. This is usually the shallowest layer.
 #'
-#' @inheritParams extract_netcdf
-#' @return The original `data` with extracted values appended.
-#' @param ... Additional arguments passed to [extract_netcdf()].
+#' @param data Object containing observation points. Can be a data frame, tibble,
+#'   `sf` object with POINT geometries, matrix with column names, or named list.
+#' @param nc netCDF source. Can be a file path, vector of file paths, list of file
+#'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
+#'   file column.
+#' @param var Name of the variable to extract from the netCDF file. If `NULL`,
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
+#' @param ... Additional arguments passed to [extract_to_point()].
+#'
+#' @return The input observations with extracted values appended. Data frames,
+#'   tibbles and `sf` objects retain their structure; matrices and named lists
+#'   are returned as data frames.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_3d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' observations <- data.frame(
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   date = as.Date(c("2020-01-01", "2020-01-03"))
+#' )
+#'
+#' extract3d_surface(
+#'   data = observations,
+#'   nc = nc_file,
+#'   var = "temp"
+#' )
+#'
 #' @export
 extract3d_surface <- function(data, nc, var = NULL, ...) {
-  extract_netcdf(data = data, nc = nc, var = var, method = "surface", ...)
+  extract_to_point(data = data, nc = nc, var = var, method = "surface", ...)
 }
 
 #' Extract the bottom available layer from a 3D netCDF variable
 #'
-#' For each observation, this function extracts the full vertical profile at the
-#' nearest longitude, latitude and time cell, then returns the deepest non-missing
-#' value. This is useful when the bathymetry of the netCDF grid means that deeper
-#' layers are missing over shallow areas.
+#' For each observation, this function extracts the full vertical profile at
+#' the nearest longitude, latitude and time cell, then returns the deepest
+#' non-missing value. This is useful when the bathymetry of the netCDF grid
+#' means that deeper layers are missing over shallow areas.
 #'
-#' @inheritParams extract_netcdf
-#' @return The original `data` with extracted values appended.
-#' @param ... Additional arguments passed to [extract_netcdf()].
+#' @param data Object containing observation points. Can be a data frame, tibble,
+#'   `sf` object with POINT geometries, matrix with column names, or named list.
+#' @param nc netCDF source. Can be a file path, vector of file paths, list of file
+#'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
+#'   file column.
+#' @param var Name of the variable to extract from the netCDF file. If `NULL`,
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
+#' @param ... Additional arguments passed to [extract_to_point()].
+#'
+#' @return The input observations with extracted values appended. Data frames,
+#'   tibbles and `sf` objects retain their structure; matrices and named lists
+#'   are returned as data frames.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_3d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' observations <- data.frame(
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   date = as.Date(c("2020-01-01", "2020-01-03"))
+#' )
+#'
+#' extract3d_bottom(
+#'   data = observations,
+#'   nc = nc_file,
+#'   var = "temp"
+#' )
+#'
 #' @export
 extract3d_bottom <- function(data, nc, var = NULL, ...) {
-  extract_netcdf(data = data, nc = nc, var = var, method = "bottom", ...)
+  extract_to_point(data = data, nc = nc, var = var, method = "bottom", ...)
 }
 
-#' Extract the nearest valid depth layer from a 3D netCDF variable 
-#' 
-#' For each observation, this function reads the full vertical profile and finds
-#' the valid, non-missing netCDF depth layer closest to the observation depth.
-#' This avoids returning NA when the geometrically closest depth layer is invalid
-#' at that grid cell, for example below the seabed. 
+#' Extract the nearest valid depth layer from a 3D netCDF variable
 #'
-#' @inheritParams extract_netcdf
-#' @return The original `data` with extracted values appended.
-#' @param ... Additional arguments passed to [extract_netcdf()].
+#' For each observation, this function reads the full vertical profile and
+#' finds the valid, non-missing netCDF depth layer closest to the observation
+#' depth. This avoids returning `NA` when the geometrically closest depth layer
+#' is invalid at that grid cell, for example below the seabed.
+#'
+#' @param data Object containing observation points. Can be a data frame, tibble,
+#'   `sf` object with POINT geometries, matrix with column names, or named list.
+#' @param nc netCDF source. Can be a file path, vector of file paths, list of file
+#'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
+#'   file column.
+#' @param var Name of the variable to extract from the netCDF file. If `NULL`,
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
+#' @param ... Additional arguments passed to [extract_to_point()].
+#'
+#' @return The input observations with extracted values appended. Data frames,
+#'   tibbles and `sf` objects retain their structure; matrices and named lists
+#'   are returned as data frames.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_3d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' observations <- data.frame(
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   depth = c(60, 100),
+#'   date = as.Date(c("2020-01-01", "2020-01-03"))
+#' )
+#'
+#' extract3d_nearest(
+#'   data = observations,
+#'   nc = nc_file,
+#'   var = "temp"
+#' )
+#'
 #' @export
+
 extract3d_nearest <- function(data, nc, var = NULL, ...) {
-  extract_netcdf(data = data, nc = nc, var = var, method = "nearest", ...)
+  extract_to_point(data = data, nc = nc, var = var, method = "nearest", ...)
 }
 
-#' Extract nearest, surface and bottom values from a 3D netCDF variable 
+#' Extract nearest, surface and bottom values from a 3D netCDF variable
 #'
-#' For each observation, this function extracts the full vertical profile at the
-#' nearest longitude, latitude and time cell. It then returns three summary
-#' columns: nearest valid depth, surface and bottom. 
+#' For each observation, this function extracts the full vertical profile at
+#' the nearest longitude, latitude and time cell. It then returns three summary
+#' columns: nearest valid depth, surface and bottom.
 #'
-#' @inheritParams extract_netcdf
-#' @param ... Additional arguments passed to [extract_netcdf()].
-#' @return The original `data` with three extracted columns: `nearest_*`,
-#'   `surface_*` and `seabottom_*`. 
+#' @param data Object containing observation points. Can be a data frame, tibble,
+#'   `sf` object with POINT geometries, matrix with column names, or named list.
+#' @param nc netCDF source. Can be a file path, vector of file paths, list of file
+#'   paths, opened `ncdf4` object, list of opened objects, or a data frame with a
+#'   file column.
+#' @param var Name of the variable to extract from the netCDF file. If `NULL`,
+#'   the function tries to detect the variable automatically from each file.
+#'   This only works when each netCDF file contains one single variable.
+#' @param ... Additional arguments passed to [extract_to_point()].
+#'
+#' @return The input observations with three extracted columns: `nearest_*`,
+#'   `surface_*` and `seabottom_*`. Data frames, tibbles and `sf` objects retain
+#'   their structure; matrices and named lists are returned as data frames.
+#'
+#' @examples
+#' nc_file <- system.file(
+#'   "extdata", "example_3d.nc",
+#'   package = "sharkabc3d"
+#' )
+#'
+#' observations <- data.frame(
+#'   lon = c(0, 1),
+#'   lat = c(40, 41),
+#'   depth = c(60, 100),
+#'   date = as.Date(c("2020-01-01", "2020-01-03"))
+#' )
+#'
+#' extract3d_all(
+#'   data = observations,
+#'   nc = nc_file,
+#'   var = "temp"
+#' )
+#'
 #' @export
+
 extract3d_all <- function(data, nc, var = NULL, ...) {
-  extract_netcdf(data = data, nc = nc, var = var, method = "all", ...)
+  extract_to_point(data = data, nc = nc, var = var, method = "all", ...)
 }
