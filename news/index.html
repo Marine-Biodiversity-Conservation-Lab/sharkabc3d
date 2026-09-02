@@ -54,6 +54,12 @@
 <h2 class="pkg-version" data-toc-text="0.1.1.9001" id="sharkabc3d-0119001">sharkabc3d 0.1.1.9001<a class="anchor" aria-label="anchor" href="#sharkabc3d-0119001"></a></h2>
 <ul><li>Retire <code>R/plot.R</code>. The <code>plot_*()</code> functions were used by a single article and are no longer exported; <code>plot_depth_profile()</code> and <code>plot_range_at_depth()</code> now live inline in the WOA environmental extraction articles. <code>ggplot2</code> and <code>tidyterra</code> move from Imports to Suggests.</li>
 </ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1.9002" id="sharkabc3d-0119002">sharkabc3d 0.1.1.9002<a class="anchor" aria-label="anchor" href="#sharkabc3d-0119002"></a></h2>
+<ul><li>Generalizes point extraction from netCDF files through extract_to_point() and adds runnable examples for all exported point-extraction functions. The new interface supports data frames, tibbles, sf POINT objects, matrices, named lists, and direct longitude/latitude/depth/date values or vectors. It also preserves input structure where appropriate and transforms projected sf coordinates to longitude/latitude when possible.</li>
+<li>Runnable synthetic 2D and 3D netCDF examples are included for: <code><a href="../reference/extract_to_point.html">extract_to_point()</a></code> <code><a href="../reference/extract2d.html">extract2d()</a></code> <code><a href="../reference/extract3d_surface.html">extract3d_surface()</a></code> <code><a href="../reference/extract3d_bottom.html">extract3d_bottom()</a></code> <code><a href="../reference/extract3d_nearest.html">extract3d_nearest()</a></code> <code><a href="../reference/extract3d_all.html">extract3d_all()</a></code>
+</li>
+</ul></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

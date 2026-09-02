@@ -23,3 +23,20 @@
   `plot_range_at_depth()` now live inline in the WOA environmental
   extraction articles. `ggplot2` and `tidyterra` move from Imports to
   Suggests.
+
+## sharkabc3d 0.1.1.9002
+
+- Generalizes point extraction from netCDF files through
+  extract_to_point() and adds runnable examples for all exported
+  point-extraction functions. The new interface supports data frames,
+  tibbles, sf POINT objects, matrices, named lists, and direct
+  longitude/latitude/depth/date values or vectors. It also preserves
+  input structure where appropriate and transforms projected sf
+  coordinates to longitude/latitude when possible.
+- Runnable synthetic 2D and 3D netCDF examples are included for:
+  [`extract_to_point()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_point.md)
+  [`extract2d()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract2d.md)
+  [`extract3d_surface()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_surface.md)
+  [`extract3d_bottom()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_bottom.md)
+  [`extract3d_nearest()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_nearest.md)
+  [`extract3d_all()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_all.md)
