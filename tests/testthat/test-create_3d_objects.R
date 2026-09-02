@@ -1,5 +1,5 @@
 # Helper: 2x2 voxel over four standard depths, cell 1 has an interior gap
-make_voxel_rast <- function(depths = c(0, 100, 200, 300),
+make_multidepth_rast <- function(depths = c(0, 100, 200, 300),
                             vals = list(c(10, NA,  5, NA),
                                         c(NA, 20,  6, NA),
                                         c(12, 21,  7, NA),
@@ -13,7 +13,7 @@ make_voxel_rast <- function(depths = c(0, 100, 200, 300),
 }
 
 test_that("SpatVoxel and SpatEnvelope are SpatRasters and SpatVolumes", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
 
   expect_s4_class(v, "SpatVoxel")
   expect_true(methods::is(v, "SpatRaster"))
@@ -23,34 +23,36 @@ test_that("SpatVoxel and SpatEnvelope are SpatRasters and SpatVolumes", {
 })
 
 test_that("SpatVoxel validity rejects non-conforming layer names and order", {
-  bad_names <- make_voxel_rast()
+  bad_names <- make_multidepth_rast()
   names(bad_names) <- c("a", "b", "c", "d")
   expect_error(methods::new("SpatVoxel", bad_names), "\\{variable\\}_depth=")
 
-  unsorted <- make_voxel_rast(depths = c(300, 200, 100, 0))
+  unsorted <- make_multidepth_rast(depths = c(300, 200, 100, 0))
   expect_error(methods::new("SpatVoxel", unsorted), "shallow to deep")
 })
 
 test_that("SpatEnvelope validity requires exactly depth_min, depth_max", {
-  expect_error(methods::new("SpatEnvelope", make_voxel_rast()),
+  expect_error(methods::new("SpatEnvelope", make_multidepth_rast()),
                "exactly: depth_min, depth_max")
 })
 
 # voxel_to_envelope() ---- 
-
 test_that("voxel_to_envelope() gracefully rejects non SpatVoxel object as input param", {
-  not_voxel <- terra::rast(nrows = 10, ncols = 10, xmin = 0, ymin = 0)
+  not_voxel <- make_multidepth_rast()
   expect_error(voxel_to_envelope(not_voxel))
+
+  voxel <- as_voxel(not_voxel)
+  expect_true(methods::is(voxel, "SpatVoxel"))
 })
 
 test_that("voxel_to_envelope() rejects a non-function fun", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   expect_error(voxel_to_envelope(v, "extent"), "must be a function")
 })
 
 
 test_that("voxel_to_envelope() defaults to the non-NA vertical extent", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   e <- voxel_to_envelope(v)
 
   expect_s4_class(e, "SpatEnvelope")
@@ -63,7 +65,7 @@ test_that("voxel_to_envelope() defaults to the non-NA vertical extent", {
 
 test_that("voxel_to_envelope() fills interior gaps (lossy collapse)", {
   # cell 1 has values at 0 m and 200 m but not at 100 m; the envelope is solid
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   vals <- terra::values(voxel_to_envelope(v))
 
   expect_equal(unname(vals[1, "depth_min"]), 0)
@@ -71,7 +73,7 @@ test_that("voxel_to_envelope() fills interior gaps (lossy collapse)", {
 })
 
 test_that("voxel_to_envelope() bounds the depths where the predicate holds", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   vals <- terra::values(voxel_to_envelope(v, function(x) x > 15))
 
   # only cell 2 exceeds 15, at 100 m and 200 m
@@ -80,7 +82,7 @@ test_that("voxel_to_envelope() bounds the depths where the predicate holds", {
 })
 
 test_that("voxel_to_envelope() returns NA where the predicate never holds", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   vals <- terra::values(voxel_to_envelope(v, function(x) x > 1e6))
 
   expect_true(all(is.na(vals)))
