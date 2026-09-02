@@ -55,6 +55,15 @@
   `fun = c("extent", "threshold")` character interface is gone. The collapse is
   lossy: interior gaps in a voxel are filled, since an envelope stores a single
   continuous interval per cell.
+* Implement `as_envelope()`, the constructor for `SpatEnvelope`. It attaches
+  depth limits to a 2D footprint raster — any raster whose non-`NA` cells mark
+  presence, such as a rasterized species range or a Global Fishing Watch effort
+  layer — generalizing to rasters what `voxelize_range()` does for polygons.
+  `depth_min` and `depth_max` are each either a constant or a per-cell
+  single-layer raster; the optional `seafloor` clamps `depth_max` to the seabed
+  and drops cells with no water column left below `depth_min`. A raster that
+  already has `depth_min`/`depth_max` layers (e.g. `voxelize_range()` output) is
+  promoted directly, so the function doubles as the coercion its name implies.
 * `methods` moves into Imports (required by the S4 class definitions).
 
 # sharkabc3d 0.1.1.9006

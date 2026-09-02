@@ -2,6 +2,7 @@
 
 S3method(print,study_voxel)
 export(as_voxel)
+export(as_envelope)
 export(calc_volume)
 export(calc_volume_overlap)
 export(count_3d_overlap)

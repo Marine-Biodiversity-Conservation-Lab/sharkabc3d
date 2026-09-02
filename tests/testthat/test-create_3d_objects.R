@@ -36,6 +36,214 @@ test_that("SpatEnvelope validity requires exactly depth_min, depth_max", {
                "exactly: depth_min, depth_max")
 })
 
+# as_envelope() ----
+
+# Helper: 2x2 footprint, cells 1-3 present, cell 4 absent. Values are
+# deliberately varied (and one is 0) because only their non-NA-ness counts.
+make_footprint <- function(vals = c(1, 5, 0, NA)) {
+  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
+  terra::setValues(r, vals)
+}
+
+test_that("as_envelope() builds a SpatEnvelope from a footprint and constant depths", {
+  e <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+
+  expect_s4_class(e, "SpatEnvelope")
+  expect_true(methods::is(e, "SpatVolume"))
+  expect_identical(names(e), c("depth_min", "depth_max"))
+
+  vals <- terra::values(e)
+  expect_equal(unname(vals[, "depth_min"]), c(0, 0, 0, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(200, 200, 200, NA))
+})
+
+test_that("as_envelope() reads only the non-NA pattern of the footprint", {
+  # Values differ wildly, including a zero and a negative; presence does not.
+  a <- as_envelope(make_footprint(c(1, 5, 0, NA)), 10, 20)
+  b <- as_envelope(make_footprint(c(-7, 0.5, 999, NA)), 10, 20)
+
+  expect_equal(terra::values(a), terra::values(b))
+})
+
+test_that("as_envelope() keeps the grid of the footprint", {
+  fp <- make_footprint()
+  e <- as_envelope(fp, 0, 200)
+
+  expect_true(terra::compareGeom(e, fp, stopOnError = FALSE))
+})
+
+test_that("as_envelope() accepts per-cell depth limits as single-layer rasters", {
+  fp <- make_footprint()
+  dmin <- terra::setValues(terra::rast(fp), c(0, 50, 100, 150))
+  dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 400))
+
+  vals <- terra::values(as_envelope(fp, depth_min = dmin, depth_max = dmax))
+
+  expect_equal(unname(vals[, "depth_min"]), c(0, 50, 100, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(100, 200, 300, NA))
+})
+
+test_that("as_envelope() mixes a constant limit with a per-cell limit", {
+  fp <- make_footprint()
+  dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 400))
+
+  vals <- terra::values(as_envelope(fp, depth_min = 10, depth_max = dmax))
+
+  expect_equal(unname(vals[, "depth_min"]), c(10, 10, 10, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(100, 200, 300, NA))
+})
+
+test_that("as_envelope() clamps depth_max to the seafloor", {
+  fp <- make_footprint()
+  # Cell 3's seabed is shallower than the 200 m limit, so it truncates there.
+  seabed <- terra::setValues(terra::rast(fp), c(500, 500, 50, 500))
+
+  vals <- terra::values(as_envelope(fp, 0, 200, seafloor = seabed))
+
+  expect_equal(unname(vals[, "depth_min"]), c(0, 0, 0, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(200, 200, 50, NA))
+})
+
+test_that("as_envelope() drops cells whose seafloor is shallower than depth_min", {
+  fp <- make_footprint()
+  # Cell 2's seabed (30 m) is above the species' 100 m minimum: no water column
+  # left, so the cell is absent in both layers.
+  seabed <- terra::setValues(terra::rast(fp), c(500, 30, 150, 500))
+
+  vals <- terra::values(as_envelope(fp, 100, 200, seafloor = seabed))
+
+  expect_equal(unname(vals[, "depth_min"]), c(100, NA, 100, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(200, NA, 150, NA))
+})
+
+test_that("as_envelope() treats a missing seafloor value as absent", {
+  fp <- make_footprint(c(1, 1, 1, 1))
+  seabed <- terra::setValues(terra::rast(fp), c(500, NA, 500, 500))
+
+  vals <- terra::values(as_envelope(fp, 0, 200, seafloor = seabed))
+
+  expect_true(all(is.na(vals[2, ])))
+  expect_equal(unname(vals[, "depth_max"]), c(200, NA, 200, 200))
+})
+
+test_that("as_envelope() promotes a raster that already has the depth layers", {
+  fp <- make_footprint()
+  plain <- c(
+    terra::setValues(terra::rast(fp), c(0, 0, 0, NA)),
+    terra::setValues(terra::rast(fp), c(200, 200, 200, NA))
+  )
+  names(plain) <- c("depth_min", "depth_max")
+
+  e <- as_envelope(plain)
+
+  expect_s4_class(e, "SpatEnvelope")
+  expect_equal(terra::values(e), terra::values(plain))
+})
+
+test_that("as_envelope() clamps an already-built envelope to a seafloor", {
+  fp <- make_footprint()
+  e <- as_envelope(fp, 0, 200)
+  seabed <- terra::setValues(terra::rast(fp), c(500, 500, 50, 500))
+
+  vals <- terra::values(as_envelope(e, seafloor = seabed))
+
+  expect_equal(unname(vals[, "depth_max"]), c(200, 200, 50, NA))
+})
+
+test_that("as_envelope() is idempotent on its own output", {
+  e <- as_envelope(make_footprint(), 0, 200)
+
+  expect_equal(terra::values(as_envelope(e)), terra::values(e))
+})
+
+test_that("as_envelope() promotes voxel_to_envelope() output unchanged", {
+  v <- methods::new("SpatVoxel", make_voxel_rast())
+  e <- voxel_to_envelope(v)
+
+  expect_equal(terra::values(as_envelope(e)), terra::values(e))
+})
+
+test_that("as_envelope() rejects depth arguments alongside existing depth layers", {
+  e <- as_envelope(make_footprint(), 0, 200)
+
+  expect_error(as_envelope(e, depth_min = 0, depth_max = 100),
+               "already has depth_min and depth_max")
+})
+
+test_that("as_envelope() requires depth limits for a bare footprint", {
+  expect_error(as_envelope(make_footprint()), "are required")
+})
+
+test_that("as_envelope() rejects a multi-layer footprint", {
+  expect_error(as_envelope(make_voxel_rast(), 0, 200), "single-layer footprint")
+})
+
+test_that("as_envelope() rejects vector geometry with a pointer to voxelize_range()", {
+  poly <- terra::vect("POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))")
+
+  expect_error(as_envelope(poly, 0, 200), "voxelize_range")
+})
+
+test_that("as_envelope() rejects a non-raster x", {
+  expect_error(as_envelope(1:10, 0, 200), "must be a SpatRaster")
+})
+
+test_that("as_envelope() rejects inverted depth limits", {
+  expect_error(as_envelope(make_footprint(), depth_min = 200, depth_max = 0),
+               "at least `depth_min`")
+
+  fp <- make_footprint()
+  dmax <- terra::setValues(terra::rast(fp), c(300, 300, 5, NA))
+  expect_error(as_envelope(fp, depth_min = 10, depth_max = dmax),
+               "at least `depth_min`")
+})
+
+test_that("as_envelope() rejects negative depths (positive-down convention)", {
+  expect_error(as_envelope(make_footprint(), depth_min = -50, depth_max = 200),
+               "positive metres increasing downward")
+})
+
+test_that("as_envelope() rejects depth limits that are not scalars or rasters", {
+  fp <- make_footprint()
+
+  expect_error(as_envelope(fp, depth_min = c(0, 100), depth_max = 200),
+               "single non-missing number")
+  expect_error(as_envelope(fp, depth_min = NA, depth_max = 200),
+               "single non-missing number")
+  expect_error(as_envelope(fp, depth_min = "0", depth_max = 200),
+               "single non-missing number")
+})
+
+test_that("as_envelope() rejects depth and seafloor rasters off the footprint grid", {
+  fp <- make_footprint()
+  other <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
+  terra::values(other) <- 100
+
+  expect_error(as_envelope(fp, depth_min = 0, depth_max = other),
+               "same grid")
+  expect_error(as_envelope(fp, 0, 200, seafloor = other),
+               "same grid")
+  expect_error(as_envelope(fp, 0, 200, seafloor = make_voxel_rast()),
+               "single-layer SpatRaster")
+})
+
+test_that("as_envelope() handles an empty footprint", {
+  empty <- make_footprint(c(NA, NA, NA, NA))
+  e <- as_envelope(empty, 0, 200)
+
+  expect_s4_class(e, "SpatEnvelope")
+  expect_true(all(is.na(terra::values(e))))
+})
+
+test_that("as_envelope() output is measurable by calc_volume()", {
+  fp <- make_footprint()
+  e <- as_envelope(fp, depth_min = 0, depth_max = 100)
+
+  # 3 present cells x 100 m thickness; compare against the same arithmetic.
+  area_km2 <- terra::values(terra::cellSize(fp, unit = "km"))[1:3, 1]
+  expect_equal(calc_volume(e), sum(area_km2 * 100 / 1000))
+})
+
 # voxel_to_envelope() ---- 
 test_that("voxel_to_envelope() gracefully rejects non SpatVoxel object as input param", {
   not_voxel <- make_multidepth_rast()
