@@ -53,6 +53,7 @@
 #'   if `layer_by = NULL`). Layer names follow `effort_<level>`.
 #' 
 #' @examples
+#' \dontrun{
 #' jpn_eez_id <- gfwr::gfw_region_id(region = "JPN", region_source = "EEZ")$id
 #' effort <- gfwr::gfw_ais_fishing_hours(
 #'   spatial_resolution  = "LOW",        # 0.01 deg
@@ -77,7 +78,7 @@
 #' 
 #' # Plot drifitng longlines effort
 #' terra::plot(effort_by_gear$effort_drifting_longlines)
-#' 
+#' }
 #' @export
 gfw_effort_to_raster <- function(effort,
                                  grid = NULL,
