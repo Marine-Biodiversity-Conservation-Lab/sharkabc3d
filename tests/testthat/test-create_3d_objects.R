@@ -36,6 +36,19 @@ test_that("SpatEnvelope validity requires exactly depth_min, depth_max", {
                "exactly: depth_min, depth_max")
 })
 
+# voxel_to_envelope() ---- 
+
+test_that("voxel_to_envelope() gracefully rejects non SpatVoxel object as input param", {
+  not_voxel <- terra::rast(nrows = 10, ncols = 10, xmin = 0, ymin = 0)
+  expect_error(voxel_to_envelope(not_voxel))
+})
+
+test_that("voxel_to_envelope() rejects a non-function fun", {
+  v <- methods::new("SpatVoxel", make_voxel_rast())
+  expect_error(voxel_to_envelope(v, "extent"), "must be a function")
+})
+
+
 test_that("voxel_to_envelope() defaults to the non-NA vertical extent", {
   v <- methods::new("SpatVoxel", make_voxel_rast())
   e <- voxel_to_envelope(v)
@@ -73,12 +86,3 @@ test_that("voxel_to_envelope() returns NA where the predicate never holds", {
   expect_true(all(is.na(vals)))
 })
 
-test_that("voxel_to_envelope() rejects a non-function fun", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
-  expect_error(voxel_to_envelope(v, "extent"), "must be a function")
-})
-
-test_that("voxel_to_envelope() accepts a plain multi-depth SpatRaster", {
-  e <- voxel_to_envelope(make_voxel_rast())
-  expect_s4_class(e, "SpatEnvelope")
-})

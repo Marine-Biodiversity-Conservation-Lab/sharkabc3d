@@ -56,7 +56,9 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
          "The former \"extent\" behaviour is the default, function(x) !is.na(x).",
          call. = FALSE)
   }
-
+  if (!is(v, "SpatVoxel")) {
+    stop("`v` must be a SpatVoxel object.")
+  }
   depths <- .parse_depth_layers(v)
 
   # Depth stamp per layer: the layer's depth where `fun` holds, NA elsewhere.
