@@ -111,11 +111,11 @@ species_ranges <- sf::st_read(
 ### Step 4: Prepare WOA Rasters
 
 [`woa_download()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_download.md)
-fetches (and caches) WOA files,
+fetches (and caches) WOA files and
 [`woa_load_nc()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_load_nc.md)
-loads individual files, and
-[`woa_summarise_monthly()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_summarise_monthly.md)
-produces the monthly summaries.
+loads individual files. The monthly summaries are produced by a
+`woa_summarise_monthly()` helper defined in this article (Step 5b)
+rather than by the package.
 
 #### 4a: Download WOA NetCDFs
 
@@ -243,10 +243,53 @@ lapply(sst_values, summary)
 
 #### 5b: Summarise monthly extremes and assemble the raster list
 
-[`woa_summarise_monthly()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_summarise_monthly.md)
-reduces the twelve monthly files to min/max/diff rasters per depth
-layer, replacing the entire `data-raw/WOA.R` script (~170 lines) with
-two function calls.
+The helper below reduces the twelve monthly files to min/max/diff
+rasters per depth layer, replacing the entire `data-raw/WOA.R` script
+(~170 lines) with two function calls.
+
+It lives in this article rather than in `sharkabc3d` because the package
+is moving to a single generic
+[`temporal_summarise()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/temporal_summarise.md)
+that will cover both WOA and Copernicus Marine data. Define it in your
+session before running the next chunk.
+
+``` r
+
+woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
+                                  files = NULL) {
+  if (is.null(files)) {
+    if (is.null(monthly_dir) || !dir.exists(monthly_dir)) {
+      stop("Directory not found: ", monthly_dir)
+    }
+    files <- list.files(monthly_dir, pattern = "\\.nc$",
+                        full.names = TRUE, ignore.case = TRUE)
+  }
+  if (length(files) == 0) {
+    stop("No .nc files found in: ", monthly_dir)
+  }
+
+  monthly <- lapply(files, woa_load_nc, field = field)
+  depth_names <- names(monthly[[1]])
+
+  # For each depth layer, stack that layer across all months, then reduce.
+  per_depth <- lapply(depth_names, function(dn) {
+    stk <- terra::rast(lapply(monthly, function(x) x[[dn]]))
+    mx <- terra::app(stk, fun = "max", na.rm = TRUE)
+    mn <- terra::app(stk, fun = "min", na.rm = TRUE)
+    df <- mx - mn
+    names(mx) <- dn
+    names(mn) <- dn
+    names(df) <- dn
+    list(max = mx, min = mn, diff = df)
+  })
+
+  list(
+    min  = terra::rast(lapply(per_depth, `[[`, "min")),
+    max  = terra::rast(lapply(per_depth, `[[`, "max")),
+    diff = terra::rast(lapply(per_depth, `[[`, "diff"))
+  )
+}
+```
 
 ``` r
 
@@ -541,6 +584,6 @@ anim
 | Fill missing depths | ~30 lines of dplyr manipulation | [`fill_missing_depths()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fill_missing_depths.md) |
 | Load species ranges | ~10 lines with manual filtering | inline [`sf::st_read()`](https://r-spatial.github.io/sf/reference/st_read.html) with SQL filter |
 | Download WOA files | manual URL lookup per variable | [`woa_download()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_download.md) (cached) |
-| Create monthly summaries | `data-raw/WOA.R` (~170 lines) | [`woa_summarise_monthly()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_summarise_monthly.md) |
+| Create monthly summaries | `data-raw/WOA.R` (~170 lines) | `woa_summarise_monthly()` helper (this article) |
 | Per-species extraction loop | ~90 lines foreach loop | [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md) via [`lapply()`](https://rdrr.io/r/base/lapply.html) |
 | **Total** | **~350+ lines across multiple files** | **~30 lines of package calls** |

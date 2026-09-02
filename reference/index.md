@@ -40,6 +40,8 @@
   : Load bathymetry raster
 - [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
   : Summarise environmental conditions within a species' 3D range
+- [`temporal_summarise()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/temporal_summarise.md)
+  : Summarise across temporal dimension
 - [`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md)
   : Voxelize a species range or fishery footprint onto a study grid
 - [`voxelize_ranges()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_ranges.md)
@@ -52,5 +54,3 @@
   : Download a WOA NetCDF file (with caching)
 - [`woa_load_nc()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_load_nc.md)
   : Load a WOA NetCDF file
-- [`woa_summarise_monthly()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_summarise_monthly.md)
-  : Summarise monthly WOA data across months

@@ -116,9 +116,8 @@ usethis::edit_r_environ()
   standard `{variable}_depth={value}` layer names.
 - `woa_nc_extract()` — extract layers for a chosen statistical field
   from an already-loaded WOA `SpatRaster`.
-- [`woa_summarise_monthly()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_summarise_monthly.md)
-  — compute min, max, and max-minus-min across monthly WOA files at each
-  depth layer.
+- `woa_summarise_monthly()` — compute min, max, and max-minus-min across
+  monthly WOA files at each depth layer.
 - [`woa_cache_dir()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_dir.md)
   /
   [`woa_cache_clear()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_clear.md)

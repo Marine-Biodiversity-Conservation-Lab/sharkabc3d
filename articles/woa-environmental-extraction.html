@@ -178,9 +178,10 @@ layer into memory.</p>
 <div class="section level3">
 <h3 id="step-4-prepare-woa-rasters">Step 4: Prepare WOA Rasters<a class="anchor" aria-label="anchor" href="#step-4-prepare-woa-rasters"></a>
 </h3>
-<p><code><a href="../reference/woa_download.html">woa_download()</a></code> fetches (and caches) WOA files,
-<code><a href="../reference/woa_load_nc.html">woa_load_nc()</a></code> loads individual files, and
-<code><a href="../reference/woa_summarise_monthly.html">woa_summarise_monthly()</a></code> produces the monthly summaries.</p>
+<p><code><a href="../reference/woa_download.html">woa_download()</a></code> fetches (and caches) WOA files and
+<code><a href="../reference/woa_load_nc.html">woa_load_nc()</a></code> loads individual files. The monthly summaries
+are produced by a <code>woa_summarise_monthly()</code> helper defined in
+this article (Step 5b) rather than by the package.</p>
 <div class="section level4">
 <h4 id="a-download-woa-netcdfs">4a: Download WOA NetCDFs<a class="anchor" aria-label="anchor" href="#a-download-woa-netcdfs"></a>
 </h4>
@@ -297,18 +298,58 @@ of non-<code>NA</code> SST cells falling inside that species’ range.</p>
 <div class="section level4">
 <h4 id="b-summarise-monthly-extremes-and-assemble-the-raster-list">5b: Summarise monthly extremes and assemble the raster list<a class="anchor" aria-label="anchor" href="#b-summarise-monthly-extremes-and-assemble-the-raster-list"></a>
 </h4>
-<p><code><a href="../reference/woa_summarise_monthly.html">woa_summarise_monthly()</a></code> reduces the twelve monthly files
-to min/max/diff rasters per depth layer, replacing the entire
+<p>The helper below reduces the twelve monthly files to min/max/diff
+rasters per depth layer, replacing the entire
 <code>data-raw/WOA.R</code> script (~170 lines) with two function
 calls.</p>
+<p>It lives in this article rather than in <code>sharkabc3d</code>
+because the package is moving to a single generic
+<code><a href="../reference/temporal_summarise.html">temporal_summarise()</a></code> that will cover both WOA and
+Copernicus Marine data. Define it in your session before running the
+next chunk.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">t_monthly</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/woa_summarise_monthly.html">woa_summarise_monthly</a></span><span class="op">(</span>files <span class="op">=</span> <span class="va">t_monthly_paths</span>,  field <span class="op">=</span> <span class="st">"an"</span><span class="op">)</span></span>
-<span><span class="va">do_monthly</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/woa_summarise_monthly.html">woa_summarise_monthly</a></span><span class="op">(</span>files <span class="op">=</span> <span class="va">do_monthly_paths</span>, field <span class="op">=</span> <span class="st">"an"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">woa_summarise_monthly</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">monthly_dir</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">field</span> <span class="op">=</span> <span class="st">"an"</span>,</span>
+<span>                                  <span class="va">files</span> <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">files</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">monthly_dir</span><span class="op">)</span> <span class="op">||</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.exists</a></span><span class="op">(</span><span class="va">monthly_dir</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"Directory not found: "</span>, <span class="va">monthly_dir</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>    <span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">monthly_dir</span>, pattern <span class="op">=</span> <span class="st">"\\.nc$"</span>,</span>
+<span>                        full.names <span class="op">=</span> <span class="cn">TRUE</span>, ignore.case <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">files</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"No .nc files found in: "</span>, <span class="va">monthly_dir</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span></span>
+<span>  <span class="va">monthly</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">files</span>, <span class="va">woa_load_nc</span>, field <span class="op">=</span> <span class="va">field</span><span class="op">)</span></span>
+<span>  <span class="va">depth_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">monthly</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># For each depth layer, stack that layer across all months, then reduce.</span></span>
+<span>  <span class="va">per_depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">depth_names</span>, <span class="kw">function</span><span class="op">(</span><span class="va">dn</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="va">stk</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">monthly</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">[[</span><span class="va">dn</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">mx</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/app.html" class="external-link">app</a></span><span class="op">(</span><span class="va">stk</span>, fun <span class="op">=</span> <span class="st">"max"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>    <span class="va">mn</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/app.html" class="external-link">app</a></span><span class="op">(</span><span class="va">stk</span>, fun <span class="op">=</span> <span class="st">"min"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>    <span class="va">df</span> <span class="op">&lt;-</span> <span class="va">mx</span> <span class="op">-</span> <span class="va">mn</span></span>
+<span>    <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">mx</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">dn</span></span>
+<span>    <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">mn</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">dn</span></span>
+<span>    <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">dn</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>max <span class="op">=</span> <span class="va">mx</span>, min <span class="op">=</span> <span class="va">mn</span>, diff <span class="op">=</span> <span class="va">df</span><span class="op">)</span></span>
+<span>  <span class="op">}</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    min  <span class="op">=</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">per_depth</span>, <span class="va">`[[`</span>, <span class="st">"min"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    max  <span class="op">=</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">per_depth</span>, <span class="va">`[[`</span>, <span class="st">"max"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    diff <span class="op">=</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">per_depth</span>, <span class="va">`[[`</span>, <span class="st">"diff"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">t_monthly</span>  <span class="op">&lt;-</span> <span class="fu">woa_summarise_monthly</span><span class="op">(</span>files <span class="op">=</span> <span class="va">t_monthly_paths</span>,  field <span class="op">=</span> <span class="st">"an"</span><span class="op">)</span></span>
+<span><span class="va">do_monthly</span> <span class="op">&lt;-</span> <span class="fu">woa_summarise_monthly</span><span class="op">(</span>files <span class="op">=</span> <span class="va">do_monthly_paths</span>, field <span class="op">=</span> <span class="st">"an"</span><span class="op">)</span></span>
 <span><span class="co"># Each result is a list: $min, $max, $diff</span></span></code></pre></div>
 <p>Assemble every environmental raster into a single named list. The
 annual means were already aligned in Step 4; the monthly summaries are
 aligned here so the whole list shares the study grid.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">env_rasters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  temperature_annual_mean       <span class="op">=</span> <span class="va">t_annual</span>,</span>
 <span>  temperature_monthly_max       <span class="op">=</span> <span class="va">t_monthly</span><span class="op">$</span><span class="va">max</span>,</span>
@@ -329,7 +370,7 @@ assembled output rows. Now this is handled by
 <div class="section level4">
 <h4 id="c-summarise-for-a-single-species">5c: Summarise for a single species<a class="anchor" aria-label="anchor" href="#c-summarise-for-a-single-species"></a>
 </h4>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">i</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
 <span><span class="va">sp_id</span> <span class="op">&lt;-</span> <span class="va">depth_table_complete</span><span class="op">$</span><span class="va">sis_id</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
 <span><span class="va">sp_range</span> <span class="op">&lt;-</span> <span class="va">species_ranges</span><span class="op">[</span><span class="va">species_ranges</span><span class="op">$</span><span class="va">id_no</span> <span class="op">==</span> <span class="va">sp_id</span>, <span class="op">]</span></span>
@@ -355,7 +396,7 @@ assembled output rows. Now this is handled by
 <div class="section level4">
 <h4 id="d-apply-across-all-species">5d: Apply across all species<a class="anchor" aria-label="anchor" href="#d-apply-across-all-species"></a>
 </h4>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://r-spatial.github.io/sf/reference/s2.html" class="external-link">sf_use_s2</a></span><span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">depth_table_complete</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
@@ -389,7 +430,7 @@ assembled output rows. Now this is handled by
 <div class="section level4">
 <h4 id="e-save-output">5e: Save output<a class="anchor" aria-label="anchor" href="#e-save-output"></a>
 </h4>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span><span class="va">summary_table</span>, <span class="fu"><a href="https://here.r-lib.org/reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"outputs/species_environment_summary.csv"</span><span class="op">)</span>,</span>
 <span>          row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 </div>
@@ -400,7 +441,7 @@ assembled output rows. Now this is handled by
 <p>The two helpers below are defined in this article rather than
 exported by the package. They are thin <code>ggplot2</code> wrappers
 used only for these examples.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dieghernan.github.io/tidyterra/" class="external-link">tidyterra</a></span><span class="op">)</span></span>
 <span></span>
@@ -481,7 +522,7 @@ used only for these examples.</p>
 <div class="section level4">
 <h4 id="depth-profile">Depth profile<a class="anchor" aria-label="anchor" href="#depth-profile"></a>
 </h4>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Temperature depth profile within the white shark's range.</span></span>
 <span><span class="co"># Reuse the per-species voxelize_range() output from step 5d.</span></span>
 <span><span class="va">sp_range</span> <span class="op">&lt;-</span> <span class="va">species_ranges</span><span class="op">[</span><span class="va">species_ranges</span><span class="op">$</span><span class="va">sci_name</span> <span class="op">==</span> <span class="st">"Carcharhinus longimanus"</span>, <span class="op">]</span></span>
@@ -500,7 +541,7 @@ used only for these examples.</p>
 <div class="section level4">
 <h4 id="map-at-depth">Map at depth<a class="anchor" aria-label="anchor" href="#map-at-depth"></a>
 </h4>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Map of temperature at 100m depth within the white shark's range</span></span>
 <span><span class="va">sp_range</span> <span class="op">&lt;-</span> <span class="va">species_ranges</span><span class="op">[</span><span class="va">species_ranges</span><span class="op">$</span><span class="va">sci_name</span> <span class="op">==</span> <span class="st">"Carcharhinus longimanus"</span>, <span class="op">]</span></span>
 <span></span>
@@ -509,7 +550,7 @@ used only for these examples.</p>
 <span>  depth <span class="op">=</span> <span class="fl">1000</span>,</span>
 <span>  rast_3d <span class="op">=</span> <span class="va">t_annual</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://gganimate.com" class="external-link">gganimate</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyr.tidyverse.org" class="external-link">tidyr</a></span><span class="op">)</span></span>
@@ -610,7 +651,8 @@ used only for these examples.</p>
 <td>Create monthly summaries</td>
 <td>
 <code>data-raw/WOA.R</code> (~170 lines)</td>
-<td><code><a href="../reference/woa_summarise_monthly.html">woa_summarise_monthly()</a></code></td>
+<td>
+<code>woa_summarise_monthly()</code> helper (this article)</td>
 </tr>
 <tr class="even">
 <td>Per-species extraction loop</td>
