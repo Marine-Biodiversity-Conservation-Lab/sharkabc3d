@@ -73,6 +73,6 @@ effort_by_gear <- gfw_effort_to_raster(
 )
 
 # Plot drifitng longlines effort
-plot(effort_by_gear$effort_drifting_longlines)
+terra::plot(effort_by_gear$effort_drifting_longlines)
 
 }
