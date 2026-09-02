@@ -36,3 +36,23 @@
     
 # sharkabc3d 0.1.1.9004
 * Improve `gfw_effort_to_raster()` function to be able to assume grid resolution and extent from input dataframe. 
+
+# sharkabc3d 0.1.1.9005
+* Add the S4 classes underpinning the 3D object model. `SpatVoxel` (one layer
+  per standard depth, depth as the layer index, cell values are the variable)
+  and `SpatEnvelope` (exactly `depth_min`/`depth_max`, depth as the cell value,
+  the object itself is the variable) each extend `terra::SpatRaster` directly
+  and carry their own validity rules.
+* `SpatVolume` is a class union over the two, replacing the earlier virtual
+  `SpatDepthRaster` superclass. Both members determine a 3D domain over a 2D
+  grid, so `SpatVolume` is the dispatch target for volumetric operations
+  (volume, overlap, vertical extent); it asserts no shared structure, because
+  the two store depth in dual roles.
+* Implement `voxel_to_envelope()`. It takes a predicate `fun` applied to cell
+  values; per cell, the shallowest depth where the predicate holds becomes
+  `depth_min` and the deepest becomes `depth_max`. The default,
+  `\(x) !is.na(x)`, gives the plain vertical extent of the data. The former
+  `fun = c("extent", "threshold")` character interface is gone. The collapse is
+  lossy: interior gaps in a voxel are filled, since an envelope stores a single
+  continuous interval per cell.
+* `methods` moves into Imports (required by the S4 class definitions).
