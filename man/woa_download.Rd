@@ -53,3 +53,30 @@ file is reported before downloading. A full set of WOA files can be many
 gigabytes — supply \code{output_dir} to direct the cache elsewhere (HPC scratch,
 external drive, etc.).
 }
+\examples{
+\dontrun{
+# Annual temperature climatology at 1-degree resolution, cached in a
+# temporary directory so nothing is written to user filespace
+tmp <- file.path(tempdir(), "woa")
+f <- woa_download("temperature", period = "annual", resolution = "1",
+                  output_dir = tmp)
+woa_load_nc(f)
+
+# All 12 monthly files, downloaded in parallel, into the default cache
+monthly <- woa_download("temperature", period = "monthly",
+                        resolution = "1")
+length(monthly)
+
+# Specific periods: 0 = annual, 1:12 = monthly, 13:16 = seasonal
+winter <- woa_download("dissolved_oxygen", period = 13, resolution = "1")
+
+# Other variables use their own canonical decade codes. Note that
+# 0.25-degree files are large (~1 GB each for salinity).
+sal <- woa_download("salinity", period = "annual", resolution = "0.25")
+
+# Re-download a file that is already cached
+f <- woa_download("temperature", period = "annual", resolution = "1",
+                  output_dir = tmp, force = TRUE, quiet = TRUE)
+}
+
+}

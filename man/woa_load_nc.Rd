@@ -15,14 +15,45 @@ woa_load_nc(file_path, field = "an")
 \code{"se"} (standard error), \code{"oa"} (mean minus climatology),
 \code{"gp"} (number of mean values within radius of influence),
 \code{"sdo"} (objectively analyzed standard deviation),
-\code{"sea"} (standard error of the analysis). See the
-\href{https://repository.library.noaa.gov/view/noaa/70581}{WOA 2023 Product Documentation}.}
+\code{"sea"} (standard error of the analysis). See the WOA 2023 Product
+Documentation:
+\url{https://repository.library.noaa.gov/view/noaa/70581}}
 }
 \value{
 SpatRaster with standardized depth layer names.
 }
 \description{
-Load a WOA .nc file and select layers for a given statistical field. Returns
-a SpatRaster with layer names already following the \verb{\{variable\}_depth=\{value\}}
-convention used throughout this package (native to WOA NetCDFs).
+Load a WOA .nc file and select layers for a given statistical field.
+Returns a SpatRaster with layer names already following the
+\verb{\{variable\}_depth=\{value\}} convention used throughout this package
+(native to WOA NetCDFs).
+}
+\examples{
+# Build a small WOA-style NetCDF to demonstrate field selection.
+# Real files come from woa_download().
+nc <- file.path(tempdir(), "woa_demo.nc")
+demo <- terra::rast(nrows = 2, ncols = 2, nlyrs = 4,
+                    xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+                    crs = "EPSG:4326")
+names(demo) <- c("t_an_depth=0", "t_an_depth=100",
+                 "t_sd_depth=0", "t_sd_depth=100")
+terra::values(demo) <- matrix(1:16, nrow = 4)
+terra::writeCDF(demo, nc, overwrite = TRUE, split = TRUE)
+
+# Objectively analyzed climatology (the default field)
+temp <- woa_load_nc(nc)
+names(temp)
+
+# Standard deviation layers from the same file
+names(woa_load_nc(nc, field = "sd"))
+
+unlink(nc)
+
+\dontrun{
+# Typical use on a downloaded file
+f <- woa_download("temperature", period = "annual", resolution = "1")
+temp <- woa_load_nc(f, field = "an")
+terra::plot(temp[["t_an_depth=0"]])
+}
+
 }

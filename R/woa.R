@@ -5,6 +5,23 @@
 #' sessions and follows platform conventions.
 #'
 #' @returns Character. Path to cache directory (created if missing).
+#' @examples
+#' # Redirect the cache into a temporary directory so this example does not
+#' # write to user filespace. In normal use you would skip this step and let
+#' # the cache live in its platform-conventional location.
+#' old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+#' Sys.setenv(R_USER_CACHE_DIR = tempdir())
+#'
+#' # The directory is created if it does not already exist
+#' cache <- woa_cache_dir()
+#' dir.exists(cache)
+#'
+#' # This is where woa_download() writes when `output_dir` is not supplied
+#' list.files(cache, pattern = "\\.nc$")
+#'
+#' if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+#'   Sys.setenv(R_USER_CACHE_DIR = old)
+#'
 #' @export
 woa_cache_dir <- function() {
   path <- file.path(tools::R_user_dir("sharkabc3d", which = "cache"), "woa")
@@ -21,6 +38,31 @@ woa_cache_dir <- function() {
 #' @param confirm Logical. Require interactive confirmation. Default `TRUE`.
 #'
 #' @returns Invisibly, `TRUE` on success.
+#' @examples
+#' # Redirect the cache into a temporary directory so this example does not
+#' # delete real downloads. In normal use you would skip this step.
+#' old <- Sys.getenv("R_USER_CACHE_DIR", unset = NA)
+#' Sys.setenv(R_USER_CACHE_DIR = tempdir())
+#'
+#' cache <- woa_cache_dir()
+#' file.create(file.path(cache, "woa23_decav_t00_01.nc"))
+#' list.files(cache)
+#'
+#' # confirm = FALSE deletes without prompting (e.g. from a script)
+#' woa_cache_clear(confirm = FALSE)
+#' dir.exists(cache)
+#'
+#' # The cache is recreated empty by the next call that needs it
+#' woa_cache_dir()
+#'
+#' if (is.na(old)) Sys.unsetenv("R_USER_CACHE_DIR") else
+#'   Sys.setenv(R_USER_CACHE_DIR = old)
+#'
+#' \dontrun{
+#' # Called with no arguments it asks for confirmation when interactive
+#' woa_cache_clear()
+#' }
+#'
 #' @export
 woa_cache_clear <- function(confirm = TRUE) {
   path <- woa_cache_dir()
@@ -35,24 +77,58 @@ woa_cache_clear <- function(confirm = TRUE) {
   invisible(TRUE)
 }
 
+# Internal: accepted variable names and the URL/filename components each maps
+# to. `code` is the one-letter code used both in WOA filenames and in the
+# `{code}_{field}_depth={value}` layer names inside the NetCDFs. Note that
+# codes are case-sensitive: "o"/"O" and "i"/"I" are different variables.
+.woa_variables <- function() {
+  data.frame(
+    name = c("temperature", "salinity", "dissolved_oxygen",
+             "oxygen_saturation", "AOU", "nitrate", "phosphate",
+             "silicate", "density"),
+    dir = c("temperature", "salinity", "oxygen",
+            "o2sat", "AOU", "nitrate", "phosphate",
+            "silicate", "density"),
+    code = c("t", "s", "o",
+             "O", "A", "n", "p",
+             "i", "I"),
+    decade = c("decav", "decav", "all",
+               "all", "all", "all", "all",
+               "all", "decav"),
+    stringsAsFactors = FALSE
+  )
+}
+
+# Internal: accepted statistical fields. `code` is the code used in WOA
+# filenames and in the `{variable}_{code}_depth={value}` layer names inside
+# the NetCDFs. See the WOA 2023 Product Documentation:
+# https://repository.library.noaa.gov/view/noaa/70581
+.woa_fields <- function() {
+  data.frame(
+    code = c("an", "mn", "dd",
+             "sd", "se", "oa",
+             "gp", "sdo", "sea"),
+    description = c("objectively analyzed climatology",
+                    "statistical mean",
+                    "number of observations",
+                    "standard deviation",
+                    "standard error",
+                    "mean minus climatology",
+                    "number of mean values within radius of influence",
+                    "objectively analyzed standard deviation",
+                    "standard error of the analysis"),
+    stringsAsFactors = FALSE
+  )
+}
+
 # Internal: map variable name to WOA URL/filename components
 .woa_variable_spec <- function(variable) {
-  specs <- list(
-    temperature       = list(dir = "temperature", code = "t", decade = "decav"),
-    salinity          = list(dir = "salinity",    code = "s", decade = "decav"),
-    dissolved_oxygen  = list(dir = "oxygen",      code = "o", decade = "all"),
-    oxygen_saturation = list(dir = "o2sat",       code = "O", decade = "all"),
-    AOU               = list(dir = "AOU",         code = "A", decade = "all"),
-    nitrate           = list(dir = "nitrate",     code = "n", decade = "all"),
-    phosphate         = list(dir = "phosphate",   code = "p", decade = "all"),
-    silicate          = list(dir = "silicate",    code = "i", decade = "all"),
-    density           = list(dir = "density",     code = "I", decade = "decav")
-  )
-  if (!variable %in% names(specs)) {
+  specs <- .woa_variables()
+  if (!variable %in% specs$name) {
     stop("Unknown variable '", variable,
-         "'. Supported: ", paste(names(specs), collapse = ", "))
+         "'. Supported: ", toString(specs$name))
   }
-  specs[[variable]]
+  specs[specs$name == variable,]
 }
 
 # Internal: map resolution to URL dir + filename code
@@ -79,7 +155,8 @@ woa_cache_clear <- function(confirm = TRUE) {
   }
   if (is.numeric(period)) {
     if (any(period < 0 | period > 16)) {
-      stop("Numeric period must be 0 (annual), 1:12 (monthly), or 13:16 (seasonal).")
+      stop("Numeric period must be 0 (annual), 1:12 (monthly), ",
+           "or 13:16 (seasonal).")
     }
     return(sprintf("%02d", period))
   }
@@ -187,6 +264,32 @@ woa_cache_clear <- function(confirm = TRUE) {
 #' @param quiet Logical. Suppress download progress. Default `FALSE`.
 #'
 #' @returns Character vector of paths to downloaded .nc files.
+#' @examples
+#' \dontrun{
+#' # Annual temperature climatology at 1-degree resolution, cached in a
+#' # temporary directory so nothing is written to user filespace
+#' tmp <- file.path(tempdir(), "woa")
+#' f <- woa_download("temperature", period = "annual", resolution = "1",
+#'                   output_dir = tmp)
+#' woa_load_nc(f)
+#'
+#' # All 12 monthly files, downloaded in parallel, into the default cache
+#' monthly <- woa_download("temperature", period = "monthly",
+#'                         resolution = "1")
+#' length(monthly)
+#'
+#' # Specific periods: 0 = annual, 1:12 = monthly, 13:16 = seasonal
+#' winter <- woa_download("dissolved_oxygen", period = 13, resolution = "1")
+#'
+#' # Other variables use their own canonical decade codes. Note that
+#' # 0.25-degree files are large (~1 GB each for salinity).
+#' sal <- woa_download("salinity", period = "annual", resolution = "0.25")
+#'
+#' # Re-download a file that is already cached
+#' f <- woa_download("temperature", period = "annual", resolution = "1",
+#'                   output_dir = tmp, force = TRUE, quiet = TRUE)
+#' }
+#'
 #' @export
 woa_download <- function(variable,
                          period = "annual",
@@ -302,9 +405,10 @@ woa_download <- function(variable,
 
 #' Load a WOA NetCDF file
 #'
-#' Load a WOA .nc file and select layers for a given statistical field. Returns 
-#' a SpatRaster with layer names already following the `{variable}_depth={value}` 
-#' convention used throughout this package (native to WOA NetCDFs).
+#' Load a WOA .nc file and select layers for a given statistical field.
+#' Returns a SpatRaster with layer names already following the
+#' `{variable}_depth={value}` convention used throughout this package
+#' (native to WOA NetCDFs).
 #'
 #' @param file_path Character. Path to a WOA .nc file.
 #' @param field Character. Statistical field to select. One of:
@@ -313,10 +417,39 @@ woa_download <- function(variable,
 #'   `"se"` (standard error), `"oa"` (mean minus climatology),
 #'   `"gp"` (number of mean values within radius of influence),
 #'   `"sdo"` (objectively analyzed standard deviation),
-#'   `"sea"` (standard error of the analysis). See the
-#'   [WOA 2023 Product Documentation](https://repository.library.noaa.gov/view/noaa/70581).
+#'   `"sea"` (standard error of the analysis). See the WOA 2023 Product
+#'   Documentation:
+#'   <https://repository.library.noaa.gov/view/noaa/70581>
 #'
 #' @returns SpatRaster with standardized depth layer names.
+#' @examples
+#' # Build a small WOA-style NetCDF to demonstrate field selection.
+#' # Real files come from woa_download().
+#' nc <- file.path(tempdir(), "woa_demo.nc")
+#' demo <- terra::rast(nrows = 2, ncols = 2, nlyrs = 4,
+#'                     xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+#'                     crs = "EPSG:4326")
+#' names(demo) <- c("t_an_depth=0", "t_an_depth=100",
+#'                  "t_sd_depth=0", "t_sd_depth=100")
+#' terra::values(demo) <- matrix(1:16, nrow = 4)
+#' terra::writeCDF(demo, nc, overwrite = TRUE, split = TRUE)
+#'
+#' # Objectively analyzed climatology (the default field)
+#' temp <- woa_load_nc(nc)
+#' names(temp)
+#'
+#' # Standard deviation layers from the same file
+#' names(woa_load_nc(nc, field = "sd"))
+#'
+#' unlink(nc)
+#'
+#' \dontrun{
+#' # Typical use on a downloaded file
+#' f <- woa_download("temperature", period = "annual", resolution = "1")
+#' temp <- woa_load_nc(f, field = "an")
+#' terra::plot(temp[["t_an_depth=0"]])
+#' }
+#'
 #' @export
 woa_load_nc <- function(file_path, field = "an") {
   if (!file.exists(file_path)) {
@@ -324,33 +457,38 @@ woa_load_nc <- function(file_path, field = "an") {
   }
   r <- terra::rast(file_path)
   
-  available_fields <- c("an", "mn", "dd", "sd", "se", "oa", "gp", "sdo", "sea")
+  available_fields <- .woa_fields()$code
   if (!field %in% available_fields) {
     stop(
       "field must be one of: ",
-      paste(available_fields, collapse = ", "),
+      toString(available_fields),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
 
   # WOA layers take the form of v_field_depth=123
   # v is the abbreviated variable, which has to be one character
-  var_abr <- r[[1]] %>% names() %>% stringr::str_split_i(pattern = "_", 1)
+  var_abr <- r[[1]] %>%
+    names() %>%
+    stringr::str_split_i(pattern = stringr::fixed("_"), 1)
 
   # check that layer names follow convention
-  layer_name_split <- r[[1]] %>% names() %>% stringr::str_split(pattern = "_")
-  available_vars <- c("t", "s", "o", "n", "p", "i")
+  layer_name_split <- r[[1]] %>%
+    names() %>%
+    stringr::str_split(pattern = stringr::fixed("_"))
+  available_vars <- .woa_variables()$code
   if (!layer_name_split[[1]][1] %in% available_vars) {
     stop(
-      "check raster layer names. For WOA data, oceanographic variable one-letter code must be one of: ",
-      paste(available_vars, collapse = ", "),
+      "check raster layer names. For WOA data, oceanographic variable ",
+      "one-letter code must be one of: ",
+      toString(available_vars),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
   if (!layer_name_split[[1]][2] %in% available_fields) {
     stop(
       "check raster layer names. For WOA data, field code must be one of: ",
-      paste(available_fields, collapse = ", "),
+      toString(available_fields),
       ". See https://repository.library.noaa.gov/view/noaa/70581"
     )
   }
@@ -359,59 +497,22 @@ woa_load_nc <- function(file_path, field = "an") {
   selected_names <- r %>%
     names() %>%
     stringr::str_subset(field_pattern)
+
+  # `field` is a valid WOA code, but this particular file may not carry it:
+  # NCEI ships some fields (e.g. "sea", "sdo") only for certain variables and
+  # periods. Report what the file does contain instead of letting the empty
+  # subset fail inside terra with "is.numeric(i) is not TRUE".
+  if (length(selected_names) == 0) {
+    present <- names(r) %>%
+      stringr::str_split_i(pattern = stringr::fixed("_"), 2) %>%
+      unique() %>%
+      sort()
+    stop(
+      "No layers for field '", field, "' in ", basename(file_path),
+      ". Fields present in this file: ", toString(present),
+      "."
+    )
+  }
+
   r[[selected_names]]
 }
-
-#' Summarise monthly WOA data across months
-#'
-#' Takes a directory of monthly WOA .nc files (e.g., 12 files for January to
-#' December) and computes the min, max, and max-minus-min (diff) across months
-#' at each depth layer. Works for any WOA variable.
-#'
-#' Replaces the ad-hoc loop in `data-raw/WOA.R`.
-#'
-#' @param monthly_dir Character. Path to directory containing monthly WOA .nc
-#'   files. All `.nc` files in the directory are loaded.
-#' @param field Character. Statistical field to select from each file.
-#'   Default `"an"`.
-#' @param files Character vector. Optional explicit list of files (overrides
-#'   `monthly_dir`).
-#'
-#' @returns Named list of SpatRasters: `min`, `max`, `diff`. Each uses the
-#'   `{variable}_depth={value}` layer naming convention.
-#' @export
-woa_summarise_monthly <- function(monthly_dir = NULL, field = "an",
-                                  files = NULL) {
-  if (is.null(files)) {
-    if (is.null(monthly_dir) || !dir.exists(monthly_dir)) {
-      stop("Directory not found: ", monthly_dir)
-    }
-    files <- list.files(monthly_dir, pattern = "\\.nc$",
-                        full.names = TRUE, ignore.case = TRUE)
-  }
-  if (length(files) == 0) {
-    stop("No .nc files found in: ", monthly_dir)
-  }
-
-  monthly <- lapply(files, function(f) woa_load_nc(f, field = field))
-  depth_names <- names(monthly[[1]])
-
-  # For each depth layer, stack that layer across all months, then reduce.
-  per_depth <- lapply(depth_names, function(dn) {
-    stk <- terra::rast(lapply(monthly, function(x) x[[dn]]))
-    mx <- terra::app(stk, fun = "max", na.rm = TRUE)
-    mn <- terra::app(stk, fun = "min", na.rm = TRUE)
-    df <- mx - mn
-    names(mx) <- dn
-    names(mn) <- dn
-    names(df) <- dn
-    list(max = mx, min = mn, diff = df)
-  })
-
-  list(
-    min  = terra::rast(lapply(per_depth, `[[`, "min")),
-    max  = terra::rast(lapply(per_depth, `[[`, "max")),
-    diff = terra::rast(lapply(per_depth, `[[`, "diff"))
-  )
-}
-
