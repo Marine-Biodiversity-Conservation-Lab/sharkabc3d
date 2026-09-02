@@ -27,6 +27,19 @@ a contribution needs to look like to be merged.
 
 ---
 
+## Useful resources for learning how to contribute
+
+R Packages (2e)
+https://r-pkgs.org/
+
+Happy Git and GitHub for the useR
+https://happygitwithr.com/ 
+
+Advanced R
+http://adv-r.had.co.nz/ 
+
+---
+
 ## How contributing works for **sharkabc3d** 
 
 ### The loop
