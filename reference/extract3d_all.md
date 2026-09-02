@@ -14,7 +14,9 @@ extract3d_all(data, nc, var = NULL, ...)
 
 - data:
 
-  Data frame containing observation points.
+  Object containing observation points. Can be a data frame, tibble,
+  `sf` object with POINT geometries, matrix with column names, or named
+  list.
 
 - nc:
 
@@ -31,9 +33,36 @@ extract3d_all(data, nc, var = NULL, ...)
 - ...:
 
   Additional arguments passed to
-  [`extract_netcdf()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_netcdf.md).
+  [`extract_to_point()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_point.md).
 
 ## Value
 
-The original `data` with three extracted columns: `nearest_*`,
-`surface_*` and `seabottom_*`.
+The input observations with three extracted columns: `nearest_*`,
+`surface_*` and `seabottom_*`. Data frames, tibbles and `sf` objects
+retain their structure; matrices and named lists are returned as data
+frames.
+
+## Examples
+
+``` r
+nc_file <- system.file(
+  "extdata", "example_3d.nc",
+  package = "sharkabc3d"
+)
+
+observations <- data.frame(
+  lon = c(0, 1),
+  lat = c(40, 41),
+  depth = c(60, 100),
+  date = as.Date(c("2020-01-01", "2020-01-03"))
+)
+
+extract3d_all(
+  data = observations,
+  nc = nc_file,
+  var = "temp"
+)
+#>   lon lat depth       date nearest_temp surface_temp seabottom_temp
+#> 1   0  40    60 2020-01-01         15.0         20.0           10.0
+#> 2   1  41   100 2020-01-03         13.5         23.5           13.5
+```

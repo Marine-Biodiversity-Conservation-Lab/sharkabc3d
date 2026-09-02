@@ -13,7 +13,9 @@ extract2d(data, nc, var = NULL, ...)
 
 - data:
 
-  Data frame containing observation points.
+  Object containing observation points. Can be a data frame, tibble,
+  `sf` object with POINT geometries, matrix with column names, or named
+  list.
 
 - nc:
 
@@ -30,8 +32,34 @@ extract2d(data, nc, var = NULL, ...)
 - ...:
 
   Additional arguments passed to
-  [`extract_netcdf()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_netcdf.md).
+  [`extract_to_point()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_point.md).
 
 ## Value
 
-The original `data` with extracted values appended.
+The input observations with extracted values appended. Data frames,
+tibbles and `sf` objects retain their structure; matrices and named
+lists are returned as data frames.
+
+## Examples
+
+``` r
+nc_file <- system.file(
+  "extdata", "example_2d.nc",
+  package = "sharkabc3d"
+)
+
+observations <- data.frame(
+  lon = c(0, 1),
+  lat = c(40, 41),
+  date = as.Date(c("2020-01-01", "2020-01-03"))
+)
+
+extract2d(
+  data = observations,
+  nc = nc_file,
+  var = "temp"
+)
+#>   lon lat       date temp
+#> 1   0  40 2020-01-01 15.0
+#> 2   1  41 2020-01-03 18.5
+```
