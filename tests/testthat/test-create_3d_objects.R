@@ -379,3 +379,31 @@ test_that("envelope_to_voxel() accepts depths that merely coerce to numeric", {
   expect_error(envelope_to_voxel(good_envel, depths = 0:3),
                "not implemented")
 })
+
+test_that("envelope_to_voxel() generates voxel from envelope", {
+  temp_r <- make_footprint(c(1,1,1,1))
+  # Create 2x2 simple envelope with depth_min and depth_max layers. 
+  envel <- as_envelope(temp_r, depth_min = 70, depth_max = 210)
+
+  # Defined depth layers 
+  a_depths <- c(0, 50, 100, 150, 200, 300, 400)
+
+  # Expected result
+  expected_vox <- lapply(a_depths, function(x) {
+    if(x > 70 & x < 210) {
+      r <- terra::setValues(temp_r, 1)
+    } else {
+      r <- terra::setValues(temp_r, NA)
+    }
+    names(r) <- paste0("test_depth=", x)
+    r
+  }) %>% as_voxel()
+
+  expect_true(
+    identical(expected_vox, envelope_to_voxel(x = envel, depths = a_depths, varname = "test"))
+  )
+})
+
+# test_that("envelope_to_voxel() ", {
+  
+# })
