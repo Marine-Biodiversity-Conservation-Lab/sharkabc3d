@@ -25,12 +25,6 @@
 #'   down. Each is either a single number applying to the whole footprint, or a
 #'   single-layer SpatRaster on the grid of `x` giving the limit per cell. Omit
 #'   both when `x` already carries the two depth layers.
-#' @param seafloor SpatRaster or `NULL`. Optional single layer of positive-down
-#'   seafloor depth (metres) on the grid of `x`, e.g. the `seafloor` element of
-#'   a [create_study_voxel()] object. When supplied, `depth_max` is clamped to
-#'   it so the envelope never reaches below the seabed, and cells whose seafloor
-#'   is shallower than `depth_min` become `NA` — there is no water column left
-#'   for the phenomenon to occupy.
 #'
 #' @returns A [SpatEnvelope-class] with layers `depth_min` and `depth_max`, on
 #'   the grid of `x`.
@@ -44,16 +38,11 @@
 #' e <- as_envelope(fp, depth_min = 0, depth_max = 200)
 #' terra::values(e)
 #'
-#' # Clamped to the seafloor: the third cell's seabed is at 50 m, so the
-#' # envelope stops there rather than at the species' 200 m limit.
-#' seabed <- terra::setValues(terra::rast(fp), c(500, 500, 50, 500))
-#' terra::values(as_envelope(fp, 0, 200, seafloor = seabed))
-#'
 #' # Per-cell limits are allowed too, as single-layer rasters.
 #' dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 400))
 #' terra::values(as_envelope(fp, depth_min = 10, depth_max = dmax))
 #' @export
-as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
+as_envelope <- function(x, depth_min, depth_max) {
   if (inherits(x, "sf") || inherits(x, "sfc") || inherits(x, "SpatVector")) {
     stop("`x` must be a SpatRaster footprint, not vector geometry. ",
          "Rasterize the polygons onto the study grid first, or use ",
@@ -91,7 +80,7 @@ as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
     dmax <- terra::mask(.as_depth_layer(depth_max, "depth_max", x), present)
   }
 
-  # Checked before any seafloor clamp, so the error reports what was asked for.
+  # Check dmin and dmax layers 
   min_of <- function(r) {
     v <- terra::global(r, "min", na.rm = TRUE)[1, 1]
     if (is.null(v) || is.na(v)) NA_real_ else v
@@ -106,22 +95,6 @@ as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
   if (!is.na(thinnest) && thinnest < 0) {
     stop("`depth_max` must be at least `depth_min` in every cell.",
          call. = FALSE)
-  }
-
-  if (!is.null(seafloor)) {
-    if (!inherits(seafloor, "SpatRaster") || terra::nlyr(seafloor) != 1) {
-      stop("`seafloor` must be a single-layer SpatRaster of positive-down ",
-           "seafloor depth.", call. = FALSE)
-    }
-    if (!terra::compareGeom(seafloor, dmin, stopOnError = FALSE)) {
-      stop("`seafloor` must be on the same grid (CRS, extent, resolution) ",
-           "as `x`.", call. = FALSE)
-    }
-    # Where the seabed sits above the shallowest limit there is no water column
-    # left, so the cell is absent; elsewhere the envelope stops at the seabed.
-    wet <- terra::ifel(seafloor >= dmin, 1, NA)
-    dmin <- terra::mask(dmin, wet)
-    dmax <- terra::mask(terra::ifel(dmax > seafloor, seafloor, dmax), wet)
   }
 
   out <- c(dmin, dmax)
@@ -271,6 +244,8 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
     stop("Input error for envelope_to_voxel(): `varname` needs to be a string.",
          call. = FALSE)
   }
+
+  
 
   stop("not implemented yet")
 }
