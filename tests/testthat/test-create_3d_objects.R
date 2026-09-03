@@ -372,12 +372,16 @@ test_that("envelope_to_voxel() rejects invalid input param types", {
 test_that("envelope_to_voxel() accepts depths that merely coerce to numeric", {
   good_envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
 
-  # character and integer depths pass validation: they reach the unimplemented
-  # body rather than being rejected as the wrong type
-  expect_error(envelope_to_voxel(good_envel, depths = c("0", "100")),
-               "not implemented")
-  expect_error(envelope_to_voxel(good_envel, depths = 0:3),
-               "not implemented")
+  # character and integer depths are coerced rather than rejected as the wrong
+  # type, and the coerced values are what the layer names are built from
+  expect_identical(
+    names(envelope_to_voxel(good_envel, depths = c("0", "100"))),
+    paste0("presence_depth=", c(0, 100))
+  )
+  expect_identical(
+    names(envelope_to_voxel(good_envel, depths = 0:3)),
+    paste0("presence_depth=", 0:3)
+  )
 })
 
 test_that("envelope_to_voxel() generates voxel from envelope", {
@@ -399,11 +403,127 @@ test_that("envelope_to_voxel() generates voxel from envelope", {
     r
   }) %>% as_voxel()
 
-  expect_true(
-    identical(expected_vox, envelope_to_voxel(x = envel, depths = a_depths, varname = "test"))
+  got <- envelope_to_voxel(x = envel, depths = a_depths, varname = "test")
+
+  # identical() is too strict for this: it separates a stack built from seven
+  # single-layer rasters from one seven-layer raster, even when the grid, the
+  # names and every cell value agree.
+  expect_s4_class(got, "SpatVoxel")
+  expect_identical(names(got), names(expected_vox))
+  expect_equal(terra::values(got), terra::values(expected_vox))
+})
+
+test_that("envelope_to_voxel() includes depths that sit exactly on the limits", {
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 50, depth_max = 200)
+  vals <- terra::values(envelope_to_voxel(envel, depths = c(0, 50, 100, 200, 300)))
+
+  # 50 and 200 are the limits themselves, and are occupied
+  expect_equal(unname(vals[1, ]), c(NA, 1, 1, 1, NA))
+})
+
+test_that("envelope_to_voxel() leaves cells absent from the envelope empty", {
+  # cell 4 of make_footprint() is NA, so it is NA at every depth
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+  vals <- terra::values(envelope_to_voxel(envel, depths = c(0, 100, 200)))
+
+  expect_equal(unname(vals[, 1]), c(1, 1, 1, NA))
+  expect_true(all(is.na(vals[4, ])))
+})
+
+test_that("envelope_to_voxel() honours per-cell depth limits", {
+  fp <- make_footprint()
+  dmin <- terra::setValues(terra::rast(fp), c(0, 100, 200, 0))
+  dmax <- terra::setValues(terra::rast(fp), c(100, 300, 300, 300))
+  envel <- as_envelope(fp, depth_min = dmin, depth_max = dmax)
+
+  vals <- terra::values(envelope_to_voxel(envel, depths = c(0, 100, 200, 300)))
+
+  expect_equal(unname(vals[1, ]), c(1, 1, NA, NA))    # [0, 100]
+  expect_equal(unname(vals[2, ]), c(NA, 1, 1, 1))     # [100, 300]
+  expect_equal(unname(vals[3, ]), c(NA, NA, 1, 1))    # [200, 300]
+  expect_true(all(is.na(vals[4, ])))                  # absent footprint
+})
+
+test_that("envelope_to_voxel() writes a vertical profile from `fun`", {
+  fp <- make_footprint()
+  dmax <- terra::setValues(terra::rast(fp), c(100, 300, 300, 300))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = dmax)
+
+  # share of time spent at each occupied depth: depends on how many there are,
+  # so the two distinct intervals must get different profiles
+  v <- envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
+                         fun = function(d) rep(1 / length(d), length(d)),
+                         varname = "time")
+  vals <- terra::values(v)
+
+  expect_identical(names(v), paste0("time_depth=", c(0, 100, 200, 300)))
+  expect_equal(unname(vals[1, ]), c(0.5, 0.5, NA, NA))
+  expect_equal(unname(vals[2, ]), rep(0.25, 4))
+})
+
+test_that("envelope_to_voxel() passes the occupied depths to `fun`", {
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 50, depth_max = 200)
+
+  seen <- NULL
+  envelope_to_voxel(envel, depths = c(0, 50, 100, 200, 300),
+                    fun = function(d) { seen <<- d; 1 })
+
+  expect_equal(seen, c(50, 100, 200))
+})
+
+test_that("envelope_to_voxel() rejects a `fun` that returns the wrong shape", {
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 0, depth_max = 300)
+
+  expect_error(
+    envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
+                      fun = function(d) c(1, 2)),
+    "one value per depth"
+  )
+  expect_error(
+    envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
+                      fun = function(d) "deep"),
+    "must return numeric values"
   )
 })
 
-# test_that("envelope_to_voxel() ", {
-  
-# })
+test_that("envelope_to_voxel() sorts and deduplicates the requested depths", {
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 0, depth_max = 300)
+
+  v <- envelope_to_voxel(envel, depths = c(200, 0, 100, 200))
+
+  expect_identical(names(v), paste0("presence_depth=", c(0, 100, 200)))
+})
+
+test_that("envelope_to_voxel() rejects negative depths (positive-down convention)", {
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+
+  expect_error(envelope_to_voxel(envel, depths = c(-100, 0, 100)),
+               "positive metres increasing downward")
+})
+
+test_that("envelope_to_voxel() warns when an envelope resolves to no depth level", {
+  # [10, 20] falls between the standard levels, so the cell has nowhere to go
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 10, depth_max = 20)
+
+  expect_warning(v <- envelope_to_voxel(envel, depths = c(0, 100, 200)),
+                 "contains none of")
+  expect_true(all(is.na(terra::values(v))))
+})
+
+test_that("envelope_to_voxel() round-trips a voxel built on the same depths", {
+  # a gap-free voxel is the case where the two conversions are inverses
+  depths <- c(0, 100, 200, 300)
+  solid <- make_multidepth_rast(depths = depths,
+                                vals = list(c(10, NA, 5, NA),
+                                            c(11, 20, 6, NA),
+                                            c(12, 21, 7, NA),
+                                            c(NA, 22, 8, NA)))
+  v <- as_voxel(solid)
+
+  back <- envelope_to_voxel(voxel_to_envelope(v), depths = depths, varname = "temp")
+
+  # presence pattern is recovered exactly; the values themselves are not, since
+  # an envelope carries only the depth limits
+  expect_identical(names(back), names(v))
+  expect_equal(is.na(terra::values(back)), is.na(terra::values(v)))
+})

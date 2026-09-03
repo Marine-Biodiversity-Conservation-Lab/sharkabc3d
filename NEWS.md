@@ -79,3 +79,23 @@
 * `as_voxel()` is idempotent, so re-wrapping after a terra operation that drops
   the class (`crop()`, `mask()`, `[[`) is cheap.
 * Import `methods::is()`, used by `as_voxel()` and `voxel_to_envelope()`.
+
+# sharkabc3d 0.1.1.9007
+* Implement `envelope_to_voxel()`, the expansion from `SpatEnvelope` to
+  `SpatVoxel`. It writes one layer per requested standard depth, marking a
+  depth as occupied where it falls inside a cell's `[depth_min, depth_max]`
+  interval, inclusive of both ends so that a voxel built on the depths
+  `voxel_to_envelope()` reported round-trips to the same presence pattern.
+* `fun` controls what the voxel carries. It receives the depths inside a cell's
+  envelope and returns either one value per depth or a single value for all of
+  them; the default writes `1` everywhere, giving a presence voxel. A profile
+  function is what vertical-migration work needs — pass the share of time spent
+  at each depth and the voxel carries that distribution instead. `fun` is
+  evaluated once per distinct envelope interval on the grid rather than once
+  per cell, since its result depends only on which depths are inside.
+* Requested depths are sorted and deduplicated to match the voxel layer axis;
+  negative depths are an error, following the package's positive-down
+  convention. A cell whose envelope contains none of the requested depths comes
+  back empty and is warned about, since that resolution loss is otherwise
+  silent.
+* `envelope_to_voxel()` is now exported.
