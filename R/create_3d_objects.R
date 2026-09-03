@@ -25,19 +25,9 @@
 #'   down. Each is either a single number applying to the whole footprint, or a
 #'   single-layer SpatRaster on the grid of `x` giving the limit per cell. Omit
 #'   both when `x` already carries the two depth layers.
-#' @param seafloor SpatRaster or `NULL`. Optional single layer of positive-down
-#'   seafloor depth (metres) on the grid of `x`, e.g. the `seafloor` element of
-#'   a [create_study_voxel()] object. When supplied, `depth_max` is clamped to
-#'   it so the envelope never reaches below the seabed, and cells whose seafloor
-#'   is shallower than `depth_min` become `NA` — there is no water column left
-#'   for the phenomenon to occupy.
 #'
 #' @returns A [SpatEnvelope-class] with layers `depth_min` and `depth_max`, on
 #'   the grid of `x`.
-#'
-#' @seealso [voxel_to_envelope()] to collapse a [SpatVoxel-class] instead,
-#'   [voxelize_range()] to go straight from polygons to an envelope, and
-#'   [calc_volume()] to measure the result.
 #'
 #' @examples
 #' # A 2x2 footprint: three cells present (any non-NA value), one absent.
@@ -48,16 +38,11 @@
 #' e <- as_envelope(fp, depth_min = 0, depth_max = 200)
 #' terra::values(e)
 #'
-#' # Clamped to the seafloor: the third cell's seabed is at 50 m, so the
-#' # envelope stops there rather than at the species' 200 m limit.
-#' seabed <- terra::setValues(terra::rast(fp), c(500, 500, 50, 500))
-#' terra::values(as_envelope(fp, 0, 200, seafloor = seabed))
-#'
 #' # Per-cell limits are allowed too, as single-layer rasters.
 #' dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 400))
 #' terra::values(as_envelope(fp, depth_min = 10, depth_max = dmax))
 #' @export
-as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
+as_envelope <- function(x, depth_min, depth_max) {
   if (inherits(x, "sf") || inherits(x, "sfc") || inherits(x, "SpatVector")) {
     stop("`x` must be a SpatRaster footprint, not vector geometry. ",
          "Rasterize the polygons onto the study grid first, or use ",
@@ -95,7 +80,7 @@ as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
     dmax <- terra::mask(.as_depth_layer(depth_max, "depth_max", x), present)
   }
 
-  # Checked before any seafloor clamp, so the error reports what was asked for.
+  # Check dmin and dmax layers 
   min_of <- function(r) {
     v <- terra::global(r, "min", na.rm = TRUE)[1, 1]
     if (is.null(v) || is.na(v)) NA_real_ else v
@@ -110,22 +95,6 @@ as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
   if (!is.na(thinnest) && thinnest < 0) {
     stop("`depth_max` must be at least `depth_min` in every cell.",
          call. = FALSE)
-  }
-
-  if (!is.null(seafloor)) {
-    if (!inherits(seafloor, "SpatRaster") || terra::nlyr(seafloor) != 1) {
-      stop("`seafloor` must be a single-layer SpatRaster of positive-down ",
-           "seafloor depth.", call. = FALSE)
-    }
-    if (!terra::compareGeom(seafloor, dmin, stopOnError = FALSE)) {
-      stop("`seafloor` must be on the same grid (CRS, extent, resolution) ",
-           "as `x`.", call. = FALSE)
-    }
-    # Where the seabed sits above the shallowest limit there is no water column
-    # left, so the cell is absent; elsewhere the envelope stops at the seabed.
-    wet <- terra::ifel(seafloor >= dmin, 1, NA)
-    dmin <- terra::mask(dmin, wet)
-    dmax <- terra::mask(terra::ifel(dmax > seafloor, seafloor, dmax), wet)
   }
 
   out <- c(dmin, dmax)
@@ -240,9 +209,136 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 }
 
 #' Convert Envelope 2.5D -> Voxel 3D
-#' @noRd
-envelope_to_voxel <- function(x, depths, values = NULL, varname = "presence") {
-  stop("not implemented yet")
+#' 
+#' Expand a [SpatEnvelope-class] to the [SpatVoxel-class], with an input of
+#' depth levels. A depth level belongs to a cell when it falls inside that
+#' cell's `[depth_min, depth_max]` interval, inclusive of both ends; depths
+#' outside the interval, and cells that are `NA` in the envelope, are `NA` in
+#' every layer.
+#'
+#' `fun` supplies the values written at the levels a cell occupies, and so
+#' controls what the voxel *means*. The default writes `1` at every occupied
+#' level, giving a presence voxel — the direct 3D form of the envelope. A
+#' function of the occupied depths instead writes a vertical profile, which is
+#' what vertical-migration work needs: pass the share of time spent at each
+#' depth and the voxel carries that distribution rather than bare presence.
+#' `fun` is called once per distinct envelope interval on the grid, not once
+#' per cell, since its result depends only on which depths are inside.
+#'
+#' The expansion is limited by the levels on offer: a cell whose envelope
+#' contains none of `depths` — an interval of `[10, 20]` against levels
+#' `c(0, 100)`, say — has no layer to be recorded in and comes back empty. That
+#' is the resolution cost of the voxel form, and is warned about rather than
+#' passed over in silence.
+#'
+#' @param x SpatEnvelope, e.g. from [as_envelope()] or [voxel_to_envelope()].
+#' @param depths Array of values that can be coerced into numeric type,
+#'   represents metres depth below sea level. Sorted shallow to deep, and
+#'   deduplicated, before use.
+#' @param fun Function taking the depths inside a cell's envelope and returning
+#'   the values to write at them: either one value per depth, or a single value
+#'   used at all of them. Defaults to `1` between `depth_min` and `depth_max`
+#'   of SpatEnvelope type.
+#' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
+#'
+#' @returns A [SpatVoxel-class] with one layer per depth in `depths`, on the
+#'   grid of `x`, layers ordered shallow to deep.
+#'
+#' @seealso [voxel_to_envelope()], the reverse (and lossy) collapse.
+#'
+#' @examples
+#' fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
+#' terra::values(fp) <- c(1, NA)
+#' e <- as_envelope(fp, depth_min = 50, depth_max = 200)
+#'
+#' # presence at every standard depth the envelope covers
+#' terra::values(envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300)))
+#'
+#' # a vertical profile instead: the share of time spent at each occupied depth
+#' terra::values(
+#'   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
+#'                     fun = function(d) rep(1 / length(d), length(d)),
+#'                     varname = "time")
+#' )
+#' @export
+envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "presence") {
+  if (!is(x, "SpatEnvelope")) {
+    stop("Input error for envelope_to_voxel(): `x` needs to be of ",
+         "`SpatEnvelope` class.", call. = FALSE)
+  }
+  # Coercion, not class: an integer vector, or a character vector of numbers,
+  # is as good as a double here — "hello" is not a depth.
+  depths <- suppressWarnings(as.numeric(depths))
+  if (length(depths) == 0 || anyNA(depths)) {
+    stop("Input error for envelope_to_voxel(): `depths` needs to be array ",
+         "coercible to numeric type.", call. = FALSE)
+  }
+  if (!is.function(fun)) {
+    stop("Input error for envelope_to_voxel(): `fun` needs to be a function.",
+         call. = FALSE)
+  }
+  if (!is.character(varname) || length(varname) != 1 || is.na(varname)) {
+    stop("Input error for envelope_to_voxel(): `varname` needs to be a string.",
+         call. = FALSE)
+  }
+  if (any(depths < 0)) {
+    stop("Input error for envelope_to_voxel(): depths are positive metres ",
+         "increasing downward; got ", paste(depths[depths < 0], collapse = ", "),
+         ".", call. = FALSE)
+  }
+
+  # A voxel's layer axis is one layer per depth, shallow to deep, so the
+  # requested levels are put in that form up front.
+  depths <- sort(unique(depths))
+  n_depths <- length(depths)
+
+  dmin <- terra::values(x[["depth_min"]], mat = FALSE)
+  dmax <- terra::values(x[["depth_max"]], mat = FALSE)
+
+  # The levels a cell occupies are always a contiguous run of `depths`, because
+  # an envelope is a single solid interval. Recording that run as its first and
+  # last index avoids building a cells-by-depths logical matrix.
+  first <- findInterval(dmin, depths, left.open = TRUE) + 1L  # first depth >= dmin
+  last <- findInterval(dmax, depths)                          # last depth <= dmax
+  occupied <- !is.na(first) & !is.na(last) & first <= last
+
+  # Present in the envelope, but no requested depth level lies inside it.
+  n_missed <- sum(!is.na(dmin) & !is.na(dmax) & !occupied)
+  if (n_missed > 0) {
+    warning(n_missed, " cell(s) have an envelope that contains none of ",
+            "`depths` and are empty in the voxel. Supply finer depth levels ",
+            "to resolve them.", call. = FALSE)
+  }
+
+  out <- matrix(NA_real_, nrow = length(dmin), ncol = n_depths)
+
+  # Cells sharing an interval share a profile, so `fun` is evaluated per
+  # distinct interval. A grid holds far fewer of those than it does cells.
+  interval <- first * (n_depths + 1L) + last
+  for (cells in split(which(occupied), interval[occupied])) {
+    levels_in <- first[cells[1]]:last[cells[1]]
+    vals <- fun(depths[levels_in])
+
+    if (!is.numeric(vals) && !is.logical(vals)) {
+      stop("`fun` must return numeric values for the depths it is given; got ",
+           paste(class(vals), collapse = "/"), ".", call. = FALSE)
+    }
+    if (length(vals) != 1 && length(vals) != length(levels_in)) {
+      stop("`fun` must return one value per depth, or a single value for all ",
+           "of them; got ", length(vals), " values for ", length(levels_in),
+           " depths.", call. = FALSE)
+    }
+
+    # Column-major fill: `each` repeats a depth's value down the cells sharing
+    # this interval, matching how the target submatrix is laid out.
+    out[cells, levels_in] <- rep(as.numeric(vals), each = length(cells))
+  }
+
+  v <- terra::rast(terra::rast(x[["depth_min"]]), nlyrs = n_depths)
+  terra::values(v) <- out
+  names(v) <- paste0(varname, "_depth=", depths)
+
+  as_voxel(v)
 }
 
 #' Collapse Voxel 3D -> Envelope 2.5D
@@ -282,31 +378,46 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
     stop("`v` must be a SpatVoxel object.")
   }
   depths <- .parse_depth_layers(v)
+  n_cells <- terra::ncell(v)
+  n_depths <- length(depths)
 
-  # Depth stamp per layer: the layer's depth where `fun` holds, NA elsewhere.
-  # `fun` is evaluated on the values rather than on the SpatRaster so that any
-  # ordinary R predicate works, not only terra-aware ones.
-  stamped <- lapply(seq_along(depths), function(i) {
-    hit <- as.logical(fun(terra::values(v[[i]], mat = FALSE)))
-    if (length(hit) != terra::ncell(v)) {
+  # Hit matrix (cells x depths): does `fun` hold for this cell at this depth?
+  # The stack is read once and `fun` is still applied one depth layer at a
+  # time, so a predicate that reduces over a layer (e.g. `\(x) x > mean(x)`)
+  # keeps its per-depth meaning. `fun` is evaluated on the values rather than
+  # on the SpatRaster so that any ordinary R predicate works, not only
+  # terra-aware ones.
+  vals <- terra::values(v)
+  hit <- matrix(FALSE, nrow = n_cells, ncol = n_depths)
+  for (i in seq_len(n_depths)) {
+    h <- as.logical(fun(vals[, i]))
+    if (length(h) != n_cells) {
       stop("`fun` must return one TRUE/FALSE per cell value; got ",
-           length(hit), " values for ", terra::ncell(v), " cells.",
+           length(h), " values for ", n_cells, " cells.",
            call. = FALSE)
     }
-    hit[is.na(hit)] <- FALSE
-    terra::setValues(terra::rast(v[[i]]),
-                     ifelse(hit, depths[i], NA_real_))
-  })
+    h[is.na(h)] <- FALSE
+    hit[, i] <- h
+  }
+  rm(vals)
 
-  stamped <- terra::rast(stamped)
-  # all-NA cells (predicate never TRUE) must stay NA, not become +/-Inf
-  any_hit <- terra::app(stamped, function(x) as.numeric(any(!is.na(x))))
-  any_hit <- terra::ifel(any_hit > 0, 1, NA)
+  # `SpatVoxel` validity guarantees depths are non-NA and sorted shallow to
+  # deep, so each row's first and last TRUE column are exactly the envelope
+  # bounds. `max.col()` finds them at C level, which avoids building one
+  # full-size intermediate raster per depth.
+  first_hit <- max.col(hit, ties.method = "first")
+  last_hit <- max.col(hit, ties.method = "last")
 
-  out <- c(
-    terra::mask(min(stamped, na.rm = TRUE), any_hit),
-    terra::mask(max(stamped, na.rm = TRUE), any_hit)
-  )
+  # An all-FALSE row still yields a column index, so cells where the predicate
+  # never holds must go back to NA rather than point at the shallowest depth.
+  never <- !hit[cbind(seq_len(n_cells), first_hit)]
+  depth_min <- depths[first_hit]
+  depth_max <- depths[last_hit]
+  depth_min[never] <- NA_real_
+  depth_max[never] <- NA_real_
+
+  out <- terra::setValues(terra::rast(v[[1]], nlyrs = 2),
+                          cbind(depth_min, depth_max))
   names(out) <- c("depth_min", "depth_max")
 
   out <- methods::new("SpatEnvelope", out)

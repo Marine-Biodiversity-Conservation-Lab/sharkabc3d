@@ -8,7 +8,7 @@ as_voxel(x, depths = NULL, varname = "value")
 }
 \arguments{
 \item{x}{SpatRaster with \verb{\{variable\}_depth=\{value\}} layer names, a list of
-single-depth SpatRasters, or an existing \link[=SpatVoxel-class]{SpatVoxel}.}
+single-depth SpatRasters, or an existing \linkS4class{SpatVoxel}.}
 
 \item{depths}{Optional numeric vector, one depth per layer, in metres. When
 supplied, layer names are (re)built from \code{depths} and \code{varname}, replacing
@@ -18,18 +18,14 @@ any existing names. Required if \code{x} has no conforming layer names.}
 \code{depths}. Ignored when \code{depths} is \code{NULL}.}
 }
 \value{
-A \link[=SpatVoxel-class]{SpatVoxel} whose layers are ordered shallow to deep.
+A \linkS4class{SpatVoxel} whose layers are ordered shallow to deep.
 }
 \description{
-Wrap a multi-depth raster as a \link[=SpatVoxel-class]{SpatVoxel}: the validated 3D form used
+Wrap a multi-depth raster as a \linkS4class{SpatVoxel}: the validated 3D form used
 throughout the package, with one layer per standard depth and layer names
 following the \verb{\{variable\}_depth=\{value\}} convention.
 }
 \details{
-This is the constructor to reach for rather than \code{methods::new("SpatVoxel", x)}. Both validate, but only \code{as_voxel()} normalises the input first: it
-accepts several input shapes, builds layer names from \code{depths} when asked,
-and sorts layers shallow to deep. \code{new()} can only reject.
-
 Most terra operations (\code{crop()}, \code{mask()}, \code{[[}) return a plain \code{SpatRaster}
 and so drop the class, which makes re-wrapping a routine step. \code{as_voxel()}
 is idempotent for that reason — given a \code{SpatVoxel} it returns it untouched.

@@ -5,7 +5,7 @@
 \alias{SpatEnvelope-class}
 \title{2.5D min-max envelope: exactly depth_min, depth_max}
 \description{
-A \code{SpatEnvelope} is a \link[terra:SpatRaster]{terra::SpatRaster} with exactly two layers,
+A \code{SpatEnvelope} is a \link[terra:SpatRaster-class]{terra::SpatRaster} with exactly two layers,
 \code{depth_min} and \code{depth_max}, in which \strong{depth is the cell value}. The
 variable is the object itself: the envelope delimits the vertical extent of
 a spatial phenomenon (typically a species range) rather than sampling a
@@ -17,5 +17,5 @@ construction — an envelope cannot represent a gap in the vertical
 distribution.
 }
 \seealso{
-\link[=SpatVoxel-class]{SpatVoxel}, \link[=SpatVolume-class]{SpatVolume}
+\linkS4class{SpatVoxel}, \linkS4class{SpatVolume}
 }
