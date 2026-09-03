@@ -244,58 +244,6 @@ test_that("as_envelope() output is measurable by calc_volume()", {
   expect_equal(calc_volume(e), sum(area_km2 * 100 / 1000))
 })
 
-# voxel_to_envelope() ---- 
-test_that("voxel_to_envelope() gracefully rejects non SpatVoxel object as input param", {
-  not_voxel <- make_multidepth_rast()
-  expect_error(voxel_to_envelope(not_voxel))
-
-  voxel <- as_voxel(not_voxel)
-  expect_true(methods::is(voxel, "SpatVoxel"))
-})
-
-test_that("voxel_to_envelope() rejects a non-function fun", {
-  v <- methods::new("SpatVoxel", make_multidepth_rast())
-  expect_error(voxel_to_envelope(v, "extent"), "must be a function")
-})
-
-
-test_that("voxel_to_envelope() defaults to the non-NA vertical extent", {
-  v <- methods::new("SpatVoxel", make_multidepth_rast())
-  e <- voxel_to_envelope(v)
-
-  expect_s4_class(e, "SpatEnvelope")
-  expect_identical(names(e), c("depth_min", "depth_max"))
-
-  vals <- terra::values(e)
-  expect_equal(unname(vals[, "depth_min"]), c(0, 100, 0, NA))
-  expect_equal(unname(vals[, "depth_max"]), c(200, 200, 300, NA))
-})
-
-test_that("voxel_to_envelope() fills interior gaps (lossy collapse)", {
-  # cell 1 has values at 0 m and 200 m but not at 100 m; the envelope is solid
-  v <- methods::new("SpatVoxel", make_multidepth_rast())
-  vals <- terra::values(voxel_to_envelope(v))
-
-  expect_equal(unname(vals[1, "depth_min"]), 0)
-  expect_equal(unname(vals[1, "depth_max"]), 200)
-})
-
-test_that("voxel_to_envelope() bounds the depths where the predicate holds", {
-  v <- methods::new("SpatVoxel", make_multidepth_rast())
-  vals <- terra::values(voxel_to_envelope(v, function(x) x > 15))
-
-  # only cell 2 exceeds 15, at 100 m and 200 m
-  expect_equal(unname(vals[, "depth_min"]), c(NA, 100, NA, NA))
-  expect_equal(unname(vals[, "depth_max"]), c(NA, 200, NA, NA))
-})
-
-test_that("voxel_to_envelope() returns NA where the predicate never holds", {
-  v <- methods::new("SpatVoxel", make_multidepth_rast())
-  vals <- terra::values(voxel_to_envelope(v, function(x) x > 1e6))
-
-  expect_true(all(is.na(vals)))
-})
-
 # as_voxel() ----
 
 test_that("as_voxel() wraps a conforming multi-depth SpatRaster", {
@@ -384,3 +332,54 @@ test_that("as_voxel() output is accepted by voxel_to_envelope()", {
   expect_s4_class(e, "SpatEnvelope")
 })
 
+# voxel_to_envelope() ---- 
+test_that("voxel_to_envelope() gracefully rejects non SpatVoxel object as input param", {
+  not_voxel <- make_multidepth_rast()
+  expect_error(voxel_to_envelope(not_voxel))
+
+  voxel <- as_voxel(not_voxel)
+  expect_true(methods::is(voxel, "SpatVoxel"))
+})
+
+test_that("voxel_to_envelope() rejects a non-function fun", {
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
+  expect_error(voxel_to_envelope(v, "extent"), "must be a function")
+})
+
+
+test_that("voxel_to_envelope() defaults to the non-NA vertical extent", {
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
+  e <- voxel_to_envelope(v)
+
+  expect_s4_class(e, "SpatEnvelope")
+  expect_identical(names(e), c("depth_min", "depth_max"))
+
+  vals <- terra::values(e)
+  expect_equal(unname(vals[, "depth_min"]), c(0, 100, 0, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(200, 200, 300, NA))
+})
+
+test_that("voxel_to_envelope() fills interior gaps (lossy collapse)", {
+  # cell 1 has values at 0 m and 200 m but not at 100 m; the envelope is solid
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
+  vals <- terra::values(voxel_to_envelope(v))
+
+  expect_equal(unname(vals[1, "depth_min"]), 0)
+  expect_equal(unname(vals[1, "depth_max"]), 200)
+})
+
+test_that("voxel_to_envelope() bounds the depths where the predicate holds", {
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
+  vals <- terra::values(voxel_to_envelope(v, function(x) x > 15))
+
+  # only cell 2 exceeds 15, at 100 m and 200 m
+  expect_equal(unname(vals[, "depth_min"]), c(NA, 100, NA, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(NA, 200, NA, NA))
+})
+
+test_that("voxel_to_envelope() returns NA where the predicate never holds", {
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
+  vals <- terra::values(voxel_to_envelope(v, function(x) x > 1e6))
+
+  expect_true(all(is.na(vals)))
+})
