@@ -157,7 +157,7 @@ test_that("as_envelope() is idempotent on its own output", {
 })
 
 test_that("as_envelope() promotes voxel_to_envelope() output unchanged", {
-  v <- methods::new("SpatVoxel", make_voxel_rast())
+  v <- methods::new("SpatVoxel", make_multidepth_rast())
   e <- voxel_to_envelope(v)
 
   expect_equal(terra::values(as_envelope(e)), terra::values(e))
@@ -175,7 +175,7 @@ test_that("as_envelope() requires depth limits for a bare footprint", {
 })
 
 test_that("as_envelope() rejects a multi-layer footprint", {
-  expect_error(as_envelope(make_voxel_rast(), 0, 200), "single-layer footprint")
+  expect_error(as_envelope(make_multidepth_rast(), 0, 200), "single-layer footprint")
 })
 
 test_that("as_envelope() rejects vector geometry with a pointer to voxelize_range()", {
@@ -223,7 +223,7 @@ test_that("as_envelope() rejects depth and seafloor rasters off the footprint gr
                "same grid")
   expect_error(as_envelope(fp, 0, 200, seafloor = other),
                "same grid")
-  expect_error(as_envelope(fp, 0, 200, seafloor = make_voxel_rast()),
+  expect_error(as_envelope(fp, 0, 200, seafloor = make_multidepth_rast()),
                "single-layer SpatRaster")
 })
 
