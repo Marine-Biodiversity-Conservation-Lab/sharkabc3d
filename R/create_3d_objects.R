@@ -378,31 +378,46 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
     stop("`v` must be a SpatVoxel object.")
   }
   depths <- .parse_depth_layers(v)
+  n_cells <- terra::ncell(v)
+  n_depths <- length(depths)
 
-  # Depth stamp per layer: the layer's depth where `fun` holds, NA elsewhere.
-  # `fun` is evaluated on the values rather than on the SpatRaster so that any
-  # ordinary R predicate works, not only terra-aware ones.
-  stamped <- lapply(seq_along(depths), function(i) {
-    hit <- as.logical(fun(terra::values(v[[i]], mat = FALSE)))
-    if (length(hit) != terra::ncell(v)) {
+  # Hit matrix (cells x depths): does `fun` hold for this cell at this depth?
+  # The stack is read once and `fun` is still applied one depth layer at a
+  # time, so a predicate that reduces over a layer (e.g. `\(x) x > mean(x)`)
+  # keeps its per-depth meaning. `fun` is evaluated on the values rather than
+  # on the SpatRaster so that any ordinary R predicate works, not only
+  # terra-aware ones.
+  vals <- terra::values(v)
+  hit <- matrix(FALSE, nrow = n_cells, ncol = n_depths)
+  for (i in seq_len(n_depths)) {
+    h <- as.logical(fun(vals[, i]))
+    if (length(h) != n_cells) {
       stop("`fun` must return one TRUE/FALSE per cell value; got ",
-           length(hit), " values for ", terra::ncell(v), " cells.",
+           length(h), " values for ", n_cells, " cells.",
            call. = FALSE)
     }
-    hit[is.na(hit)] <- FALSE
-    terra::setValues(terra::rast(v[[i]]),
-                     ifelse(hit, depths[i], NA_real_))
-  })
+    h[is.na(h)] <- FALSE
+    hit[, i] <- h
+  }
+  rm(vals)
 
-  stamped <- terra::rast(stamped)
-  # all-NA cells (predicate never TRUE) must stay NA, not become +/-Inf
-  any_hit <- terra::app(stamped, function(x) as.numeric(any(!is.na(x))))
-  any_hit <- terra::ifel(any_hit > 0, 1, NA)
+  # `SpatVoxel` validity guarantees depths are non-NA and sorted shallow to
+  # deep, so each row's first and last TRUE column are exactly the envelope
+  # bounds. `max.col()` finds them at C level, which avoids building one
+  # full-size intermediate raster per depth.
+  first_hit <- max.col(hit, ties.method = "first")
+  last_hit <- max.col(hit, ties.method = "last")
 
-  out <- c(
-    terra::mask(min(stamped, na.rm = TRUE), any_hit),
-    terra::mask(max(stamped, na.rm = TRUE), any_hit)
-  )
+  # An all-FALSE row still yields a column index, so cells where the predicate
+  # never holds must go back to NA rather than point at the shallowest depth.
+  never <- !hit[cbind(seq_len(n_cells), first_hit)]
+  depth_min <- depths[first_hit]
+  depth_max <- depths[last_hit]
+  depth_min[never] <- NA_real_
+  depth_max[never] <- NA_real_
+
+  out <- terra::setValues(terra::rast(v[[1]], nlyrs = 2),
+                          cbind(depth_min, depth_max))
   names(out) <- c("depth_min", "depth_max")
 
   out <- methods::new("SpatEnvelope", out)

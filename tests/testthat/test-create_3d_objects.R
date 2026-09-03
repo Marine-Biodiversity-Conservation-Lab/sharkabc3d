@@ -319,6 +319,17 @@ test_that("voxel_to_envelope() returns NA where the predicate never holds", {
   expect_true(all(is.na(vals)))
 })
 
+test_that("voxel_to_envelope() handles a single-depth voxel", {
+  # a one-layer voxel collapses to a zero-thickness envelope at that depth
+  v <- methods::new("SpatVoxel",
+                    make_multidepth_rast(depths = 50,
+                                         vals = list(c(10, NA, 5, NA))))
+  vals <- terra::values(voxel_to_envelope(v))
+
+  expect_equal(unname(vals[, "depth_min"]), c(50, NA, 50, NA))
+  expect_equal(unname(vals[, "depth_max"]), c(50, NA, 50, NA))
+})
+
 # envelope_to_voxel() ----
 test_that("envelope_to_voxel() rejects invalid input param types", {
   # a multi-depth raster is a plausible-looking but wrong input: it is the
