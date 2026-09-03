@@ -66,6 +66,15 @@ extract_rast_range <- function(range_rast, rast_3d) {
 # pass `error = FALSE` so they can report the failure themselves.
 .parse_depth_layers <- function(rast, error = TRUE) {
   layer_names <- names(rast)
+  .parse_depth_layers_names(layer_names = layer_names, error = error)
+}
+
+# Internal: parse numeric depths from the `{variable}_depth={value}` layer
+# naming convention used throughout the package. Takes a vector of character strings, 
+# Returns a numeric vector the same length as `nlyr(rast)`, NA for any layer that 
+# does not match. With `error = TRUE` (the default) it stops when no layer matches; 
+# validity methods pass `error = FALSE` so they can report the failure themselves.
+.parse_depth_layers_names <- function(layer_names, error = TRUE) {
   depths <- suppressWarnings(
     as.numeric(stringr::str_extract(layer_names, "(?<=_depth=)-?[0-9.]+"))
   )

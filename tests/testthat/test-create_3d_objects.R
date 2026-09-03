@@ -383,3 +383,35 @@ test_that("voxel_to_envelope() returns NA where the predicate never holds", {
 
   expect_true(all(is.na(vals)))
 })
+
+# envelope_to_voxel() ----
+test_that("envelope_to_voxel() rejects invalid input param types", {
+  bad_envel <- make_multidepth_rast()
+  good_envel <- make_multidepth_rast() %>% as_voxel()
+
+  bad_depths <- c("hello", 100, "depths")
+  good_depths <- c(0, 50, 100, 150, 200, 300, 600)
+
+  # check for param x valid SpatEnvelope
+  expect_error(
+    envelope_to_voxel(x = bad_envel, depths = good_depths),
+    "Input error for envelope_to_voxel(): `x` needs to be of `SpatEnvelope` class."
+  )
+  # check for param depths valid numeric 
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = bad_depths),
+    "Input error for envelope_to_voxel(): `depths` needs to be array coercible to numeric type."
+  )
+
+  # check for param fun valid function 
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, fun = "not a function"),
+    "Input error for envelope_to_voxel(): `fun` needs to be a function."
+  )
+
+  # check for param varname valid string 
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = bad_depths, varname = 100),
+    "Input error for envelope_to_voxel(): `varname` needs to be a string."
+  )
+})

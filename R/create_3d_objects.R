@@ -35,10 +35,6 @@
 #' @returns A [SpatEnvelope-class] with layers `depth_min` and `depth_max`, on
 #'   the grid of `x`.
 #'
-#' @seealso [voxel_to_envelope()] to collapse a [SpatVoxel-class] instead,
-#'   [voxelize_range()] to go straight from polygons to an envelope, and
-#'   [calc_volume()] to measure the result.
-#'
 #' @examples
 #' # A 2x2 footprint: three cells present (any non-NA value), one absent.
 #' fp <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
@@ -240,8 +236,29 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 }
 
 #' Convert Envelope 2.5D -> Voxel 3D
-#' @noRd
-envelope_to_voxel <- function(x, depths, values = NULL, varname = "presence") {
+#' 
+#' Expand a [SpatEnvelope-class] to the [SpatVoxel-class], with an input of 
+#' depth levels. The function `fun` is applied to generate cell values
+#' at each depth level. 
+#' 
+#' Do I want to have the option of applying a function over the vertical dimension of a cell? Ex. normal distribution from min to max depths, with values in between approximated. 
+#' That would be useful for vertical migration application, can take a function as an input from the amount of time spent at each depth, apply to the entire envelope. 
+#' 
+#' @param x SpatEnvelope
+#' @param depths Array of values that can be coerced into numeric type, represents metres depth below sea level. 
+#' @param fun Function that returns array same length as depths, generate values 
+#'   along the depth dimension. Defaults to `1` between `depth_min` and `depth_max`
+#'   of SpatEnvelope type. 
+#' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
+#' 
+envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "presence") {
+  # Input checks 
+  if(!is(x, "SpatEnvelope")) {
+    stop("Input error for envelope_to_voxel(): `x` needs to be of `SpatEnvelope` class.")
+  } 
+  
+
+
   stop("not implemented yet")
 }
 
