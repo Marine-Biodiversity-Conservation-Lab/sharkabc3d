@@ -144,3 +144,68 @@ fetch_species_assessments <- function(api_key,
 
   do.call(rbind, Filter(Negate(is.null), results))
 }
+
+#' Fill missing depth values
+#'
+#' Fix swapped upper/lower depth values and fill NAs using genus-level means.
+#' IUCN Red List assessments (see [fetch_species_assessments()]) sometimes
+#' record depth limits the wrong way around or omit them entirely.
+#' Designed for use inside [dplyr::mutate()] — returns a two-column tibble
+#' (`upper_depth` and `lower_depth`) that can be unpacked with `mutate()`.
+#'
+#' @param upper Numeric vector. Upper (shallower) depth limit values, possibly
+#'   with NAs or swapped values.
+#' @param lower Numeric vector. Lower (deeper) depth limit values, possibly
+#'   with NAs or swapped values.
+#' @param genus Character vector. Genus names, used to compute genus-level
+#'   mean depths for filling NAs.
+#' @param method Character. Method for filling missing values. Currently only
+#'   `"genus_mean"` is supported. Default `"genus_mean"`.
+#'
+#' @returns A tibble with columns `upper_depth` and `lower_depth`, suitable
+#'   for use with [dplyr::mutate()].
+#'
+#' @examples
+#' # Depth limits as they can arrive from an IUCN assessment: the first row is
+#' # swapped (upper deeper than lower) and the third is missing entirely.
+#' assessments <- data.frame(
+#'   genus_name = c("Carcharhinus", "Carcharhinus", "Carcharhinus", "Sphyrna"),
+#'   upper_depth_limit = c(280, 0, NA, 0),
+#'   lower_depth_limit = c(0, 100, NA, 512)
+#' )
+#'
+#' fill_missing_depths(
+#'   assessments$upper_depth_limit,
+#'   assessments$lower_depth_limit,
+#'   assessments$genus_name
+#' )
+#'
+#' # A genus with no non-missing values anywhere has nothing to fill from:
+#' fill_missing_depths(c(NA, NA), c(NA, NA), c("Raja", "Raja"))
+#'
+#' # Typical use, unpacking both columns inside dplyr::mutate():
+#' \dontrun{
+#' assessments <- assessments %>%
+#'   mutate(fill_missing_depths(upper_depth_limit, lower_depth_limit, genus_name))
+#' }
+#' @export
+fill_missing_depths <- function(upper, lower, genus, method = "genus_mean") {
+  if (method != "genus_mean") {
+    stop("Only method = 'genus_mean' is currently supported.")
+  }
+
+  # Fix swapped values (upper should be shallower, i.e. smaller)
+  swapped <- !is.na(upper) & !is.na(lower) & upper > lower
+  tmp <- upper[swapped]
+  upper[swapped] <- lower[swapped]
+  lower[swapped] <- tmp
+
+  # Per-genus means, broadcast back to each input row in place
+  genus_mean <- function(x) stats::ave(x, genus,
+                                       FUN = function(v) mean(v, na.rm = TRUE))
+
+  data.frame(
+    upper_depth = ifelse(is.na(upper), genus_mean(upper), upper),
+    lower_depth = ifelse(is.na(lower), genus_mean(lower), lower)
+  )
+}

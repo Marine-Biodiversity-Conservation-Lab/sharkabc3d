@@ -12,7 +12,7 @@ create_study_voxel(template, bathymetry, depths)
 column, e.g. from \code{\link[=create_study_raster]{create_study_raster()}}.}
 
 \item{bathymetry}{SpatRaster. GEBCO-style elevation raster with negative
-values below sea level (e.g. from \code{\link[=load_bathymetry]{load_bathymetry()}}). It is projected
+values below sea level (e.g. from \code{\link[=load_gebco_bathymetry]{load_gebco_bathymetry()}}). It is projected
 onto \code{template} and flipped to positive seafloor depth.}
 
 \item{depths}{Numeric vector. Standard depth levels in metres (e.g. the

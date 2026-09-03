@@ -79,7 +79,7 @@ figure uses a coarser grid so that individual cells are visible in the inset.
 That is a legibility choice, not a change to the method.
 
 ```{r study-grid}
-bathy <- load_bathymetry(
+bathy <- load_gebco_bathymetry(
   "~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"
 )
 

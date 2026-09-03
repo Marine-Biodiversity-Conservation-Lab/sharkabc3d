@@ -48,7 +48,7 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #'   (extent, resolution, CRS) whose cells become the footprint of each voxel
 #'   column, e.g. from [create_study_raster()].
 #' @param bathymetry SpatRaster. GEBCO-style elevation raster with negative
-#'   values below sea level (e.g. from [load_bathymetry()]). It is projected
+#'   values below sea level (e.g. from [load_gebco_bathymetry()]). It is projected
 #'   onto `template` and flipped to positive seafloor depth.
 #' @param depths Numeric vector. Standard depth levels in metres (e.g. the
 #'   World Ocean Atlas standard depths) that set the vertical resolution of the

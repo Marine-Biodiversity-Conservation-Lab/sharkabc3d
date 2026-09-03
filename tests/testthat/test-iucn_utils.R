@@ -188,3 +188,56 @@ test_that("fetch_species_assessments depth fields are numeric or NA", {
   expect_true(is.numeric(out$upper_depth_limit) || is.na(out$upper_depth_limit))
   expect_true(is.numeric(out$lower_depth_limit) || is.na(out$lower_depth_limit))
 })
+
+# ---------------------------------------------------------------------------
+# fill_missing_depths
+# ---------------------------------------------------------------------------
+
+test_that("fill_missing_depths swaps reversed upper/lower values", {
+  out <- fill_missing_depths(
+    upper = c(100, 50),
+    lower = c(10, 500),  # first row reversed
+    genus = c("Carcharodon", "Sphyrna")
+  )
+  expect_equal(out$upper_depth, c(10, 50))
+  expect_equal(out$lower_depth, c(100, 500))
+})
+
+test_that("fill_missing_depths fills NAs with genus means", {
+  out <- fill_missing_depths(
+    upper = c(0, 10, NA),
+    lower = c(100, 200, NA),
+    genus = c("Carcharhinus", "Carcharhinus", "Carcharhinus")
+  )
+  # Mean of non-NA values in the genus: upper = 5, lower = 150
+  expect_equal(out$upper_depth[3], 5)
+  expect_equal(out$lower_depth[3], 150)
+})
+
+test_that("fill_missing_depths leaves NA when entire genus is NA", {
+  out <- fill_missing_depths(
+    upper = c(NA, NA),
+    lower = c(NA, NA),
+    genus = c("Raja", "Raja")
+  )
+  expect_true(all(is.na(out$upper_depth)))
+  expect_true(all(is.na(out$lower_depth)))
+})
+
+test_that("fill_missing_depths rejects unsupported methods", {
+  expect_error(
+    fill_missing_depths(1, 10, "Carcharodon", method = "zero"),
+    "genus_mean"
+  )
+})
+
+test_that("fill_missing_depths returns a data frame with expected columns", {
+  out <- fill_missing_depths(
+    upper = c(0, 10),
+    lower = c(100, 200),
+    genus = c("A", "B")
+  )
+  expect_s3_class(out, "data.frame")
+  expect_named(out, c("upper_depth", "lower_depth"))
+  expect_equal(nrow(out), 2)
+})
