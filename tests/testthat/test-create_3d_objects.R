@@ -386,8 +386,10 @@ test_that("voxel_to_envelope() returns NA where the predicate never holds", {
 
 # envelope_to_voxel() ----
 test_that("envelope_to_voxel() rejects invalid input param types", {
+  # a multi-depth raster is a plausible-looking but wrong input: it is the
+  # voxel form of a 3D domain, not the envelope form
   bad_envel <- make_multidepth_rast()
-  good_envel <- make_multidepth_rast() %>% as_voxel()
+  good_envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
 
   bad_depths <- c("hello", 100, "depths")
   good_depths <- c(0, 50, 100, 150, 200, 300, 600)
@@ -395,23 +397,50 @@ test_that("envelope_to_voxel() rejects invalid input param types", {
   # check for param x valid SpatEnvelope
   expect_error(
     envelope_to_voxel(x = bad_envel, depths = good_depths),
-    "Input error for envelope_to_voxel(): `x` needs to be of `SpatEnvelope` class."
+    "`x` needs to be of `SpatEnvelope` class",
+    fixed = TRUE
   )
-  # check for param depths valid numeric 
+
+  # check for param depths valid numeric
   expect_error(
     envelope_to_voxel(x = good_envel, depths = bad_depths),
-    "Input error for envelope_to_voxel(): `depths` needs to be array coercible to numeric type."
+    "`depths` needs to be array coercible to numeric type",
+    fixed = TRUE
+  )
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = numeric(0)),
+    "`depths` needs to be array coercible to numeric type",
+    fixed = TRUE
   )
 
-  # check for param fun valid function 
+  # check for param fun valid function
   expect_error(
     envelope_to_voxel(x = good_envel, depths = good_depths, fun = "not a function"),
-    "Input error for envelope_to_voxel(): `fun` needs to be a function."
+    "`fun` needs to be a function",
+    fixed = TRUE
   )
 
-  # check for param varname valid string 
+  # check for param varname valid string
   expect_error(
-    envelope_to_voxel(x = good_envel, depths = bad_depths, varname = 100),
-    "Input error for envelope_to_voxel(): `varname` needs to be a string."
+    envelope_to_voxel(x = good_envel, depths = good_depths, varname = 100),
+    "`varname` needs to be a string",
+    fixed = TRUE
   )
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths,
+                      varname = c("presence", "absence")),
+    "`varname` needs to be a string",
+    fixed = TRUE
+  )
+})
+
+test_that("envelope_to_voxel() accepts depths that merely coerce to numeric", {
+  good_envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+
+  # character and integer depths pass validation: they reach the unimplemented
+  # body rather than being rejected as the wrong type
+  expect_error(envelope_to_voxel(good_envel, depths = c("0", "100")),
+               "not implemented")
+  expect_error(envelope_to_voxel(good_envel, depths = 0:3),
+               "not implemented")
 })

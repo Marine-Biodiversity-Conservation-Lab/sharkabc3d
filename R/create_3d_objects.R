@@ -252,12 +252,25 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
 #' 
 envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "presence") {
-  # Input checks 
-  if(!is(x, "SpatEnvelope")) {
-    stop("Input error for envelope_to_voxel(): `x` needs to be of `SpatEnvelope` class.")
-  } 
-  
-
+  if (!is(x, "SpatEnvelope")) {
+    stop("Input error for envelope_to_voxel(): `x` needs to be of ",
+         "`SpatEnvelope` class.", call. = FALSE)
+  }
+  # Coercion, not class: an integer vector, or a character vector of numbers,
+  # is as good as a double here — "hello" is not a depth.
+  depths <- suppressWarnings(as.numeric(depths))
+  if (length(depths) == 0 || anyNA(depths)) {
+    stop("Input error for envelope_to_voxel(): `depths` needs to be array ",
+         "coercible to numeric type.", call. = FALSE)
+  }
+  if (!is.function(fun)) {
+    stop("Input error for envelope_to_voxel(): `fun` needs to be a function.",
+         call. = FALSE)
+  }
+  if (!is.character(varname) || length(varname) != 1 || is.na(varname)) {
+    stop("Input error for envelope_to_voxel(): `varname` needs to be a string.",
+         call. = FALSE)
+  }
 
   stop("not implemented yet")
 }
