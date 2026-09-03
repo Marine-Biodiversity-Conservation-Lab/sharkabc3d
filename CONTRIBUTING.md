@@ -40,11 +40,18 @@ impactful.
 
 ## Useful resources for learning how to contribute
 
+### Writing code in R
+
 R Packages (2e) <https://r-pkgs.org/>
+
+Advanced R <http://adv-r.had.co.nz/>
+
+### Using Git and GitHub
 
 Happy Git and GitHub for the useR <https://happygitwithr.com/>
 
-Advanced R <http://adv-r.had.co.nz/>
+GitHub Flow
+<https://docs.github.com/en/get-started/using-github/github-flow>
 
 ------------------------------------------------------------------------
 
