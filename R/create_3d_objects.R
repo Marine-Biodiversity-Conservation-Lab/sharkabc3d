@@ -245,6 +245,18 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
          call. = FALSE)
   }
 
+  # implement fun later, but think about how that would be used
+  # probably want to go through the same cell on each SpatRaster depth layer
+  # apply for every cell value 
+  
+  # one option is to iterate over the depths and create a new layer for each one
+  # for each depth, go through each cell, query the min and max depths, compare to current depth layer
+  # return either T or F 
+
+  # the other option is to iterate over the cell, and fill all depth layers simulataneously 
+  # this is the option that enable applying a function over the vertical dimension 
+
+  
   
 
   stop("not implemented yet")
