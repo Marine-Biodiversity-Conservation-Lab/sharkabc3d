@@ -1,6 +1,6 @@
 # R/AllClasses.R
 
-#' @importFrom methods setClass setClassUnion setValidity new validObject
+#' @importFrom methods setClass setClassUnion setValidity new validObject is
 #' @importClassesFrom terra SpatRaster
 NULL
 

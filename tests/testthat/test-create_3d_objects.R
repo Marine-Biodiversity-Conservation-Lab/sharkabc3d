@@ -88,3 +88,91 @@ test_that("voxel_to_envelope() returns NA where the predicate never holds", {
   expect_true(all(is.na(vals)))
 })
 
+# as_voxel() ----
+
+test_that("as_voxel() wraps a conforming multi-depth SpatRaster", {
+  v <- as_voxel(make_multidepth_rast())
+
+  expect_s4_class(v, "SpatVoxel")
+  expect_true(methods::is(v, "SpatVolume"))
+  expect_identical(names(v), paste0("temp_depth=", c(0, 100, 200, 300)))
+})
+
+test_that("as_voxel() is idempotent", {
+  v <- as_voxel(make_multidepth_rast())
+
+  expect_s4_class(as_voxel(v), "SpatVoxel")
+  expect_identical(names(as_voxel(v)), names(v))
+})
+
+test_that("as_voxel() sorts layers shallow to deep instead of rejecting them", {
+  # new() rejects unsorted input; the constructor repairs it
+  unsorted <- make_multidepth_rast(depths = c(300, 200, 100, 0))
+  expect_error(methods::new("SpatVoxel", unsorted), "shallow to deep")
+
+  v <- as_voxel(unsorted)
+  expect_s4_class(v, "SpatVoxel")
+  expect_identical(names(v), paste0("temp_depth=", c(0, 100, 200, 300)))
+})
+
+test_that("as_voxel() sorting carries the values with the layers", {
+  unsorted <- make_multidepth_rast(
+    depths = c(300, 0),
+    vals = list(c(1, 2, 3, 4), c(5, 6, 7, 8))
+  )
+  v <- as_voxel(unsorted)
+
+  expect_identical(names(v), paste0("temp_depth=", c(0, 300)))
+  # the 0 m layer must still hold the values it had before the sort
+  expect_equal(unname(terra::values(v[["temp_depth=0"]])[, 1]), c(5, 6, 7, 8))
+})
+
+test_that("as_voxel() builds layer names from `depths`", {
+  r <- make_multidepth_rast()
+  names(r) <- c("a", "b", "c", "d")
+
+  v <- as_voxel(r, depths = c(0, 100, 200, 300), varname = "temp")
+  expect_identical(names(v), paste0("temp_depth=", c(0, 100, 200, 300)))
+})
+
+test_that("as_voxel() accepts a list of single-depth SpatRasters", {
+  r <- make_multidepth_rast()
+  lst <- lapply(seq_len(terra::nlyr(r)), function(i) r[[i]])
+
+  expect_s4_class(as_voxel(lst), "SpatVoxel")
+})
+
+test_that("as_voxel() rejects non-conforming names and says how to fix it", {
+  r <- make_multidepth_rast()
+  names(r) <- c("a", "b", "c", "d")
+
+  expect_error(as_voxel(r), "do not follow")
+  expect_error(as_voxel(r), "Pass `depths`")
+})
+
+test_that("as_voxel() rejects negative depths rather than negating them", {
+  expect_error(
+    as_voxel(make_multidepth_rast(), depths = c(0, -100, -200, -300)),
+    "positive metres increasing downward"
+  )
+})
+
+test_that("as_voxel() rejects duplicate depths", {
+  expect_error(as_voxel(make_multidepth_rast(), depths = c(0, 100, 100, 300)),
+               "duplicate depth")
+})
+
+test_that("as_voxel() rejects a mismatched `depths` length", {
+  expect_error(as_voxel(make_multidepth_rast(), depths = c(0, 100)),
+               "one value per layer")
+})
+
+test_that("as_voxel() rejects a non-raster input", {
+  expect_error(as_voxel("not a raster"), "must be a SpatRaster")
+})
+
+test_that("as_voxel() output is accepted by voxel_to_envelope()", {
+  e <- voxel_to_envelope(as_voxel(make_multidepth_rast()))
+  expect_s4_class(e, "SpatEnvelope")
+})
+

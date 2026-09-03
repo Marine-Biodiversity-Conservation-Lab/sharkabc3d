@@ -6,15 +6,83 @@ as_envelope <- function(x, depth_min, depth_max, seafloor = NULL) {
   stop("not implemented yet")
 }
 
-#' Create voxel object
-#' @noRd
-as_voxel <- function(x) {
-  # Convert multi-depth SpatRaster into VoxelRaster, ex. WOA data
-  if(FALSE) {
+#' Create a voxel object
+#'
+#' Wrap a multi-depth raster as a [SpatVoxel-class]: the validated 3D form used
+#' throughout the package, with one layer per standard depth and layer names
+#' following the `{variable}_depth={value}` convention.
+#'
+#' Most terra operations (`crop()`, `mask()`, `[[`) return a plain `SpatRaster`
+#' and so drop the class, which makes re-wrapping a routine step. `as_voxel()`
+#' is idempotent for that reason — given a `SpatVoxel` it returns it untouched.
+#'
+#' Depths are positive metres increasing downward, matching the World Ocean
+#' Atlas convention. Negative depths are an error rather than being silently
+#' negated, since flipping the sign would change what the data mean.
+#'
+#' @param x SpatRaster with `{variable}_depth={value}` layer names, a list of
+#'   single-depth SpatRasters, or an existing [SpatVoxel-class].
+#' @param depths Optional numeric vector, one depth per layer, in metres. When
+#'   supplied, layer names are (re)built from `depths` and `varname`, replacing
+#'   any existing names. Required if `x` has no conforming layer names.
+#' @param varname Character. Variable name used when building layer names from
+#'   `depths`. Ignored when `depths` is `NULL`.
+#'
+#' @returns A [SpatVoxel-class] whose layers are ordered shallow to deep.
+#' @examples
+#' r <- terra::rast(nrows = 2, ncols = 2, nlyrs = 3)
+#' terra::values(r) <- runif(terra::ncell(r) * 3)
+#'
+#' # build the layer names from a depth vector
+#' v <- as_voxel(r, depths = c(0, 100, 200), varname = "temp")
+#' names(v)
+#'
+#' # already-conforming names are used as they stand, and sorted if needed
+#' names(r) <- c("temp_depth=200", "temp_depth=0", "temp_depth=100")
+#' names(as_voxel(r))
+#' @export
+as_voxel <- function(x, depths = NULL, varname = "value") {
+  # Idempotent: re-wrapping is routine, because terra operations drop the class
+  if (methods::is(x, "SpatVoxel") && is.null(depths)) return(x)
 
+  if (is.list(x)) x <- terra::rast(x)
+  if (!methods::is(x, "SpatRaster")) {
+    stop("`x` must be a SpatRaster or a list of SpatRasters; got ",
+         paste(class(x), collapse = "/"), ".", call. = FALSE)
   }
 
-  stop("not implemented yet")
+  if (!is.null(depths)) {
+    if (length(depths) != terra::nlyr(x)) {
+      stop("`depths` must have one value per layer: got ", length(depths),
+           " for ", terra::nlyr(x), " layers.", call. = FALSE)
+    }
+    if (!is.numeric(depths)) {
+      stop("`depths` must be numeric metres.", call. = FALSE)
+    }
+    names(x) <- paste0(varname, "_depth=", depths)
+  }
+
+  d <- .parse_depth_layers(x, error = FALSE)
+  if (anyNA(d)) {
+    stop("layer(s) ", paste(names(x)[is.na(d)], collapse = ", "),
+         " do not follow the '{variable}_depth={value}' convention. ",
+         "Pass `depths` to build the layer names instead.", call. = FALSE)
+  }
+  if (any(d < 0)) {
+    stop("depths are positive metres increasing downward; got ",
+         paste(d[d < 0], collapse = ", "),
+         ". Negate the depths in the layer names or in `depths`.",
+         call. = FALSE)
+  }
+  if (anyDuplicated(d)) {
+    stop("duplicate depth(s): ", paste(unique(d[duplicated(d)]), collapse = ", "),
+         ". Each layer must be a distinct depth.", call. = FALSE)
+  }
+
+  # Repair what is unambiguously repairable rather than rejecting it.
+  if (is.unsorted(d)) x <- x[[order(d)]]
+
+  methods::new("SpatVoxel", x)
 }
 
 #' Convert Envelope 2.5D -> Voxel 3D

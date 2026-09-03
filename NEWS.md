@@ -56,3 +56,17 @@
   lossy: interior gaps in a voxel are filled, since an envelope stores a single
   continuous interval per cell.
 * `methods` moves into Imports (required by the S4 class definitions).
+
+# sharkabc3d 0.1.1.9006
+* Implement `as_voxel()`, the constructor for `SpatVoxel`. Prefer it over
+  `methods::new("SpatVoxel", x)`: both validate, but only `as_voxel()`
+  normalises the input first. It accepts a conforming multi-depth SpatRaster, a
+  list of single-depth SpatRasters, or an existing `SpatVoxel`; builds layer
+  names from a `depths` vector when given; and sorts layers shallow to deep
+  rather than rejecting them, since that repair is unambiguous. Non-conforming
+  layer names, negative depths, and duplicate depths are still errors — the
+  sign in particular is not silently flipped, because that would change what
+  the data mean.
+* `as_voxel()` is idempotent, so re-wrapping after a terra operation that drops
+  the class (`crop()`, `mask()`, `[[`) is cheap.
+* Import `methods::is()`, used by `as_voxel()` and `voxel_to_envelope()`.
