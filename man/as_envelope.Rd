@@ -4,7 +4,7 @@
 \alias{as_envelope}
 \title{Coerce a 2D footprint to a 2.5D min-max envelope}
 \usage{
-as_envelope(x, depth_min, depth_max, seafloor = NULL)
+as_envelope(x, depth_min, depth_max)
 }
 \arguments{
 \item{x}{SpatRaster. Either a single-layer footprint whose non-\code{NA} cells are
@@ -14,20 +14,13 @@ present, or a two-layer raster already named \code{depth_min}, \code{depth_max}.
 down. Each is either a single number applying to the whole footprint, or a
 single-layer SpatRaster on the grid of \code{x} giving the limit per cell. Omit
 both when \code{x} already carries the two depth layers.}
-
-\item{seafloor}{SpatRaster or \code{NULL}. Optional single layer of positive-down
-seafloor depth (metres) on the grid of \code{x}, e.g. the \code{seafloor} element of
-a \code{\link[=create_study_voxel]{create_study_voxel()}} object. When supplied, \code{depth_max} is clamped to
-it so the envelope never reaches below the seabed, and cells whose seafloor
-is shallower than \code{depth_min} become \code{NA} — there is no water column left
-for the phenomenon to occupy.}
 }
 \value{
-A \link[=SpatEnvelope-class]{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
+A \linkS4class{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
 the grid of \code{x}.
 }
 \description{
-Build a \link[=SpatEnvelope-class]{SpatEnvelope} — one continuous \verb{[depth_min, depth_max]}
+Build a \linkS4class{SpatEnvelope} — one continuous \verb{[depth_min, depth_max]}
 interval per grid cell — from a 2D horizontal footprint and the depth limits
 that apply to it. This is the general form of the conversion
 \code{\link[=voxelize_range]{voxelize_range()}} performs for polygons: any 2D raster whose non-\code{NA} cells
@@ -38,7 +31,7 @@ mark presence becomes a 3D domain once depth limits are attached to it.
 a rasterized species range, a Global Fishing Watch effort layer, or a plain
 presence mask all work. A SpatRaster that \emph{already} has exactly the two
 layers \code{depth_min} and \code{depth_max} (the output of \code{\link[=voxelize_range]{voxelize_range()}}, or a
-\link[=SpatEnvelope-class]{SpatEnvelope} itself) is promoted directly instead, in which case
+\linkS4class{SpatEnvelope} itself) is promoted directly instead, in which case
 \code{depth_min} and \code{depth_max} must be omitted.
 
 Depths are positive metres increasing downward, following the package's
@@ -54,17 +47,7 @@ terra::values(fp) <- c(1, 1, 1, NA)
 e <- as_envelope(fp, depth_min = 0, depth_max = 200)
 terra::values(e)
 
-# Clamped to the seafloor: the third cell's seabed is at 50 m, so the
-# envelope stops there rather than at the species' 200 m limit.
-seabed <- terra::setValues(terra::rast(fp), c(500, 500, 50, 500))
-terra::values(as_envelope(fp, 0, 200, seafloor = seabed))
-
 # Per-cell limits are allowed too, as single-layer rasters.
 dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 400))
 terra::values(as_envelope(fp, depth_min = 10, depth_max = dmax))
-}
-\seealso{
-\code{\link[=voxel_to_envelope]{voxel_to_envelope()}} to collapse a \link[=SpatVoxel-class]{SpatVoxel} instead,
-\code{\link[=voxelize_range]{voxelize_range()}} to go straight from polygons to an envelope, and
-\code{\link[=calc_volume]{calc_volume()}} to measure the result.
 }

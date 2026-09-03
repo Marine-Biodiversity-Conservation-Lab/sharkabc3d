@@ -15,11 +15,11 @@ vector of the same length. \code{NA} results are treated as \code{FALSE}. Defaul
 \verb{\\(x) !is.na(x)}.}
 }
 \value{
-A \link[=SpatEnvelope-class]{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
+A \linkS4class{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
 the same grid as \code{v}.
 }
 \description{
-Reduce a \link[=SpatVoxel-class]{SpatVoxel} to the \link[=SpatEnvelope-class]{SpatEnvelope} that bounds it. A
+Reduce a \linkS4class{SpatVoxel} to the \linkS4class{SpatEnvelope} that bounds it. A
 predicate \code{fun} is applied to the cell values at each depth; for every cell,
 the shallowest depth at which the predicate is \code{TRUE} becomes \code{depth_min}
 and the deepest becomes \code{depth_max}. Cells where the predicate is never
@@ -34,5 +34,5 @@ Pass a different predicate to bound a subset of the values instead, e.g.
 \strong{This conversion is lossy.} An envelope stores a single continuous
 interval per cell, so any interior gap in the voxel is filled in: a cell that
 satisfies \code{fun} at 0 m and 200 m but not at 100 m still yields the envelope
-\verb{[0, 200]}. Use \link[=SpatVoxel-class]{SpatVoxel} directly where interior gaps matter.
+\verb{[0, 200]}. Use \linkS4class{SpatVoxel} directly where interior gaps matter.
 }

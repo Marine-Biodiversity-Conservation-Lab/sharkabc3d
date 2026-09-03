@@ -5,8 +5,8 @@
 \alias{SpatVolume-class}
 \title{Union of the package's 3D domain representations}
 \description{
-\code{SpatVolume} is a class union over \link[=SpatVoxel-class]{SpatVoxel} and
-\link[=SpatEnvelope-class]{SpatEnvelope}. It exists as a dispatch target for operations that are
+\code{SpatVolume} is a class union over \linkS4class{SpatVoxel} and
+\linkS4class{SpatEnvelope}. It exists as a dispatch target for operations that are
 meaningful on either representation because both determine a \strong{3D domain
 over a 2D grid}: volume, volumetric overlap, vertical extent, printing.
 }

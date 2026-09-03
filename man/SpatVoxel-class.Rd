@@ -5,7 +5,7 @@
 \alias{SpatVoxel-class}
 \title{3D voxel model: one layer per standard depth level}
 \description{
-A \code{SpatVoxel} is a \link[terra:SpatRaster]{terra::SpatRaster} in which \strong{depth is the layer index}
+A \code{SpatVoxel} is a \link[terra:SpatRaster-class]{terra::SpatRaster} in which \strong{depth is the layer index}
 and the cell values are the variable (temperature, oxygen, presence, ...).
 Layer names follow the \verb{\{variable\}_depth=\{value\}} convention and must be
 ordered shallow to deep. The depth axis is grid-wide: every cell is sampled
@@ -16,5 +16,5 @@ A voxel may have interior gaps — a cell can be NA at one depth and non-NA
 at the depths above and below it.
 }
 \seealso{
-\link[=SpatEnvelope-class]{SpatEnvelope}, \link[=SpatVolume-class]{SpatVolume}
+\linkS4class{SpatEnvelope}, \linkS4class{SpatVolume}
 }
