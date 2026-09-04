@@ -63,10 +63,11 @@ We use issues as the unit of work and the record of its current state.
     - Create a new branch from the most recent commit on `main`. Easiest way is click `Create a branch` under `Development`, within the sidebar of the Issue page in GitHub. We use short-lived branches off `main`, with **one issue per branch**.
     - Branches will be named with the format of `<issue-number>-<short-slug>`. Using the above `Create a branch` procedure should automatically generate branch names based on the issue number and title of the issue. 
 4. **Open a Pull Request early** 
-    - A draft Pull Request is fine. This way, others can see what areas are being worked on. A Pull Request is a review of the work done on the branch, so that it can be merged with the main branch. This is the main gate for coordinating work done. Ideally, we would have some formal process for PRs, but for now Jay will review these before merging with main to keep work coordinated. 
-5. **Merge** and delete the branch. 
+    - A draft Pull Request is fine. This way, others can see what areas are being worked on. A Pull Request is a review of the work done on the branch, so that it can be merged with the main branch. This is the main gate for coordinating work done. Ideally, we would have some formal process for PRs, but for now Jay will review these before merging with main to keep work coordinated.
+5. **Get Pull Request approval**
+    - Another contributor should review and approve of your code before the PR can get merged into the main branch. 
+5. **Merge** and delete the branch. Currently, [@JayMatsushiba](https://github.com/JayMatsushiba) will be in charge of this step. 
     - Reference the issue from the PR so it closes automatically. This should happen automatically if the branch is created from the issue. 
-
 
 `main` must always be installable — never push work-in-progress directly to it. All changes to `main` should be done via a Pull Request. 
 
