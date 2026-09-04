@@ -58,3 +58,10 @@
   and move it to `R/iucn_utils.R`, alongside
   [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
   whose depth limits it is designed to repair.
+
+## sharkabc3d 0.1.1.9004
+
+- Improve
+  [`gfw_effort_to_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_effort_to_raster.md)
+  function to be able to assume grid resolution and extent from input
+  dataframe.

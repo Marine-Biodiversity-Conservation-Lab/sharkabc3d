@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9002</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -65,6 +65,10 @@
 <ul><li>Rename <code>load_bathymetry()</code> to <code><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry()</a></code> and move it from <code>R/load_data.R</code> to <code>R/gebco_bathymetry.R</code>. The new name makes the expected data source explicit; the function is otherwise unchanged. Callers must update to the new name.</li>
 <li>Add a runnable worked example to <code><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry()</a></code>, which builds a small stand-in NetCDF rather than requiring a multi-gigabyte GEBCO download (<a href="https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues/37" class="external-link">#37</a>).</li>
 <li>Add a runnable worked example to <code><a href="../reference/fill_missing_depths.html">fill_missing_depths()</a></code> and move it to <code>R/iucn_utils.R</code>, alongside <code><a href="../reference/fetch_species_assessments.html">fetch_species_assessments()</a></code> whose depth limits it is designed to repair.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.1.1.9004" id="sharkabc3d-0119004">sharkabc3d 0.1.1.9004<a class="anchor" aria-label="anchor" href="#sharkabc3d-0119004"></a></h2>
+<ul><li>Improve <code><a href="../reference/gfw_effort_to_raster.html">gfw_effort_to_raster()</a></code> function to be able to assume grid resolution and extent from input dataframe.</li>
 </ul></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
