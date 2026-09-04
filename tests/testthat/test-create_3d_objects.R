@@ -679,18 +679,6 @@ test_that("vect_to_envelope() returns a valid SpatEnvelope, visibly", {
   expect_true(withVisible(vect_to_envelope(make_polygon(), make_template(), 0, 10))$visible)
 })
 
-test_that("vect_to_envelope() points a study_voxel at its component parts", {
-  sv <- create_study_voxel(
-    template = make_template(),
-    bathymetry = make_template(-500),
-    depths = c(0, 50)
-  )
-  expect_error(
-    vect_to_envelope(make_polygon(), sv, 0, 10),
-    "grid"
-  )
-})
-
 # Ported from voxelize_range(): the seafloor is now just another `depth_max`
 # constraint rather than a dedicated `bathymetry` argument.
 test_that("vect_to_envelope() clamps depth_max to the seafloor where it is shallower", {

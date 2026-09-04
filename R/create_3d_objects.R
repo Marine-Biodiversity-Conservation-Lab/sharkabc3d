@@ -442,8 +442,7 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   }
 
   if (length(x) == 0L) {
-    stop("`", arg, "` is empty. Supply at least one numeric value or SpatRaster.",
-         call. = FALSE)
+    stop("`", arg, "` is empty. Supply at least one numeric value or SpatRaster.", call. = FALSE)
   }
 
   for (i in seq_along(x)) {
@@ -508,11 +507,6 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   if (inherits(polygon, "sf") || inherits(polygon, "sfc")) {
     polygon <- terra::vect(polygon)
   }
-  if (inherits(template, "study_voxel")) {
-    stop("`template` needs to be of class SpatRaster. Pass a study_voxel's ",
-         "parts separately, e.g. vect_to_envelope(polygon, sv$grid, depth_min, ",
-         "depth_max = list(<depth>, sv$seafloor)).", call. = FALSE)
-  }
   if (!is(template, "SpatRaster")) {
     stop("`template` needs to be of class SpatRaster")
   }
@@ -554,8 +548,8 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   depth_min_rast <- mask(depth_min_rast, msk)
   depth_max_rast <- mask(depth_max_rast, msk)
 
-  out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
-  out <- methods::new("SpatEnvelope", out)
+  # assign SpatEnvelope class to output
+  out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast)) %>% as_envelope()
   out
 }
 
