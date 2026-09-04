@@ -770,6 +770,20 @@ test_that("vect_to_envelope() matches voxelize_range() on the seafloor-clamped c
                as.vector(terra::values(old$depth_max)))
 })
 
+test_that("vect_to_envelope() returns NA values for cells where input raster depth_max is NA", {
+  # NA in the depth_max parameter (ex. bathymetry) means there is no valid
+  # depth at that cell. These should stay NA in the output as well. 
+  vals <- seq(10, 250, length.out = 25)
+  gaps <- c(7, 13, 19)              # cells inside the polygon footprint
+  vals[gaps] <- NA
+  seafloor <- make_template(vals)
+  new <- vect_to_envelope(make_polygon(), make_template(),
+                          depth_min = 50, depth_max = list(200, seafloor))
+
+  expect_true(all(is.na(terra::values(new$depth_max)[gaps])))
+  expect_true(all(is.na(terra::values(new$depth_min)[gaps])))
+})
+
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
   sv <- create_study_voxel(
     template = make_template(),

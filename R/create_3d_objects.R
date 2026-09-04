@@ -426,14 +426,8 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 }
 
 # Internal: validate and normalise the `depth_min` / `depth_max` inputs of
-# `vect_to_envelope()`. Accepts a list, a bare numeric vector, or a bare
-# SpatRaster, and always returns a list whose elements can be spliced straight
-# into `do.call("max", ...)` / `do.call("min", ...)`. Atomic vectors are split
-# element-wise so `c(10, 20)` acts as two constant constraints rather than one
-# recycled across cells. Every SpatRaster element must sit on the same grid as
-# `template`: terra would otherwise fail inside the arithmetic with a message
-# that names neither the argument nor the offending element, or — when only the
-# CRS differs — silently return a wrong answer.
+# `vect_to_envelope()`. Accepts a list, a numeric vector, or a SpatRaster
+# Returns a list whose elements can be used in `do.call("max", ...)` / `do.call("min", ...)`.
 .normalize_depth_inputs <- function(x, template, arg) {
   if (inherits(x, "SpatRaster")) {
     x <- list(x)
@@ -468,8 +462,9 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
       stop(label, " must be numeric or a SpatRaster, not ", class(el)[1], ".",
            call. = FALSE)
     } else if (anyNA(el)) {
-      # `na.rm = TRUE` would drop an NA constraint silently, widening the
-      # envelope instead of narrowing it, so reject it here where we can say why.
+      # A scalar NA carries no information but, under `na.rm = FALSE`, would
+      # blank every cell of the output. Reject it here where we can say which
+      # argument was at fault instead of reporting an empty envelope later.
       stop(label, " is NA. Drop it, or supply a real depth constraint.",
            call. = FALSE)
     }
@@ -478,12 +473,39 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   x
 }
 
+# Internal: collapse the validated `depth_min` / `depth_max` constraints of
+# `vect_to_envelope()` into one SpatRaster on the `template` grid, applying
+# `fun` across them cell by cell ("max" for depth_min, "min" for depth_max, so
+# that every constraint narrows the envelope).
+.combine_depths <- function(x, template, fun) {
+  # identify which inputs are SpatRaster, which are not 
+  is_rast <- vapply(x, function(el) inherits(el, "SpatRaster"), logical(1))
+
+  # skips the reordered do.call when there are no rasters in input list x
+  # creates raster with single value across
+  if (!any(is_rast)) {
+    return(terra::setValues(terra::rast(template[[1]]), do.call(fun, x)))
+  }
+  # terra has min() and max() functions that can apply to a list that includes
+  # both SpatRaster and numeric values. However, it only works when the SpatRaster
+  # is first in the list; the base::min is called instead if the first element is 
+  # a numeric object. This do.call line takes the reordered input list, with the 
+  # SpatRaster objects first. 
+
+  # `na.rm = FALSE` so that cell where constraints / depth raster
+  # has NA value keeps it in the output raster. Avoids filling the value from 
+  # remaining constraints
+  do.call(fun, c(x[is_rast], x[!is_rast], list(na.rm = FALSE)))
+}
+
 #' Convert SpatVector or sf to SpatEnvelope
 #' 
 #' Rasterize polygons onto a template raster grid and assign per-cell depth limits,
 #' outputting an SpatEnvelope object. The depths are clamped by depth_min (shallowest) 
 #' and depth_max (deepest), and/or by rasters (ex. bathymetry) that are the same 
-#' coordinate and resolution as the template. Replaces [voxelize_range()].
+#' coordinate and resolution as the template. Where a constraint raster is NA at
+#' a cell its limit there is unknown, so the cell is dropped rather than falling
+#' back to the remaining constraints. Replaces [voxelize_range()].
 #' 
 #' @param polygon sf or SpatVector, for example species ranges or fishery footprints. 
 #' @param template SpatRaster that defines the horizontal grid of the SpatEnvelope output. 
@@ -514,6 +536,7 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
     stop("`polygon` and `template` have different CRS.")
   }
 
+  # check the depth inputs for CRS, resolution, extent matching and reject NA params
   depth_min <- .normalize_depth_inputs(depth_min, template, "depth_min")
   depth_max <- .normalize_depth_inputs(depth_max, template, "depth_max")
 
@@ -527,14 +550,14 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
     stop("All output cell values are NA. `polygon` and `template` may not spatially overlap.")
   }
 
-  # create empty rast with all NA values
-  # get minimum value from depth_min params, can be numeric or SpatRaster
-  depth_min_rast <- do.call("max", c(list(rast(all_one, vals = NA)), depth_min, list(na.rm = TRUE))) %>%
+  # Creating depth_min, depth_max rasters that form the SpatEnvelope output
+  # - value that narrows the envelope the most is selected
+  # - preserves NA values from the constraints, rather than fall back on other constraints
+  # deepest of depth_min constraints
+  depth_min_rast <- .combine_depths(depth_min, template, "max") %>%
     mask(masked)
-
-  # create empty rast with all NA values
-  # get maximum value from depth_min params, can be numeric or SpatRaster
-  depth_max_rast <- do.call("min", c(list(rast(all_one, vals = NA)), depth_max, list(na.rm = TRUE))) %>%
+  # shallowest of depth_max constraints
+  depth_max_rast <- .combine_depths(depth_max, template, "min") %>%
     mask(masked)
 
   # check for validity, where depth_max is greater than depth_min

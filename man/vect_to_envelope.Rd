@@ -11,20 +11,13 @@ vect_to_envelope(polygon, template, depth_min, depth_max)
 
 \item{template}{SpatRaster that defines the horizontal grid of the SpatEnvelope output.}
 
-\item{depth_min}{List of numeric values and/or SpatRasters. For each cell the
-\emph{maximum} across the list is used as the output \code{depth_min}, so every element
-acts as a constraint and the deepest one wins. A bare numeric or a bare
-SpatRaster is accepted and treated as a one-element list; a numeric vector is
-treated as one constraint per element. Every SpatRaster must share the CRS,
-resolution, and extent of \code{template} — mismatches are an error, not a silent
-resample.}
+\item{depth_min}{List. Can contain both numeric and SpatRasters that match CRS,
+resolution, extent of \verb{template`` and contain numeric values. For each cell, the maximum across the }depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
+value.}
 
-\item{depth_max}{List of numeric values and/or SpatRasters, in the same forms
-accepted by \code{depth_min}. For each cell the \emph{minimum} across the list is used
-as the output \code{depth_max}, so the shallowest constraint wins. This is where a
-bathymetry (seafloor) raster goes, which clamps the envelope to the seabed.
-Cells where the resulting \code{depth_max} is not strictly deeper than \code{depth_min}
-are dropped to NA, so an envelope of exactly zero thickness is not retained.}
+\item{depth_max}{List. Can contain both numeric and SpatRasters that match CRS,
+resolution, extent of \verb{template`` and contain numeric values. For each cell, the minimum across the }depth_max\verb{list parameters is used as output SpatEnvelope depth_max layer cell value. Note that when}depth_min\verb{is exactly}depth_max`, these cell values are dropped and
+replaced with NA.}
 }
 \value{
 SpatEnvelope, with depth_min and depth_max layers.
@@ -33,5 +26,7 @@ SpatEnvelope, with depth_min and depth_max layers.
 Rasterize polygons onto a template raster grid and assign per-cell depth limits,
 outputting an SpatEnvelope object. The depths are clamped by depth_min (shallowest)
 and depth_max (deepest), and/or by rasters (ex. bathymetry) that are the same
-coordinate and resolution as the template. Replaces \code{\link[=voxelize_range]{voxelize_range()}}.
+coordinate and resolution as the template. Where a constraint raster is NA at
+a cell its limit there is unknown, so the cell is dropped rather than falling
+back to the remaining constraints. Replaces \code{\link[=voxelize_range]{voxelize_range()}}.
 }
