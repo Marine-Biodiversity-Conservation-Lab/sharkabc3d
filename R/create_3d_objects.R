@@ -437,11 +437,12 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #' @param depth_min List. Can contain both numeric and SpatRasters that match coordinate, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
 #'   across the `depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
-#'   value. Inclusive selection of this depth. 
+#'   value. 
 #' @param depth_max List. Can contain both numeric and SpatRasters that match coordinate, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
 #'   across the `depth_max` list parameters is used as output SpatEnvelope depth_max layer cell
-#'   value. Inclusive selection of this depth. 
+#'   value. Note that when `depth_min` is exactly `depth_max`, these cell values are dropped and
+#'   replaced with NA.
 #' 
 #' @returns SpatEnvelope, with depth_min and depth_max layers. 
 #' @export
@@ -494,6 +495,7 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
 
   out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
   out <- methods::new("SpatEnvelope", out)
+  out
 }
 
 #' Create a study area raster grid
