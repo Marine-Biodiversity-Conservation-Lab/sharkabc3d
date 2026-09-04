@@ -106,7 +106,7 @@ study_grid <- t_annual[[1]]
 # Project before negating: negating first forces an eager pass over the full
 # global 15 arc-second grid, which terra otherwise avoids by reading only the
 # window the target grid needs.
-bathy <- load_bathymetry("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
+bathy <- load_gebco_bathymetry("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
 seafloor <- (terra::project(bathy, study_grid) * -1) |>
   terra::clamp(lower = 0)
 ```

@@ -60,7 +60,7 @@ usethis::edit_r_environ()
 
 ### Loading and preparing input data
 
-- [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
+- [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
   — load a GEBCO bathymetry NetCDF as a `SpatRaster`.
 - [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
   — query the IUCN Red List API for taxonomy, Red List category, and
@@ -204,8 +204,8 @@ Three-Dimensional Marine Spatial Analyses of Abiotic Covariates.*
   : Rasterise a GFW effort tibble onto a target grid
 - [`gfw_gear_depth_bands()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_gear_depth_bands.md)
   : Build a depth-stratified fishing-effort stack for one gear class
-- [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
-  : Load bathymetry raster
+- [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
+  : Load GEBCO bathymetry raster
 - [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
   : Summarise environmental conditions within a species' 3D range
 - [`temporal_summarise()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/temporal_summarise.md)

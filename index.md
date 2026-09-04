@@ -60,7 +60,7 @@ usethis::edit_r_environ()
 
 ### Loading and preparing input data
 
-- [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
+- [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
   — load a GEBCO bathymetry NetCDF as a `SpatRaster`.
 - [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
   — query the IUCN Red List API for taxonomy, Red List category, and

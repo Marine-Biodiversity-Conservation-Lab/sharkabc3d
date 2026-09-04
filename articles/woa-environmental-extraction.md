@@ -157,7 +157,7 @@ operates on a single, consistent grid.
 
 # Bathymetry from GEBCO (download once from
 # https://www.gebco.net/data_and_products/gridded_bathymetry_data/).
-bathy <- load_bathymetry("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
+bathy <- load_gebco_bathymetry("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
 
 # Use the temperature 0.25 deg grid as the canonical study grid.
 study_grid <- t_annual[[1]]

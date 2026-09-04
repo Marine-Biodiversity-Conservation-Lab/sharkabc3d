@@ -30,7 +30,7 @@ create_study_voxel(template, bathymetry, depths)
 
   SpatRaster. GEBCO-style elevation raster with negative values below
   sea level (e.g. from
-  [`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)).
+  [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)).
   It is projected onto `template` and flipped to positive seafloor
   depth.
 

@@ -121,11 +121,11 @@ depth</li>
 <h4 id="a-bathymetry-and-eez">1a: Bathymetry and EEZ<a class="anchor" aria-label="anchor" href="#a-bathymetry-and-eez"></a>
 </h4>
 <p>The original analysis used GEBCO bathymetry for the Bangladesh EEZ at
-1 km resolution. <code><a href="../reference/load_bathymetry.html">load_bathymetry()</a></code> loads and standardises
-the raster (positive depth values, in metres).</p>
+1 km resolution. <code><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry()</a></code> loads and
+standardises the raster (positive depth values, in metres).</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load bathymetry</span></span>
-<span><span class="va">bathy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_bathymetry.html">load_bathymetry</a></span><span class="op">(</span></span>
+<span><span class="va">bathy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry</a></span><span class="op">(</span></span>
 <span>  <span class="st">"~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"</span></span>
 <span><span class="op">)</span></span>
 <span></span>

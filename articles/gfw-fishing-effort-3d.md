@@ -106,7 +106,7 @@ layer is produced per unique level of `layer_by`.
 ``` r
 
 # Use the bathymetry grid as the canonical study grid.
-bathy <- load_bathymetry(
+bathy <- load_gebco_bathymetry(
   here("/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc")
 )
 

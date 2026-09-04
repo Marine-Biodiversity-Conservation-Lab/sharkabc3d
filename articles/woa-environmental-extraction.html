@@ -215,7 +215,7 @@ operates on a single, consistent grid.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Bathymetry from GEBCO (download once from</span></span>
 <span><span class="co"># https://www.gebco.net/data_and_products/gridded_bathymetry_data/).</span></span>
-<span><span class="va">bathy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_bathymetry.html">load_bathymetry</a></span><span class="op">(</span><span class="st">"/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"</span><span class="op">)</span></span>
+<span><span class="va">bathy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry</a></span><span class="op">(</span><span class="st">"/home/jay/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Use the temperature 0.25 deg grid as the canonical study grid.</span></span>
 <span><span class="va">study_grid</span> <span class="op">&lt;-</span> <span class="va">t_annual</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>

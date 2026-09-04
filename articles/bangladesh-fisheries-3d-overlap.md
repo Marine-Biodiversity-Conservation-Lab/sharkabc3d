@@ -43,13 +43,13 @@ sf::sf_use_s2(FALSE)
 
 The original analysis used GEBCO bathymetry for the Bangladesh EEZ at 1
 km resolution.
-[`load_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_bathymetry.md)
+[`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
 loads and standardises the raster (positive depth values, in metres).
 
 ``` r
 
 # Load bathymetry
-bathy <- load_bathymetry(
+bathy <- load_gebco_bathymetry(
   "~/Programming_Projects/Big_Data/gebco_2025_sub_ice_topo/GEBCO_2025_sub_ice.nc"
 )
 

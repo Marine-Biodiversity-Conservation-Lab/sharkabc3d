@@ -40,3 +40,21 @@
   [`extract3d_bottom()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_bottom.md)
   [`extract3d_nearest()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_nearest.md)
   [`extract3d_all()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_all.md)
+
+## sharkabc3d 0.1.1.9003
+
+- Rename `load_bathymetry()` to
+  [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
+  and move it from `R/load_data.R` to `R/gebco_bathymetry.R`. The new
+  name makes the expected data source explicit; the function is
+  otherwise unchanged. Callers must update to the new name.
+- Add a runnable worked example to
+  [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md),
+  which builds a small stand-in NetCDF rather than requiring a
+  multi-gigabyte GEBCO download
+  ([\#37](https://github.com/Marine-Biodiversity-Conservation-Lab/sharkabc3d/issues/37)).
+- Add a runnable worked example to
+  [`fill_missing_depths()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fill_missing_depths.md)
+  and move it to `R/iucn_utils.R`, alongside
+  [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
+  whose depth limits it is designed to repair.
