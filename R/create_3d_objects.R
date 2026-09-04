@@ -425,6 +425,60 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   out
 }
 
+# Internal: validate and normalise the `depth_min` / `depth_max` inputs of
+# `vect_to_envelope()`. Accepts a list, a bare numeric vector, or a bare
+# SpatRaster, and always returns a list whose elements can be spliced straight
+# into `do.call("max", ...)` / `do.call("min", ...)`. Atomic vectors are split
+# element-wise so `c(10, 20)` acts as two constant constraints rather than one
+# recycled across cells. Every SpatRaster element must sit on the same grid as
+# `template`: terra would otherwise fail inside the arithmetic with a message
+# that names neither the argument nor the offending element, or — when only the
+# CRS differs — silently return a wrong answer.
+.normalize_depth_inputs <- function(x, template, arg) {
+  if (inherits(x, "SpatRaster")) {
+    x <- list(x)
+  } else if (!is.list(x)) {
+    x <- as.list(x)
+  }
+
+  if (length(x) == 0L) {
+    stop("`", arg, "` is empty. Supply at least one numeric value or SpatRaster.",
+         call. = FALSE)
+  }
+
+  for (i in seq_along(x)) {
+    el <- x[[i]]
+    label <- if (length(x) == 1L) {
+      paste0("`", arg, "`")
+    } else {
+      paste0("`", arg, "` element ", i)
+    }
+
+    if (inherits(el, "SpatRaster")) {
+      if (!terra::same.crs(el, template)) {
+        stop(label, " has a different CRS than `template`. ",
+             "Project it onto the template grid first.", call. = FALSE)
+      }
+      aligned <- terra::compareGeom(el, template, crs = FALSE,
+                                    stopOnError = FALSE, messages = FALSE)
+      if (!isTRUE(aligned)) {
+        stop(label, " does not align with `template`; its extent or resolution ",
+             "differs. Resample it onto the template grid first.", call. = FALSE)
+      }
+    } else if (!is.numeric(el)) {
+      stop(label, " must be numeric or a SpatRaster, not ", class(el)[1], ".",
+           call. = FALSE)
+    } else if (anyNA(el)) {
+      # `na.rm = TRUE` would drop an NA constraint silently, widening the
+      # envelope instead of narrowing it, so reject it here where we can say why.
+      stop(label, " is NA. Drop it, or supply a real depth constraint.",
+           call. = FALSE)
+    }
+  }
+
+  x
+}
+
 #' Convert SpatVector or sf to SpatEnvelope
 #' 
 #' Rasterize polygons onto a template raster grid and assign per-cell depth limits,
@@ -434,11 +488,11 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #' 
 #' @param polygon sf or SpatVector, for example species ranges or fishery footprints. 
 #' @param template SpatRaster that defines the horizontal grid of the SpatEnvelope output. 
-#' @param depth_min List. Can contain both numeric and SpatRasters that match coordinate, 
+#' @param depth_min List. Can contain both numeric and SpatRasters that match CRS, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
 #'   across the `depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
 #'   value. 
-#' @param depth_max List. Can contain both numeric and SpatRasters that match coordinate, 
+#' @param depth_max List. Can contain both numeric and SpatRasters that match CRS, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
 #'   across the `depth_max` list parameters is used as output SpatEnvelope depth_max layer cell
 #'   value. Note that when `depth_min` is exactly `depth_max`, these cell values are dropped and
@@ -454,13 +508,20 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   if (inherits(polygon, "sf") || inherits(polygon, "sfc")) {
     polygon <- terra::vect(polygon)
   }
+  if (inherits(template, "study_voxel")) {
+    stop("`template` needs to be of class SpatRaster. Pass a study_voxel's ",
+         "parts separately, e.g. vect_to_envelope(polygon, sv$grid, depth_min, ",
+         "depth_max = list(<depth>, sv$seafloor)).", call. = FALSE)
+  }
   if (!is(template, "SpatRaster")) {
     stop("`template` needs to be of class SpatRaster")
   }
   if(!terra::same.crs(crs(polygon), crs(template))) {
     stop("`polygon` and `template` have different CRS.")
-    # TODO: implement check for the depth_min and depth_max inputs
   }
+
+  depth_min <- .normalize_depth_inputs(depth_min, template, "depth_min")
+  depth_max <- .normalize_depth_inputs(depth_max, template, "depth_max")
 
   # take first layer in case multi-layer raster
   all_one <- template[[1]]

@@ -99,3 +99,33 @@
   back empty and is warned about, since that resolution loss is otherwise
   silent.
 * `envelope_to_voxel()` is now exported.
+* `vect_to_envelope()` is now exported. It was marked `@export` in roxygen but
+  had never been written into `NAMESPACE`, so it was unreachable from the
+  installed package.
+* Validate the `depth_min` / `depth_max` inputs of `vect_to_envelope()` up
+  front. A list, a bare numeric vector, or a bare `SpatRaster` are all accepted
+  and normalised to a list; every `SpatRaster` element must share the CRS,
+  resolution, and extent of `template`. A mismatched CRS previously produced a
+  silently wrong answer, and a mismatched resolution failed deep inside terra
+  with a message that named neither the argument nor the offending element.
+  Empty lists, non-numeric elements, and `NA` constraints are now errors rather
+  than a misleading "you may have swapped these two" warning.
+* `vect_to_envelope()` does not accept a `study_voxel` as `template`. Passing
+  one now reports how to supply its parts instead, since the seafloor is just
+  another `depth_max` constraint under the new interface:
+  `vect_to_envelope(polygon, sv$grid, depth_min, depth_max = list(d, sv$seafloor))`.
+* Document the `depth_min` / `depth_max` aggregation directions accurately. For
+  each cell the deepest `depth_min` and the shallowest `depth_max` win, so every
+  list element narrows the envelope. Cells whose `depth_max` is not strictly
+  deeper than `depth_min` are dropped to NA, which differs from
+  `voxelize_range()` at exactly zero thickness: `voxelize_range()` kept a cell
+  where the seafloor equalled `depth_min`, `vect_to_envelope()` drops it.
+* Port the `voxelize_range()` test cases to `vect_to_envelope()`: seafloor
+  clamping, dropping cells whose bed is shallower than `depth_min`, the
+  bathymetry CRS and resolution checks, and `calc_volume()` of the output. Adds
+  an equivalence test asserting the two functions agree cell-for-cell on the
+  seafloor-clamped case, to be removed alongside `voxelize_range()`.
+* Fix `test-volume.R`, which called `make_grid()`, `make_bathy()`, and
+  `make_polygon()` from `test-create_3d_objects.R`. testthat gives each test
+  file its own environment, so that test had been erroring since the helpers
+  moved; the helpers are now defined locally.

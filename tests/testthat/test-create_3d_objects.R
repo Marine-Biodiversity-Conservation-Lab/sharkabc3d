@@ -1,17 +1,3 @@
-# Helper: 2x2 voxel over four standard depths, cell 1 has an interior gap
-make_multidepth_rast <- function(depths = c(0, 100, 200, 300),
-                            vals = list(c(10, NA,  5, NA),
-                                        c(NA, 20,  6, NA),
-                                        c(12, 21,  7, NA),
-                                        c(NA, NA,  8, NA)),
-                            varname = "temp") {
-  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
-  lays <- lapply(vals, function(v) terra::setValues(r, v))
-  out <- terra::rast(lays)
-  names(out) <- paste0(varname, "_depth=", depths)
-  out
-}
-
 test_that("SpatVoxel and SpatEnvelope are SpatRasters and SpatVolumes", {
   v <- methods::new("SpatVoxel", make_multidepth_rast())
 
@@ -540,47 +526,26 @@ test_that("envelope_to_voxel() round-trips a voxel built on the same depths", {
 })
 
 # vect_to_envelope() ----
-# Helpers for study_voxel tests: a lon/lat template grid, a GEBCO-style
-# elevation raster (negative below sea level), and a polygon inside the grid.
-sv_template <- function(vals) {
-  terra::rast(nrows = 5, ncols = 5,
-              xmin = 0, xmax = 5, ymin = 0, ymax = 5, 
-              vals = NA, crs = "EPSG:4326")
-}
-sv_elevation <- function(elev = -500) {
-  r <- sv_template()
-  terra::values(r) <- elev
-  r
-}
-sv_polygon <- function() {
-  poly <- sf::st_sfc(
-    sf::st_polygon(list(rbind(
-      c(1, 1), c(4, 1), c(4, 4), c(1, 4), c(1, 1)
-    ))),
-    crs = "EPSG:4326"
-  )
-  sf::st_sf(geometry = poly)
-}
 
 test_that("vect_to_envelope() checks for correct params", {
   expect_error(
-    vect_to_envelope("test", sv_template(), 0, 10),
+    vect_to_envelope("test", make_template(), 0, 10),
     "`polygon` needs to be of class SpatVector, sf, or sfc"
   )
   expect_error(
-    vect_to_envelope(sv_polygon(), "test", 0, 10),
+    vect_to_envelope(make_polygon(), "test", 0, 10),
     "`template` needs to be of class SpatRaster"
   )
 })
 
 test_that("vect_to_envelope() provides meaningful message when polygon and template don't overlap", {
-  # Create raster that doesn't overlap with sv_polygon()
+  # Create raster that doesn't overlap with make_polygon()
   template_r <- rast(
     nrows = 5, ncols = 5, 
     xmin = 5, xmax = 10, ymin = 5, ymax = 10, crs = "EPSG:4326"
   )
   expect_error(
-    vect_to_envelope(sv_polygon(), template_r, 0, 10),
+    vect_to_envelope(make_polygon(), template_r, 0, 10),
     "All output cell values are NA. `polygon` and `template` may not spatially overlap."
   )
 })
@@ -591,7 +556,7 @@ test_that("vect_to_envelope() checks for agreement of CRS between inputs", {
     xmin = 0, xmax = 5, ymin = 0, ymax = 5, crs = "EPSG:3857"
   )
   expect_error(
-    vect_to_envelope(sv_polygon(), template_r, 0, 10),
+    vect_to_envelope(make_polygon(), template_r, 0, 10),
     "`polygon` and `template` have different CRS."
   )
 
@@ -599,65 +564,65 @@ test_that("vect_to_envelope() checks for agreement of CRS between inputs", {
 })
 
 test_that("vect_to_envelope() takes single numeric value for depth_min and depth_max", {
-  r <- sv_template() 
+  r <- make_template() 
 
   expected_result <- rast(c(
     depth_min = rast(r, vals = 10), 
     depth_max = rast(r, vals = 20)
   )) 
   expected_result$depth_min <- expected_result$depth_min %>% 
-    mask(sv_polygon())
+    mask(make_polygon())
   expected_result$depth_max <- expected_result$depth_max %>% 
-    mask(sv_polygon())
+    mask(make_polygon())
   expected_result <- as_envelope(expected_result)
 
-  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = 20) 
+  result <- vect_to_envelope(make_polygon(), make_template(), depth_min = 10, depth_max = 20) 
 
   expect_true(identical(result, expected_result))
 })
 
 test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_min list params", {
-  r <- sv_template()
+  r <- make_template()
   terra::values(r) <- seq_len(length(values(r)))
 
   expected_result <- r %>%
-    mask(sv_polygon()) %>%
+    mask(make_polygon()) %>%
     max(10) 
   names(expected_result) <- "depth_min"
   expected_result$depth_max <- rast(r, vals = 25)
   expected_result <- as_envelope(expected_result)
 
-  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
+  result <- vect_to_envelope(make_polygon(), make_template(), depth_min = c(10, r), depth_max = 25) 
 
   expect_true(identical(result["depth_min"], expected_result["depth_min"]))
 })
 
 test_that("vect_to_envelope() correctly takes shallower maximum depth in the depth_max list params", {
-  r <- sv_template()
+  r <- make_template()
   terra::values(r) <- seq_len(length(values(r)))
 
   expected_result <- rast()
   expected_result$depth_min <- rast(r, vals = 0)
   expected_result$depth_max <- r %>%
-    mask(sv_polygon()) %>%
+    mask(make_polygon()) %>%
     min(10) 
   expected_result <- as_envelope(expected_result)
 
-  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 0, depth_max = c(10, r)) 
+  result <- vect_to_envelope(make_polygon(), make_template(), depth_min = 0, depth_max = c(10, r)) 
 
   expect_true(identical(result["depth_max"], expected_result["depth_max"]))
 })
 
 # TODO: deal with case where depth_max is shallower than depth_min
 test_that("vect_to_envelope() fills NA where depth_max is shallower than depth_min", {
-  r <- sv_template()
+  r <- make_template()
   terra::values(r) <- seq_len(length(values(r)))
 
   # minimum depth of envelope is 10
   depth_min_rast <- rast(r, vals = 10) 
   # maximum depth is either 16 or the raster r value
   depth_max_rast <- r %>%
-    mask(sv_polygon()) %>%
+    mask(make_polygon()) %>%
     min(16) 
 
   # valid cells are where depth_max is greater than depth_min
@@ -672,30 +637,155 @@ test_that("vect_to_envelope() fills NA where depth_max is shallower than depth_m
     depth_max = depth_max_rast
   )) %>% as_envelope()
 
-  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = c(16, r)) 
+  result <- vect_to_envelope(make_polygon(), make_template(), depth_min = 10, depth_max = c(16, r)) 
 
   expect_true(identical(result, expected_result))
 })
 
 test_that("vect_to_envelope() catches case where all cells depth_min are deeper than depth_max", {
-  r <- sv_template()
+  r <- make_template()
   terra::values(r) <- seq_len(length(values(r)))
 
   expected_result <- r %>%
-    mask(sv_polygon()) %>%
+    mask(make_polygon()) %>%
     min(10) 
   names(expected_result) <- "depth_max"
 
   expect_warning(
-    vect_to_envelope(sv_polygon(), sv_template(), depth_min = 50, depth_max = c(10, r)), 
+    vect_to_envelope(make_polygon(), make_template(), depth_min = 50, depth_max = c(10, r)), 
     "All depth_max values are shallower than depth_min. Check `depth_min` and `depth_max`, you may have swapped these two."
   )
 })
 
+test_that("vect_to_envelope() accepts SpatVector and sfc as well as sf", {
+  expect_s4_class(
+    vect_to_envelope(terra::vect(make_polygon()), make_template(), 0, 10),
+    "SpatEnvelope"
+  )
+  expect_s4_class(
+    vect_to_envelope(sf::st_geometry(make_polygon()), make_template(), 0, 10),
+    "SpatEnvelope"
+  )
+})
+
+test_that("vect_to_envelope() returns a valid SpatEnvelope, visibly", {
+  out <- vect_to_envelope(make_polygon(), make_template(), 0, 10)
+
+  expect_s4_class(out, "SpatEnvelope")
+  expect_true(isTRUE(methods::validObject(out)))
+  expect_named(out, c("depth_min", "depth_max"))
+  # The constructor assigns to `out` last; without a trailing bare `out` the
+  # result would come back invisibly and never print at the console.
+  expect_true(withVisible(vect_to_envelope(make_polygon(), make_template(), 0, 10))$visible)
+})
+
+test_that("vect_to_envelope() points a study_voxel at its component parts", {
+  sv <- create_study_voxel(
+    template = make_template(),
+    bathymetry = make_template(-500),
+    depths = c(0, 50)
+  )
+  expect_error(
+    vect_to_envelope(make_polygon(), sv, 0, 10),
+    "grid"
+  )
+})
+
+# Ported from voxelize_range(): the seafloor is now just another `depth_max`
+# constraint rather than a dedicated `bathymetry` argument.
+test_that("vect_to_envelope() clamps depth_max to the seafloor where it is shallower", {
+  seafloor <- make_template(seq(10, 250, length.out = 25))
+
+  out <- vect_to_envelope(make_polygon(), make_template(),
+                          depth_min = 50, depth_max = list(200, seafloor))
+
+  got <- terra::values(out$depth_max)
+  got <- got[!is.na(got)]
+  expect_true(all(got <= 200))
+  expect_true(any(got < 200))
+})
+
+# Ported from voxelize_range(): cells whose bed sits above the shallowest depth
+# the animal occupies carry no envelope at all.
+test_that("vect_to_envelope() drops cells where the seafloor is shallower than depth_min", {
+  seafloor <- make_template(seq(10, 250, length.out = 25))
+
+  out <- vect_to_envelope(make_polygon(), make_template(),
+                          depth_min = 100, depth_max = list(200, seafloor))
+
+  kept <- !is.na(terra::values(out$depth_min))
+  expect_true(any(kept))
+  expect_true(all(terra::values(seafloor)[kept] > 100))
+})
+
+# Ported from voxelize_range()'s bathymetry CRS / resolution checks, which now
+# apply to every SpatRaster in a depth list.
+test_that("vect_to_envelope() errors on a depth raster that does not align with template", {
+  bad_res <- terra::rast(nrows = 9, ncols = 9, xmin = 0, xmax = 5,
+                         ymin = 0, ymax = 5, vals = 50, crs = "EPSG:4326")
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list(10, bad_res)),
+    "does not align with `template`"
+  )
+
+  bad_ext <- terra::rast(nrows = 5, ncols = 5, xmin = 0, xmax = 9,
+                         ymin = 0, ymax = 9, vals = 50, crs = "EPSG:4326")
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list(10, bad_ext)),
+    "does not align with `template`"
+  )
+})
+
+test_that("vect_to_envelope() errors on a depth raster with a different CRS", {
+  # Same extent numbers, different CRS: terra otherwise returns a wrong answer
+  # here rather than failing.
+  bad_crs <- terra::rast(nrows = 5, ncols = 5, xmin = 0, xmax = 5,
+                         ymin = 0, ymax = 5, vals = 50, crs = "EPSG:3857")
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list(10, bad_crs)),
+    "different CRS than `template`"
+  )
+})
+
+test_that("vect_to_envelope() rejects empty and unusable depth inputs", {
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), list(), 10),
+    "`depth_min` is empty"
+  )
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list()),
+    "`depth_max` is empty"
+  )
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list(10, "deep")),
+    "must be numeric or a SpatRaster"
+  )
+  # `na.rm = TRUE` would drop an NA silently, widening rather than narrowing.
+  expect_error(
+    vect_to_envelope(make_polygon(), make_template(), 0, list(10, NA_real_)),
+    "is NA"
+  )
+})
+
+test_that("vect_to_envelope() matches voxelize_range() on the seafloor-clamped case", {
+  # Migration guard: delete alongside voxelize_range().
+  seafloor <- make_template(seq(10, 250, length.out = 25))
+
+  old <- voxelize_range(polygons = make_polygon(), voxel = make_template(),
+                        bathymetry = seafloor, depth_min = 50, depth_max = 200)
+  new <- vect_to_envelope(make_polygon(), make_template(),
+                          depth_min = 50, depth_max = list(200, seafloor))
+
+  expect_equal(as.vector(terra::values(new$depth_min)),
+               as.vector(terra::values(old$depth_min)))
+  expect_equal(as.vector(terra::values(new$depth_max)),
+               as.vector(terra::values(old$depth_max)))
+})
+
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
   sv <- create_study_voxel(
-    template = sv_template(),
-    bathymetry = sv_elevation(-500),
+    template = make_template(),
+    bathymetry = make_template(-500),
     depths = c(100, 0, 50)
   )
   expect_s3_class(sv, "study_voxel")
@@ -709,24 +799,24 @@ test_that("create_study_voxel() bundles grid, positive seafloor, and sorted dept
 # create_study_voxel() ----
 
 test_that("create_study_voxel() clamps land (positive elevation) to zero depth", {
-  sv <- create_study_voxel(sv_template(), sv_elevation(120), depths = c(0, 100))
+  sv <- create_study_voxel(make_template(), make_template(120), depths = c(0, 100))
   vals <- terra::values(sv$seafloor)
   expect_true(all(vals == 0, na.rm = TRUE))
 })
 
 test_that("create_study_voxel() validates its inputs", {
-  expect_error(create_study_voxel("nope", sv_elevation(), 1), "template")
-  expect_error(create_study_voxel(sv_template(), "nope", 1), "bathymetry")
-  expect_error(create_study_voxel(sv_template(), sv_elevation(), "nope"), "depths")
+  expect_error(create_study_voxel("nope", make_template(), 1), "template")
+  expect_error(create_study_voxel(make_template(), "nope", 1), "bathymetry")
+  expect_error(create_study_voxel(make_template(), make_template(), "nope"), "depths")
 })
 
 # voxelize_range() ----
 
 test_that("voxelize_range() accepts a study_voxel and derives the seafloor", {
   skip_if_not_installed("sf")
-  sv <- create_study_voxel(sv_template(), sv_elevation(-500), depths = c(0, 100))
+  sv <- create_study_voxel(make_template(), make_template(-500), depths = c(0, 100))
   out <- voxelize_range(
-    polygons = sv_polygon(), voxel = sv,
+    polygons = make_polygon(), voxel = sv,
     depth_min = 0, depth_max = 200
   )
   expect_named(out, c("depth_min", "depth_max"))
@@ -738,7 +828,7 @@ test_that("voxelize_range() accepts a study_voxel and derives the seafloor", {
 test_that("voxelize_range() errors when voxel is a SpatRaster and bathymetry is missing", {
   skip_if_not_installed("sf")
   expect_error(
-    voxelize_range(sv_polygon(), sv_template(), depth_min = 0, depth_max = 100),
+    voxelize_range(make_polygon(), make_template(), depth_min = 0, depth_max = 100),
     "bathymetry"
   )
 })
