@@ -484,6 +484,9 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   # check for validity, where depth_max is greater than depth_min
   diffs <- depth_max_rast - depth_min_rast
   msk <- ifel(diffs > 0, 1, NA)
+  if(terra::global(msk, "notNA")[1,1] == 0) {
+    warning("All depth_max values are shallower than depth_min. Check `depth_min` and `depth_max`, you may have swapped these two.")
+  }
 
   # mask cells that are not valid, depth_min is deeper than depth_max
   depth_min_rast <- mask(depth_min_rast, msk)

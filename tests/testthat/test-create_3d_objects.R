@@ -672,6 +672,20 @@ test_that("vect_to_envelope() fills NA where depth_max is shallower than depth_m
   expect_true(identical(result, expected_result))
 })
 
+test_that("vect_to_envelope() catches case where all cells depth_min are deeper than depth_max", {
+  r <- sv_template()
+  terra::values(r) <- seq_len(length(values(r)))
+
+  expected_result <- r %>%
+    mask(sv_polygon()) %>%
+    min(10) 
+  names(expected_result) <- "depth_max"
+
+  expect_warning(
+    vect_to_envelope(sv_polygon(), sv_template(), depth_min = 50, depth_max = c(10, r)), 
+    "All depth_max values are shallower than depth_min. Check `depth_min` and `depth_max`, you may have swapped these two."
+  )
+})
 
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
   sv <- create_study_voxel(
