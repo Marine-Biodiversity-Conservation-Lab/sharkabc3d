@@ -437,11 +437,11 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #' @param depth_min List. Can contain both numeric and SpatRasters that match coordinate, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
 #'   across the `depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
-#'   value. 
+#'   value. Inclusive selection of this depth. 
 #' @param depth_max List. Can contain both numeric and SpatRasters that match coordinate, 
 #'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
 #'   across the `depth_max` list parameters is used as output SpatEnvelope depth_max layer cell
-#'   value. 
+#'   value. Inclusive selection of this depth. 
 #' 
 #' @returns SpatEnvelope, with depth_min and depth_max layers. 
 #' @export
@@ -474,16 +474,13 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
 
   # create empty rast with all NA values
   # get minimum value from depth_min params, can be numeric or SpatRaster
-  browser()
-  depth_min_rast <- rast(all_one, vals = NA) %>% 
-    min(depth_min, na.rm = T) %>%
-    mask(masked)  
+  depth_min_rast <- do.call("max", c(list(rast(all_one, vals = NA)), depth_min, list(na.rm = TRUE))) %>%
+    mask(masked)
 
   # create empty rast with all NA values
   # get maximum value from depth_min params, can be numeric or SpatRaster
-  depth_max_rast <- rast(all_one, vals = NA) %>% 
-    max(depth_max, na.rm = T) %>%
-    mask(masked)  
+  depth_max_rast <- do.call("min", c(list(rast(all_one, vals = NA)), depth_max, list(na.rm = TRUE))) %>%
+    mask(masked)
 
   out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
   out

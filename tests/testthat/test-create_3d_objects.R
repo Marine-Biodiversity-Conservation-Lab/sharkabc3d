@@ -619,28 +619,31 @@ test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_
   r <- sv_template()
   terra::values(r) <- seq_len(length(values(r)))
 
-  # If polygon covers cells that are less than depth_min, should be NA
-  expected_result <- r %>% 
-    replace(expected_result < 10, NA) %>%
-    mask(sv_polygon())
+  expected_result <- r %>%
+    mask(sv_polygon()) %>%
+    max(r, 10) 
+  names(expected_result) <- "depth_min"
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
 
-  expect_true(identical(result[[depth_min]], expected_result))
+  expect_true(identical(result["depth_min"], expected_result))
 })
 
 test_that("vect_to_envelope() correctly takes shallower maximum depth in the depth_max list params", {
   r <- sv_template()
   terra::values(r) <- seq_len(length(values(r)))
 
-  expected_result <- r %>% 
-    replace(expected_result > 10, 10) %>%
-    mask(sv_polygon())
+  expected_result <- r %>%
+    mask(sv_polygon()) %>%
+    min(r, 10) 
+  names(expected_result) <- "depth_max"
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 0, depth_max = c(10, r)) 
 
-  expect_true(identical(result, expected_result))
+  expect_true(identical(result["depth_max"], expected_result))
 })
+
+# TODO: deal with case where depth_max is shallower than depth_min
 
 
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
