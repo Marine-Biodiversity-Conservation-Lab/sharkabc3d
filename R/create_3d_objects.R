@@ -461,7 +461,6 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
     # TODO: implement check for the depth_min and depth_max inputs
   }
 
-
   # take first layer in case multi-layer raster
   all_one <- template[[1]]
   # make all cell values 1, since mask leaves NAs alone 
@@ -481,6 +480,14 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   # get maximum value from depth_min params, can be numeric or SpatRaster
   depth_max_rast <- do.call("min", c(list(rast(all_one, vals = NA)), depth_max, list(na.rm = TRUE))) %>%
     mask(masked)
+
+  # check for validity, where depth_max is greater than depth_min
+  diffs <- depth_max_rast - depth_min_rast
+  msk <- ifel(diffs > 0, 1, NA)
+
+  # mask cells that are not valid, depth_min is deeper than depth_max
+  depth_min_rast <- mask(depth_min_rast, msk)
+  depth_max_rast <- mask(depth_max_rast, msk)
 
   out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
   out

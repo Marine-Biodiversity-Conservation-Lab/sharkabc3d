@@ -621,7 +621,7 @@ test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_
 
   expected_result <- r %>%
     mask(sv_polygon()) %>%
-    max(r, 10) 
+    max(10) 
   names(expected_result) <- "depth_min"
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
@@ -635,7 +635,7 @@ test_that("vect_to_envelope() correctly takes shallower maximum depth in the dep
 
   expected_result <- r %>%
     mask(sv_polygon()) %>%
-    min(r, 10) 
+    min(10) 
   names(expected_result) <- "depth_max"
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 0, depth_max = c(10, r)) 
@@ -644,6 +644,33 @@ test_that("vect_to_envelope() correctly takes shallower maximum depth in the dep
 })
 
 # TODO: deal with case where depth_max is shallower than depth_min
+test_that("vect_to_envelope() fills NA where depth_max is shallower than depth_min", {
+  r <- sv_template()
+  terra::values(r) <- seq_len(length(values(r)))
+
+  # minimum depth of envelope is 10
+  depth_min_rast <- rast(r, vals = 10) 
+  # maximum depth is either 16 or the raster r value
+  depth_max_rast <- r %>%
+    mask(sv_polygon()) %>%
+    min(16) 
+
+  # valid cells are where depth_max is greater than depth_min
+  diffs <- depth_max_rast - depth_min_rast
+  msk <- ifel(diffs > 0, 1, NA)
+
+  depth_min_rast <- mask(depth_min_rast, msk)
+  depth_max_rast <- mask(depth_max_rast, msk)
+
+  expected_result <- rast(c(
+    depth_min = depth_min_rast,
+    depth_max = depth_max_rast
+  ))
+
+  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = c(16, r)) 
+
+  expect_true(identical(result, expected_result))
+})
 
 
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
