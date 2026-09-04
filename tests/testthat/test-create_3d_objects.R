@@ -604,11 +604,12 @@ test_that("vect_to_envelope() takes single numeric value for depth_min and depth
   expected_result <- rast(c(
     depth_min = rast(r, vals = 10), 
     depth_max = rast(r, vals = 20)
-  ))
+  )) 
   expected_result$depth_min <- expected_result$depth_min %>% 
     mask(sv_polygon())
   expected_result$depth_max <- expected_result$depth_max %>% 
     mask(sv_polygon())
+  expected_result <- as_envelope(expected_result)
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = 20) 
 
@@ -623,24 +624,28 @@ test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_
     mask(sv_polygon()) %>%
     max(10) 
   names(expected_result) <- "depth_min"
+  expected_result$depth_max <- rast(r, vals = 25)
+  expected_result <- as_envelope(expected_result)
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
 
-  expect_true(identical(result["depth_min"], expected_result))
+  expect_true(identical(result["depth_min"], expected_result["depth_min"]))
 })
 
 test_that("vect_to_envelope() correctly takes shallower maximum depth in the depth_max list params", {
   r <- sv_template()
   terra::values(r) <- seq_len(length(values(r)))
 
-  expected_result <- r %>%
+  expected_result <- rast()
+  expected_result$depth_min <- rast(r, vals = 0)
+  expected_result$depth_max <- r %>%
     mask(sv_polygon()) %>%
     min(10) 
-  names(expected_result) <- "depth_max"
+  expected_result <- as_envelope(expected_result)
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 0, depth_max = c(10, r)) 
 
-  expect_true(identical(result["depth_max"], expected_result))
+  expect_true(identical(result["depth_max"], expected_result["depth_max"]))
 })
 
 # TODO: deal with case where depth_max is shallower than depth_min
@@ -665,7 +670,7 @@ test_that("vect_to_envelope() fills NA where depth_max is shallower than depth_m
   expected_result <- rast(c(
     depth_min = depth_min_rast,
     depth_max = depth_max_rast
-  ))
+  )) %>% as_envelope()
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = c(16, r)) 
 

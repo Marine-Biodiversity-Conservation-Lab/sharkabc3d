@@ -435,11 +435,11 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #' @param polygon sf or SpatVector, for example species ranges or fishery footprints. 
 #' @param template SpatRaster that defines the horizontal grid of the SpatEnvelope output. 
 #' @param depth_min List. Can contain both numeric and SpatRasters that match coordinate, 
-#'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
+#'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
 #'   across the `depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
 #'   value. Inclusive selection of this depth. 
 #' @param depth_max List. Can contain both numeric and SpatRasters that match coordinate, 
-#'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
+#'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
 #'   across the `depth_max` list parameters is used as output SpatEnvelope depth_max layer cell
 #'   value. Inclusive selection of this depth. 
 #' 
@@ -447,7 +447,7 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #' @export
 vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   # check params
-  if (!is(polygon, c("sf"))) {
+  if (!inherits(polygon, c("sf", "sfc", "SpatVector"))) {
     stop("`polygon` needs to be of class SpatVector, sf, or sfc")
   }
   if (inherits(polygon, "sf") || inherits(polygon, "sfc")) {
@@ -456,7 +456,7 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   if (!is(template, "SpatRaster")) {
     stop("`template` needs to be of class SpatRaster")
   }
-  if(!identical(crs(polygon), crs(template))) {
+  if(!terra::same.crs(crs(polygon), crs(template))) {
     stop("`polygon` and `template` have different CRS.")
     # TODO: implement check for the depth_min and depth_max inputs
   }
@@ -493,7 +493,7 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   depth_max_rast <- mask(depth_max_rast, msk)
 
   out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
-  out
+  out <- methods::new("SpatEnvelope", out)
 }
 
 #' Create a study area raster grid
