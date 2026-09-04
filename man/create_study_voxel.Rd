@@ -30,7 +30,5 @@ Bundle the three things every 3D operation in the package needs into one
 grid, and the standard depth levels that define the vertical resolution of
 the voxel model. The supplied bathymetry is projected onto the template and
 converted to a positive seafloor depth (land clamped to 0), so callers no
-longer prepare the seafloor by hand. \code{\link[=voxelize_range]{voxelize_range()}} and
-\code{\link[=voxelize_ranges]{voxelize_ranges()}} accept the returned object directly via their \code{voxel}
-argument.
+longer prepare the seafloor by hand.
 }

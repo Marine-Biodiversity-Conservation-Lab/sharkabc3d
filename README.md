@@ -83,8 +83,6 @@ usethis::edit_r_environ()
 - `voxelize_range()` — rasterize a single species range or fishery
   footprint and assign per-cell `depth_min` / `depth_max` clamped to the
   seafloor.
-- `voxelize_ranges()` — vectorised wrapper that rasterizes every row of
-  an `sf` object with its own depth limits.
 
 ### 3D volume and overlap
 

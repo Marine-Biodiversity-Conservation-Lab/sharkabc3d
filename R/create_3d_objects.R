@@ -467,9 +467,7 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
 #' grid, and the standard depth levels that define the vertical resolution of
 #' the voxel model. The supplied bathymetry is projected onto the template and
 #' converted to a positive seafloor depth (land clamped to 0), so callers no
-#' longer prepare the seafloor by hand. [voxelize_range()] and
-#' [voxelize_ranges()] accept the returned object directly via their `voxel`
-#' argument.
+#' longer prepare the seafloor by hand. 
 #'
 #' @param template SpatRaster. Empty raster defining the horizontal grid
 #'   (extent, resolution, CRS) whose cells become the footprint of each voxel
@@ -593,55 +591,4 @@ voxelize_range <- function(polygons, voxel, bathymetry = NULL, depth_min, depth_
   names(dmax_rast) <- "depth_max"
 
   c(dmin_rast, dmax_rast)
-}
-
-#' Voxelize multiple ranges onto a study grid
-#'
-#' Wrapper around [voxelize_range()] that processes multiple rows of an sf
-#' object, each with its own depth limits. Displays a progress bar.
-#'
-#' @param sf_data sf object. Each row is a separate range to rasterize.
-#' @param voxel The voxel grid that defines the study area. Either a
-#'   `study_voxel` object (from [create_study_voxel()]) or a plain SpatRaster
-#'   template (e.g., from [create_study_raster()]) whose cells become the
-#'   horizontal footprint of each voxel column.
-#' @param bathymetry SpatRaster. Seafloor depth raster (positive values in
-#'   metres) matching `voxel`. Optional and ignored when `voxel` is a
-#'   `study_voxel` (its seafloor is used).
-#' @param depth_min_col Character. Column name in `sf_data` containing the
-#'   minimum (shallowest) depth in metres.
-#' @param depth_max_col Character. Column name in `sf_data` containing the
-#'   maximum (deepest) depth in metres.
-#' @param name_col Character. Optional column name to use for naming the
-#'   output list. Default `NULL` (unnamed).
-#'
-#' @returns Named list of multi-layer SpatRasters (output of
-#'   [voxelize_range()]).
-#' @export
-voxelize_ranges <- function(sf_data, voxel, bathymetry = NULL,
-                             depth_min_col, depth_max_col,
-                             name_col = NULL) {
-  n <- nrow(sf_data)
-  message("Rasterizing ", n, " ranges...")
-  pb <- txtProgressBar(min = 0, max = n, style = 3)
-
-  results <- lapply(seq_len(n), function(i) {
-    row <- sf_data[i, ]
-    result <- voxelize_range(
-      polygons = row,
-      voxel = voxel,
-      bathymetry = bathymetry,
-      depth_min = row[[depth_min_col]],
-      depth_max = row[[depth_max_col]]
-    )
-    setTxtProgressBar(pb, i)
-    result
-  })
-  close(pb)
-
-  if (!is.null(name_col)) {
-    names(results) <- sf_data[[name_col]]
-  }
-
-  results
 }
