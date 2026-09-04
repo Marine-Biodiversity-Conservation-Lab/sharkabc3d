@@ -598,6 +598,23 @@ test_that("vect_to_envelope() checks for agreement of CRS between inputs", {
   # TODO: implement check for the depth_min and depth_max inputs
 })
 
+test_that("vect_to_envelope() takes single numeric value for depth_min and depth_max", {
+  r <- sv_template() 
+
+  expected_result <- rast(c(
+    depth_min = rast(r, vals = 10), 
+    depth_max = rast(r, vals = 20)
+  ))
+  expected_result$depth_min <- expected_result$depth_min %>% 
+    mask(sv_polygon())
+  expected_result$depth_max <- expected_result$depth_max %>% 
+    mask(sv_polygon())
+
+  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 10, depth_max = 20) 
+
+  expect_true(identical(result, expected_result))
+})
+
 test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_min list params", {
   r <- sv_template()
   terra::values(r) <- seq_len(length(values(r)))
@@ -609,7 +626,7 @@ test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_
 
   result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
 
-  expect_true(identical(result, expected_result))
+  expect_true(identical(result[[depth_min]], expected_result))
 })
 
 test_that("vect_to_envelope() correctly takes shallower maximum depth in the depth_max list params", {

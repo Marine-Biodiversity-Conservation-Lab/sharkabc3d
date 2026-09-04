@@ -463,16 +463,30 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
 
 
   # take first layer in case multi-layer raster
-  template <- template[[1]]
-  # strip values from template
-  terra::values(template) <- 1
+  all_one <- template[[1]]
+  # make all cell values 1, since mask leaves NAs alone 
+  terra::values(all_one) <- 1
   # intersect between polygon and template
-  masked <- terra::mask(template, polygon) 
+  masked <- terra::mask(all_one, polygon) 
   if(terra::global(masked, "notNA")[1,1] == 0) {
     stop("All output cell values are NA. `polygon` and `template` may not spatially overlap.")
   }
 
-  masked
+  # create empty rast with all NA values
+  # get minimum value from depth_min params, can be numeric or SpatRaster
+  browser()
+  depth_min_rast <- rast(all_one, vals = NA) %>% 
+    min(depth_min, na.rm = T) %>%
+    mask(masked)  
+
+  # create empty rast with all NA values
+  # get maximum value from depth_min params, can be numeric or SpatRaster
+  depth_max_rast <- rast(all_one, vals = NA) %>% 
+    max(depth_max, na.rm = T) %>%
+    mask(masked)  
+
+  out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast))
+  out
 }
 
 #' Create a study area raster grid
