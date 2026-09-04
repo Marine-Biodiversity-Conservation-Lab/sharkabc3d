@@ -33,3 +33,6 @@
 * Add a runnable worked example to `fill_missing_depths()` and move it to
   `R/iucn_utils.R`, alongside `fetch_species_assessments()` whose depth limits
   it is designed to repair.
+    
+# sharkabc3d 0.1.1.9004
+* Improve `gfw_effort_to_raster()` function to be able to assume grid resolution and extent from input dataframe. 
