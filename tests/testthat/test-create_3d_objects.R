@@ -539,12 +539,13 @@ test_that("envelope_to_voxel() round-trips a voxel built on the same depths", {
   expect_equal(is.na(terra::values(back)), is.na(terra::values(v)))
 })
 
-
+# vect_to_envelope() ----
 # Helpers for study_voxel tests: a lon/lat template grid, a GEBCO-style
 # elevation raster (negative below sea level), and a polygon inside the grid.
-sv_template <- function() {
+sv_template <- function(vals) {
   terra::rast(nrows = 5, ncols = 5,
-              xmin = 0, xmax = 5, ymin = 0, ymax = 5, crs = "EPSG:4326")
+              xmin = 0, xmax = 5, ymin = 0, ymax = 5, 
+              vals = NA, crs = "EPSG:4326")
 }
 sv_elevation <- function(elev = -500) {
   r <- sv_template()
@@ -560,6 +561,70 @@ sv_polygon <- function() {
   )
   sf::st_sf(geometry = poly)
 }
+
+test_that("vect_to_envelope() checks for correct params", {
+  expect_error(
+    vect_to_envelope("test", sv_template(), 0, 10),
+    "`polygon` needs to be of class SpatVector, sf, or sfc"
+  )
+  expect_error(
+    vect_to_envelope(sv_polygon(), "test", 0, 10),
+    "`template` needs to be of class SpatRaster"
+  )
+})
+
+test_that("vect_to_envelope() provides meaningful message when polygon and template don't overlap", {
+  # Create raster that doesn't overlap with sv_polygon()
+  template_r <- rast(
+    nrows = 5, ncols = 5, 
+    xmin = 5, xmax = 10, ymin = 5, ymax = 10, crs = "EPSG:4326"
+  )
+  expect_error(
+    vect_to_envelope(sv_polygon(), template_r, 0, 10),
+    "All output cell values are NA. `polygon` and `template` may not spatially overlap."
+  )
+})
+
+test_that("vect_to_envelope() checks for agreement of CRS between inputs", {
+  template_r <- rast(
+    nrows = 5, ncols = 5, 
+    xmin = 0, xmax = 5, ymin = 0, ymax = 5, crs = "EPSG:3857"
+  )
+  expect_error(
+    vect_to_envelope(sv_polygon(), template_r, 0, 10),
+    "`polygon` and `template` have different CRS."
+  )
+
+  # TODO: implement check for the depth_min and depth_max inputs
+})
+
+test_that("vect_to_envelope() correctly takes deeper minimum depth in the depth_min list params", {
+  r <- sv_template()
+  terra::values(r) <- seq_len(length(values(r)))
+
+  # If polygon covers cells that are less than depth_min, should be NA
+  expected_result <- r %>% 
+    replace(expected_result < 10, NA) %>%
+    mask(sv_polygon())
+
+  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = c(10, r), depth_max = 25) 
+
+  expect_true(identical(result, expected_result))
+})
+
+test_that("vect_to_envelope() correctly takes shallower maximum depth in the depth_max list params", {
+  r <- sv_template()
+  terra::values(r) <- seq_len(length(values(r)))
+
+  expected_result <- r %>% 
+    replace(expected_result > 10, 10) %>%
+    mask(sv_polygon())
+
+  result <- vect_to_envelope(sv_polygon(), sv_template(), depth_min = 0, depth_max = c(10, r)) 
+
+  expect_true(identical(result, expected_result))
+})
+
 
 test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
   sv <- create_study_voxel(
