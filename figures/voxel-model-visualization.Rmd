@@ -27,13 +27,18 @@ a cube representation of three-dimensional space, the volumetric analogue of
 the cell (or pixel) in a two-dimensional raster. Each cube is a *voxel*.
 
 Every 3D operation in the package is built on this model, and every model is
-built by [create_study_voxel()], which bundles **three inputs** into one
-`study_voxel` object:
+described by the same **three inputs**:
 
 1. a **horizontal grid template** — the map footprint each voxel column sits on;
 2. a **bathymetry raster** — the seafloor depth that caps each column; and
 3. a vector of **standard depths** — the vertical levels that slice the water
    column into layers.
+
+The package keeps these as three plain objects rather than one bundle: a
+`SpatRaster` template, a positive seafloor-depth `SpatRaster`, and a numeric
+depth vector. [as_envelope()] pairs a footprint with depth limits to give the
+2.5D [SpatEnvelope-class], and [envelope_to_voxel()] expands that onto the
+standard depths to give the 3D [SpatVoxel-class].
 
 This document builds a deliberately small, synthetic example so the geometry
 is easy to see, visualizes each of the three inputs on its own, then renders
@@ -254,42 +259,54 @@ p_depths
 
 ## Assembling the voxel model
 
-[create_study_voxel()] takes the three inputs and returns a `study_voxel`. It
-projects the bathymetry onto the template, flips it to a positive seafloor
-depth (clamping land to 0), and stores the sorted standard depths alongside the
-empty grid.
+The three inputs are combined by hand, in three lines. GEBCO elevation is
+negative below sea level, so we project it onto the template, flip the sign, and
+clamp land to 0 — that gives the positive **seafloor depth** the rest of the
+package works in. The standard depths just need sorting.
 
 ```{r create-voxel}
-voxel <- create_study_voxel(
-  template   = template,
-  bathymetry = bathymetry,
-  depths     = depths
-)
-voxel
-#> <study_voxel>
-#>   grid:   10 x 10 cells
-#>   depths: 10 levels (0 to 400 m)
+grid <- terra::rast(template)   # extent, resolution, and CRS only
 
-# The three components the object carries:
-voxel$grid        # empty horizontal template
-voxel$seafloor    # positive seafloor depth on that grid
-voxel$depths      # sorted standard depth levels
+seafloor <- terra::clamp(terra::project(bathymetry, grid) * -1, lower = 0)
+names(seafloor) <- "seafloor"
+
+depths <- sort(unique(depths))
+
+# The three components the voxel model is built from:
+grid        # empty horizontal template
+seafloor    # positive seafloor depth on that grid
+depths      # sorted standard depth levels
+```
+
+Expressed in the package's own classes, the ocean itself is an envelope from the
+surface to the bed, expanded onto the standard depths:
+
+```{r ocean-voxel}
+ocean <- as_envelope(
+  terra::ifel(seafloor > 0, 1, NA),   # footprint: wet cells only
+  depth_min = 0,
+  depth_max = seafloor
+) |>
+  envelope_to_voxel(depths = depths)
+
+names(ocean)   # one layer per standard depth
 ```
 
 ## Visualizing the output: the voxelized ocean
 
-The `study_voxel` describes a stack of cubes: at every ocean cell, the water
-column from the surface (0 m) down to the seafloor is sliced into voxels at the
-standard depths, with the deepest voxel clamped to the local seafloor. That is
-exactly the volume [voxelize_range()] fills for a feature and that
-[calc_volume()] and [calc_volume_overlap()] measure.
+That model is a stack of cubes: at every ocean cell, the water column from the
+surface (0 m) down to the seafloor is sliced into voxels at the standard depths,
+with the deepest voxel clamped to the local seafloor. That is exactly the volume
+[vect_to_envelope()] fills for a feature and that [calc_volume()] and
+[calc_volume_overlap()] measure.
 
 We render it with `rayrender`, which builds a path-traced scene from real 3D
-primitives — one solid, opaque plate per voxel. First we expand the `study_voxel`
-into a table of voxels (one row per ocean cell x standard-depth layer), then draw
-each row as a solid plate coloured by depth. We show the result two ways: **Panel
-D** pulls the standard-depth layers apart into an *exploded* stack so each raster
-layer is legible on its own, and **Panel E** drops those same plates to their
+primitives — one solid, opaque plate per voxel. First we expand the seafloor and
+the standard depths into a table of voxels (one row per ocean cell x
+standard-depth layer), then draw each row as a solid plate coloured by depth. We
+show the result two ways: **Panel D** pulls the standard-depth layers apart into
+an *exploded* stack so each raster layer is legible on its own, and **Panel E**
+drops those same plates to their
 true depths, so the real vertical spacing of the voxelized ocean — fine near the
 surface, widening below — is visible.
 
@@ -309,11 +326,12 @@ depth_bands <- function(standard_depths) {
   )
 }
 
-# Expand a study_voxel into one row per (ocean cell x depth layer) whose top
-# sits above the seafloor, clamping the deepest layer to the local seafloor.
-voxel_columns <- function(voxel) {
-  bands <- depth_bands(voxel$depths)
-  cells <- terra::as.data.frame(voxel$seafloor, xy = TRUE, na.rm = FALSE)
+# Expand a seafloor raster + standard depths into one row per (ocean cell x
+# depth layer) whose top sits above the seafloor, clamping the deepest layer to
+# the local seafloor.
+voxel_columns <- function(seafloor, standard_depths) {
+  bands <- depth_bands(standard_depths)
+  cells <- terra::as.data.frame(seafloor, xy = TRUE, na.rm = FALSE)
 
   do.call(rbind, lapply(seq_len(nrow(cells)), function(i) {
     sfd <- cells$seafloor[i]
@@ -327,7 +345,7 @@ voxel_columns <- function(voxel) {
   }))
 }
 
-vox <- voxel_columns(voxel)
+vox <- voxel_columns(seafloor, depths)
 nrow(vox)   # number of voxels (ocean cells x layers)
 #> [1] 558
 ```
@@ -355,17 +373,17 @@ depth_to_colour <- function(d, dmin, dmax) {
   depth_palette[idx]
 }
 
-res     <- terra::res(voxel$grid)       # horizontal cell size (x, y) in grid units
+res     <- terra::res(grid)             # horizontal cell size (x, y) in grid units
 dx      <- res[1]
 dy      <- res[2]
 vscale  <- 6 / max(vox$z_high)          # true depths -> ~6 scene units at the seafloor
 hgap    <- 0.94                         # horizontal seams so raster cells stay visible
 plate_h <- 0.07                         # thickness of each solid layer plate
-dmin    <- min(voxel$depths)
-dmax    <- max(voxel$depths)
+dmin    <- min(depths)
+dmax    <- max(depths)
 
 # Layer index of each voxel (1 = surface layer), used to explode the stack.
-layer_levels <- sort(unique(voxel$depths))
+layer_levels <- depths
 vox$layer <- match(vox$depth, layer_levels)
 
 # One solid, opaque plate per voxel, coloured by depth. `ycentre` sets where the
@@ -486,7 +504,7 @@ own, its footprint shrinking with depth as the rising seafloor drops out cells;
 Panel E drops those same plates to their true depths — spaced finely near the
 surface and widening below — their clamped bottoms tracing the seabed that Panel
 B renders as a surface: short over the shallow shelf and reaching deep in the
-south-east, absent over the north-west land. These plates are the same voxels [voxelize_range()] fills for a
+south-east, absent over the north-west land. These plates are the same voxels [vect_to_envelope()] fills for a
 feature and that [calc_volume()] and [calc_volume_overlap()] measure. Because
 `rayrender` path-traces real geometry, the render is deterministic and needs no
 browser or `webshot` step — `render_scene()` writes the PNG directly.
@@ -528,9 +546,12 @@ manuscript. All three live here in `figures/` alongside this source.
 
 - The voxel model is a stack of raster layers sharing one grid, each layer a
   standard depth — the same representation oceanographic products use.
-- [create_study_voxel()] bundles the three inputs every 3D operation needs:
-  the **horizontal grid template**, the **bathymetry** that caps each column,
-  and the **standard depths** that slice the water column.
+- Every 3D operation needs the same three inputs: the **horizontal grid
+  template**, the **bathymetry** that caps each column (flipped to a positive
+  seafloor depth), and the **standard depths** that slice the water column. They
+  are passed as three plain objects, not bundled into one.
+- [as_envelope()] and [envelope_to_voxel()] turn them into the package's two
+  representations, the 2.5D [SpatEnvelope-class] and the 3D [SpatVoxel-class].
 - The output is a voxelized ocean: per-cell columns of cubes clamped to the
-  seafloor, which [voxelize_range()], [calc_volume()], and
+  seafloor, which [vect_to_envelope()], [calc_volume()], and
   [calc_volume_overlap()] operate on directly.

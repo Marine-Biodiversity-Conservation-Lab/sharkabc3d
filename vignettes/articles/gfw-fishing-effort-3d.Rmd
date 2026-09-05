@@ -525,12 +525,13 @@ sp_range <- sf::st_read(
 # Depth limits are placeholder values for demonstration; in practice pull
 # them per-species via fetch_species_assessments() / fill_missing_depths()
 # from the IUCN Red List API.
-range_rast <- voxelize_range(
-  polygons   = sp_range,
-  voxel      = study_grid,
-  bathymetry = seafloor,
-  depth_min  = 0,
-  depth_max  = 500
+range_rast <- vect_to_envelope(
+  polygon   = sp_range,
+  template  = study_grid,
+  depth_min = 0,
+  # The seafloor is just another depth_max constraint: per cell the shallowest
+  # of the two wins, so the range never extends below the bed.
+  depth_max = list(500, seafloor)
 )
 
 # Mask the 3D effort stack to cells + depths inside the species' per-cell

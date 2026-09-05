@@ -1,4 +1,4 @@
-# Helper: create a voxelize_range-like output (depth_min, depth_max layers)
+# Helper: create a vect_to_envelope()-like output (depth_min, depth_max layers)
 make_range_rast <- function(depth_min_vals, depth_max_vals, ncol = 3, nrow = 3) {
   dmin <- terra::rast(nrows = nrow, ncols = ncol,
                       xmin = 0, xmax = ncol * 1000,
@@ -105,15 +105,24 @@ test_that("calc_volume() returns correct value for uniform grid", {
   expect_equal(vol, 0.9, tolerance = 0.01)
 })
 
-test_that("calc_volume() of a voxelize_range output is positive and finite", {
+# Helpers are defined locally so this does not depend on definitions that live
+# in another test file.
+test_that("calc_volume() of a vect_to_envelope() output is positive and finite", {
   skip_if_not_installed("sf")
-  out <- voxelize_range(
-    polygons = make_polygon(),
-    voxel = make_grid(),
-    bathymetry = make_bathy(500),
-    depth_min = 0,
-    depth_max = 200
-  )
+
+  grid <- terra::rast(nrows = 5, ncols = 5, xmin = 0, xmax = 5,
+                      ymin = 0, ymax = 5, vals = NA, crs = "EPSG:4326")
+  seafloor <- grid
+  terra::values(seafloor) <- 500
+  poly <- sf::st_sf(geometry = sf::st_sfc(
+    sf::st_polygon(list(rbind(c(1, 1), c(4, 1), c(4, 4), c(1, 4), c(1, 1)))),
+    crs = "EPSG:4326"
+  ))
+
+  out <- vect_to_envelope(poly, grid, depth_min = 0,
+                          depth_max = list(200, seafloor))
+
+  expect_s4_class(out, "SpatEnvelope")
   v <- calc_volume(out)
   expect_true(is.finite(v))
   expect_gt(v, 0)

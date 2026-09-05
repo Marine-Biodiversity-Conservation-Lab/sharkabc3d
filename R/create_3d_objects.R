@@ -5,19 +5,21 @@
 #' Build a [SpatEnvelope-class] — one continuous `[depth_min, depth_max]`
 #' interval per grid cell — from a 2D horizontal footprint and the depth limits
 #' that apply to it. This is the general form of the conversion
-#' [voxelize_range()] performs for polygons: any 2D raster whose non-`NA` cells
-#' mark presence becomes a 3D domain once depth limits are attached to it.
+#' [vect_to_envelope()] performs for polygons: any 2D raster whose non-`NA`
+#' cells mark presence becomes a 3D domain once depth limits are attached to
+#' it.
 #'
 #' `x` is the footprint. Its values are not read, only their non-`NA` pattern:
 #' a rasterized species range, a Global Fishing Watch effort layer, or a plain
 #' presence mask all work. A SpatRaster that *already* has exactly the two
-#' layers `depth_min` and `depth_max` (the output of [voxelize_range()], or a
+#' layers `depth_min` and `depth_max` (the output of [vect_to_envelope()], or a
 #' [SpatEnvelope-class] itself) is promoted directly instead, in which case
 #' `depth_min` and `depth_max` must be omitted.
 #'
 #' Depths are positive metres increasing downward, following the package's
-#' depth sign convention. Pass GEBCO-style elevation through
-#' [create_study_voxel()] first, which flips the sign and clamps land to 0.
+#' depth sign convention. Flip GEBCO-style elevation first, e.g.
+#' `terra::clamp(-terra::project(bathy, x), lower = 0)`, which gives a positive
+#' seafloor depth with land clamped to 0.
 #'
 #' @param x SpatRaster. Either a single-layer footprint whose non-`NA` cells are
 #'   present, or a two-layer raster already named `depth_min`, `depth_max`.
@@ -46,7 +48,7 @@ as_envelope <- function(x, depth_min, depth_max) {
   if (inherits(x, "sf") || inherits(x, "sfc") || inherits(x, "SpatVector")) {
     stop("`x` must be a SpatRaster footprint, not vector geometry. ",
          "Rasterize the polygons onto the study grid first, or use ",
-         "voxelize_range(), which does both.", call. = FALSE)
+         "vect_to_envelope(), which does both.", call. = FALSE)
   }
   if (!inherits(x, "SpatRaster")) {
     stop("`x` must be a SpatRaster.", call. = FALSE)
@@ -425,6 +427,157 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   out
 }
 
+# Internal: validate and normalise the `depth_min` / `depth_max` inputs of
+# `vect_to_envelope()`. Accepts a list, a numeric vector, or a SpatRaster
+# Returns a list whose elements can be used in `do.call("max", ...)` / `do.call("min", ...)`.
+.normalize_depth_inputs <- function(x, template, arg) {
+  if (inherits(x, "SpatRaster")) {
+    x <- list(x)
+  } else if (!is.list(x)) {
+    x <- as.list(x)
+  }
+
+  if (length(x) == 0L) {
+    stop("`", arg, "` is empty. Supply at least one numeric value or SpatRaster.", call. = FALSE)
+  }
+
+  for (i in seq_along(x)) {
+    el <- x[[i]]
+    label <- if (length(x) == 1L) {
+      paste0("`", arg, "`")
+    } else {
+      paste0("`", arg, "` element ", i)
+    }
+
+    if (inherits(el, "SpatRaster")) {
+      if (!terra::same.crs(el, template)) {
+        stop(label, " has a different CRS than `template`. ",
+             "Project it onto the template grid first.", call. = FALSE)
+      }
+      aligned <- terra::compareGeom(el, template, crs = FALSE,
+                                    stopOnError = FALSE, messages = FALSE)
+      if (!isTRUE(aligned)) {
+        stop(label, " does not align with `template`; its extent or resolution ",
+             "differs. Resample it onto the template grid first.", call. = FALSE)
+      }
+    } else if (!is.numeric(el)) {
+      stop(label, " must be numeric or a SpatRaster, not ", class(el)[1], ".",
+           call. = FALSE)
+    } else if (anyNA(el)) {
+      # A scalar NA carries no information but, under `na.rm = FALSE`, would
+      # blank every cell of the output. Reject it here where we can say which
+      # argument was at fault instead of reporting an empty envelope later.
+      stop(label, " is NA. Drop it, or supply a real depth constraint.",
+           call. = FALSE)
+    }
+  }
+
+  x
+}
+
+# Internal: collapse the validated `depth_min` / `depth_max` constraints of
+# `vect_to_envelope()` into one SpatRaster on the `template` grid, applying
+# `fun` across them cell by cell ("max" for depth_min, "min" for depth_max, so
+# that every constraint narrows the envelope).
+.combine_depths <- function(x, template, fun) {
+  # identify which inputs are SpatRaster, which are not 
+  is_rast <- vapply(x, function(el) inherits(el, "SpatRaster"), logical(1))
+
+  # skips the reordered do.call when there are no rasters in input list x
+  # creates raster with single value across
+  if (!any(is_rast)) {
+    return(terra::setValues(terra::rast(template[[1]]), do.call(fun, x)))
+  }
+  # terra has min() and max() functions that can apply to a list that includes
+  # both SpatRaster and numeric values. However, it only works when the SpatRaster
+  # is first in the list; the base::min is called instead if the first element is 
+  # a numeric object. This do.call line takes the reordered input list, with the 
+  # SpatRaster objects first. 
+
+  # `na.rm = FALSE` so that cell where constraints / depth raster
+  # has NA value keeps it in the output raster. Avoids filling the value from 
+  # remaining constraints
+  do.call(fun, c(x[is_rast], x[!is_rast], list(na.rm = FALSE)))
+}
+
+#' Convert SpatVector or sf to SpatEnvelope
+#' 
+#' Rasterize polygons onto a template raster grid and assign per-cell depth limits,
+#' outputting an SpatEnvelope object. The depths are clamped by depth_min (shallowest) 
+#' and depth_max (deepest), and/or by rasters (ex. bathymetry) that are the same 
+#' coordinate and resolution as the template. Where a constraint raster is NA at
+#' a cell its limit there is unknown, so the cell is dropped rather than falling
+#' back to the remaining constraints.
+#' 
+#' @param polygon sf or SpatVector, for example species ranges or fishery footprints. 
+#' @param template SpatRaster that defines the horizontal grid of the SpatEnvelope output. 
+#' @param depth_min List. Can contain both numeric and SpatRasters that match CRS, 
+#'   resolution, extent of `template`` and contain numeric values. For each cell, the maximum
+#'   across the `depth_min` list parameters is used as output SpatEnvelope depth_min layer cell
+#'   value. 
+#' @param depth_max List. Can contain both numeric and SpatRasters that match CRS, 
+#'   resolution, extent of `template`` and contain numeric values. For each cell, the minimum
+#'   across the `depth_max` list parameters is used as output SpatEnvelope depth_max layer cell
+#'   value. Note that when `depth_min` is exactly `depth_max`, these cell values are dropped and
+#'   replaced with NA.
+#' 
+#' @returns SpatEnvelope, with depth_min and depth_max layers. 
+#' @export
+vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
+  # check params
+  if (!inherits(polygon, c("sf", "sfc", "SpatVector"))) {
+    stop("`polygon` needs to be of class SpatVector, sf, or sfc")
+  }
+  if (inherits(polygon, "sf") || inherits(polygon, "sfc")) {
+    polygon <- terra::vect(polygon)
+  }
+  if (!is(template, "SpatRaster")) {
+    stop("`template` needs to be of class SpatRaster")
+  }
+  if(!terra::same.crs(crs(polygon), crs(template))) {
+    stop("`polygon` and `template` have different CRS.")
+  }
+
+  # check the depth inputs for CRS, resolution, extent matching and reject NA params
+  depth_min <- .normalize_depth_inputs(depth_min, template, "depth_min")
+  depth_max <- .normalize_depth_inputs(depth_max, template, "depth_max")
+
+  # take first layer in case multi-layer raster
+  all_one <- template[[1]]
+  # make all cell values 1, since mask leaves NAs alone 
+  terra::values(all_one) <- 1
+  # intersect between polygon and template
+  masked <- terra::mask(all_one, polygon) 
+  if(terra::global(masked, "notNA")[1,1] == 0) {
+    stop("All output cell values are NA. `polygon` and `template` may not spatially overlap.")
+  }
+
+  # Creating depth_min, depth_max rasters that form the SpatEnvelope output
+  # - value that narrows the envelope the most is selected
+  # - preserves NA values from the constraints, rather than fall back on other constraints
+  # deepest of depth_min constraints
+  depth_min_rast <- .combine_depths(depth_min, template, "max") %>%
+    mask(masked)
+  # shallowest of depth_max constraints
+  depth_max_rast <- .combine_depths(depth_max, template, "min") %>%
+    mask(masked)
+
+  # check for validity, where depth_max is greater than depth_min
+  diffs <- depth_max_rast - depth_min_rast
+  msk <- ifel(diffs > 0, 1, NA)
+  if(terra::global(msk, "notNA")[1,1] == 0) {
+    warning("All depth_max values are shallower than depth_min. Check `depth_min` and `depth_max`, you may have swapped these two.")
+  }
+
+  # mask cells that are not valid, depth_min is deeper than depth_max
+  depth_min_rast <- mask(depth_min_rast, msk)
+  depth_max_rast <- mask(depth_max_rast, msk)
+
+  # assign SpatEnvelope class to output
+  out <- rast(c(depth_min = depth_min_rast, depth_max = depth_max_rast)) %>% as_envelope()
+  out
+}
+
 #' Create a study area raster grid
 #'
 #' Build an empty raster covering the combined extent of one or more spatial
@@ -458,137 +611,4 @@ create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
   }
 
   terra::rast(combined, res = res, crs = crs)
-}
-
-#' Create a study voxel: the 3D voxel grid space for an analysis
-#'
-#' Bundle the three things every 3D operation in the package needs into one
-#' `study_voxel` object: a horizontal grid template, the seafloor depth on that
-#' grid, and the standard depth levels that define the vertical resolution of
-#' the voxel model. The supplied bathymetry is projected onto the template and
-#' converted to a positive seafloor depth (land clamped to 0), so callers no
-#' longer prepare the seafloor by hand. 
-#'
-#' @param template SpatRaster. Empty raster defining the horizontal grid
-#'   (extent, resolution, CRS) whose cells become the footprint of each voxel
-#'   column, e.g. from [create_study_raster()].
-#' @param bathymetry SpatRaster. GEBCO-style elevation raster with negative
-#'   values below sea level (e.g. from [load_gebco_bathymetry()]). It is projected
-#'   onto `template` and flipped to positive seafloor depth.
-#' @param depths Numeric vector. Standard depth levels in metres (e.g. the
-#'   World Ocean Atlas standard depths) that set the vertical resolution of the
-#'   voxel model.
-#'
-#' @returns A `study_voxel` object: a list with `grid` (the empty horizontal
-#'   template), `seafloor` (positive seafloor depth on that grid), and `depths`
-#'   (sorted standard depth levels).
-#' @export
-create_study_voxel <- function(template, bathymetry, depths) {
-  if (!inherits(template, "SpatRaster")) {
-    stop("`template` must be a SpatRaster defining the horizontal grid.")
-  }
-  if (!inherits(bathymetry, "SpatRaster")) {
-    stop("`bathymetry` must be a SpatRaster of elevation values.")
-  }
-  if (!is.numeric(depths) || length(depths) < 1) {
-    stop("`depths` must be a numeric vector of standard depth levels.")
-  }
-
-  # Empty copy of the template: extent, resolution, and CRS only.
-  grid <- terra::rast(template)
-
-  # Project elevation onto the grid, flip to positive depth, clamp land to 0.
-  seafloor <- terra::clamp(terra::project(bathymetry, grid) * -1, lower = 0)
-  names(seafloor) <- "seafloor"
-
-  structure(
-    list(
-      grid = grid,
-      seafloor = seafloor,
-      depths = sort(unique(as.numeric(depths)))
-    ),
-    class = "study_voxel"
-  )
-}
-
-#' @export
-print.study_voxel <- function(x, ...) {
-  cat("<study_voxel>\n")
-  cat(sprintf("  grid:   %d x %d cells\n",
-              terra::ncol(x$grid), terra::nrow(x$grid)))
-  cat(sprintf("  depths: %d levels (%g to %g m)\n",
-              length(x$depths), min(x$depths), max(x$depths)))
-  invisible(x)
-}
-
-#' Voxelize a species range or fishery footprint onto a study grid
-#'
-#' Rasterize polygons onto a study grid and assign per-cell depth limits,
-#' producing the voxel-model representation used throughout the package.
-#' The maximum depth is clamped to the bathymetry (seafloor) so it never
-#' exceeds the actual depth at each cell. Cells where the minimum depth is
-#' deeper than the seafloor are set to NA (species not present).
-#'
-#' @param polygons sf or SpatVector. Species range or fishery footprint
-#'   polygons.
-#' @param voxel The voxel grid that defines the study area. Either a
-#'   `study_voxel` object (from [create_study_voxel()]), which carries both the
-#'   horizontal grid and the seafloor, or a plain SpatRaster template (e.g.,
-#'   from [create_study_raster()]) whose cells become the horizontal footprint
-#'   of each voxel column. This is the voxel model that the package builds all
-#'   3D operations on.
-#' @param bathymetry SpatRaster. Seafloor depth raster with positive values
-#'   in metres, matching the CRS and resolution of `voxel`. Pre-prepare from
-#'   GEBCO with: `seafloor <- terra::clamp(-terra::project(bathy, voxel), lower = 0)`.
-#'   Optional and ignored when `voxel` is a `study_voxel` (its seafloor is used).
-#' @param depth_min Numeric. Minimum (shallowest) depth in metres.
-#' @param depth_max Numeric. Maximum (deepest) depth in metres.
-#'
-#' @returns Multi-layer SpatRaster with layers: depth_min, depth_max.
-#'   Cells where the species/fishery is absent or the seafloor is shallower
-#'   than depth_min are NA.
-#' @export
-voxelize_range <- function(polygons, voxel, bathymetry = NULL, depth_min, depth_max) {
-  if (inherits(voxel, "study_voxel")) {
-    if (is.null(bathymetry)) bathymetry <- voxel$seafloor
-    voxel <- voxel$grid
-  }
-  if (is.null(bathymetry)) {
-    stop("`bathymetry` is required when `voxel` is a SpatRaster. ",
-         "Supply `bathymetry`, or pass a study_voxel (see create_study_voxel()).")
-  }
-  if (!terra::same.crs(bathymetry, voxel)) {
-    stop("bathymetry CRS does not match voxel grid. Pre-project bathymetry onto the voxel grid.")
-  }
-  if (!all(terra::res(bathymetry) == terra::res(voxel))) {
-    stop("bathymetry resolution does not match voxel grid. Pre-project bathymetry onto the voxel grid.")
-  }
-
-  if (inherits(polygons, "sf") || inherits(polygons, "sfc")) {
-    polygons <- terra::vect(polygons)
-  }
-  polygons <- terra::project(polygons, voxel)
-
-  # Rasterize presence onto the voxel grid
-  presence <- terra::rasterize(polygons, voxel, field = 1, background = NA)
-
-  seafloor <- bathymetry
-
-  # Mask seafloor to where the range is present
-  seafloor <- terra::mask(seafloor, presence)
-
-  # Remove cells where seafloor is shallower than depth_min
-  # (species cannot be present if water is too shallow)
-  valid <- terra::ifel(seafloor >= depth_min, 1, NA)
-
-  # depth_min layer: constant where valid
-  dmin_rast <- valid * depth_min
-  names(dmin_rast) <- "depth_min"
-
-  # depth_max layer: clamped to seafloor, masked to valid cells
-  dmax_rast <- terra::ifel(seafloor < depth_max, seafloor, depth_max)
-  dmax_rast <- terra::mask(dmax_rast, valid)
-  names(dmax_rast) <- "depth_max"
-
-  c(dmin_rast, dmax_rast)
 }

@@ -29,7 +29,7 @@
 #' bathy
 #'
 #' # Depths are negative below sea level; flip the sign for use with
-#' # voxelize_range(), which expects positive depths.
+#' # vect_to_envelope(), which expects positive depths.
 #' depth <- -bathy
 #' terra::global(depth, "max", na.rm = TRUE)
 #'

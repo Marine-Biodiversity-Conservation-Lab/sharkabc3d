@@ -23,20 +23,22 @@ the grid of \code{x}.
 Build a \linkS4class{SpatEnvelope} — one continuous \verb{[depth_min, depth_max]}
 interval per grid cell — from a 2D horizontal footprint and the depth limits
 that apply to it. This is the general form of the conversion
-\code{\link[=voxelize_range]{voxelize_range()}} performs for polygons: any 2D raster whose non-\code{NA} cells
-mark presence becomes a 3D domain once depth limits are attached to it.
+\code{\link[=vect_to_envelope]{vect_to_envelope()}} performs for polygons: any 2D raster whose non-\code{NA}
+cells mark presence becomes a 3D domain once depth limits are attached to
+it.
 }
 \details{
 \code{x} is the footprint. Its values are not read, only their non-\code{NA} pattern:
 a rasterized species range, a Global Fishing Watch effort layer, or a plain
 presence mask all work. A SpatRaster that \emph{already} has exactly the two
-layers \code{depth_min} and \code{depth_max} (the output of \code{\link[=voxelize_range]{voxelize_range()}}, or a
+layers \code{depth_min} and \code{depth_max} (the output of \code{\link[=vect_to_envelope]{vect_to_envelope()}}, or a
 \linkS4class{SpatEnvelope} itself) is promoted directly instead, in which case
 \code{depth_min} and \code{depth_max} must be omitted.
 
 Depths are positive metres increasing downward, following the package's
-depth sign convention. Pass GEBCO-style elevation through
-\code{\link[=create_study_voxel]{create_study_voxel()}} first, which flips the sign and clamps land to 0.
+depth sign convention. Flip GEBCO-style elevation first, e.g.
+\code{terra::clamp(-terra::project(bathy, x), lower = 0)}, which gives a positive
+seafloor depth with land clamped to 0.
 }
 \examples{
 # A 2x2 footprint: three cells present (any non-NA value), one absent.
