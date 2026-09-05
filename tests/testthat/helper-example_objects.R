@@ -11,7 +11,7 @@ make_multidepth_rast <- function(depths = c(0, 100, 200, 300),
   names(out) <- paste0(varname, "_depth=", depths)
   out
 }
-# Helpers for study_voxel tests: a lon/lat template grid, a GEBCO-style
+# Helpers for 3D-object tests: a lon/lat template grid, a GEBCO-style
 # elevation raster (negative below sea level), and a polygon inside the grid.
 make_template <- function(vals = NA) {
   terra::rast(nrows = 5, ncols = 5,

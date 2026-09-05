@@ -72,3 +72,24 @@
 * Breaking: the `fun = c("extent", "threshold")` character interface on
   `voxel_to_envelope()` is gone, replaced by the predicate above.
 * `methods` moves into Imports, required by the S4 class definitions.
+* Breaking: `voxelize_range()` and `create_study_voxel()` (with its
+  `print.study_voxel()` method and the `study_voxel` class) are retired. Build
+  the envelope directly instead, passing the seafloor as a `depth_max`
+  constraint:
+
+  ```r
+  # before
+  voxel <- create_study_voxel(template, bathymetry, depths)
+  range_rast <- voxelize_range(sp_range, voxel, depth_min = 0, depth_max = 500)
+
+  # after
+  seafloor <- terra::clamp(terra::project(bathymetry, template) * -1, lower = 0)
+  range_rast <- vect_to_envelope(sp_range, template,
+                                 depth_min = 0,
+                                 depth_max = list(500, seafloor))
+  ```
+
+  The `study_voxel` bundle has no replacement object: pass the grid template,
+  the seafloor raster, and the standard depths as separate arguments.
+  `vect_to_envelope()` requires `polygon` and `template` to already share a CRS
+  rather than projecting silently, so project the polygons yourself first.

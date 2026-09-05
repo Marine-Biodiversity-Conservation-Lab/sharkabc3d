@@ -34,11 +34,14 @@ inputs combine:
 3. the **voxel ocean model** from Figure 1 — the discretised study space that
    caps every column at the seafloor (Panel C).
 
-`voxelize_range()` intersects the three: a voxel is *present* when its cell lies
-inside the polygon **and** its standard depth falls within the species' depth
-band **and** the water column there reaches that depth. The result (Panel D) is
-a raster stack whose cells are coloured where the species is present and left
-empty (NA) where it is not — the object `calc_volume()` and
+Two functions perform the intersection. `vect_to_envelope()` reduces the
+polygon, the depth band, and the seafloor to a `SpatEnvelope` — one continuous
+`[depth_min, depth_max]` interval per cell — and `envelope_to_voxel()` expands
+that envelope onto the standard depths. Between them, a voxel is *present* when
+its cell lies inside the polygon **and** its standard depth falls within the
+species' depth band **and** the water column there reaches that depth. The
+result (Panel D) is a raster stack whose cells are coloured where the species is
+present and left empty (NA) where it is not — the object `calc_volume()` and
 `calc_volume_overlap()` measure.
 
 Both 3D panels use [rayrender](https://www.rayrender.net/), rendering each voxel
@@ -62,7 +65,8 @@ library(png)
 We rebuild the same synthetic 10 x 10 study area as Figure 1: an empty grid
 template, a GEBCO-style bathymetry that deepens to ~400 m in the south-east with
 a small landmass in the north-west, and ten standard depths. See
-`voxel-model-visualization.Rmd` for the reasoning behind each input.
+`voxel-model-visualization.Rmd` for the reasoning behind each input, including
+the flip from GEBCO elevation to positive seafloor depth.
 
 ```{r study-area}
 template <- terra::rast(
@@ -81,13 +85,11 @@ elev <- round(elev / 25) * 25                 # snap to 25 m terraces
 bathymetry <- terra::setValues(terra::rast(template), elev)
 names(bathymetry) <- "elevation"
 
-depths <- c(0, 25, 50, 100, 150, 200, 250, 300, 350, 400)
+depths <- sort(c(0, 25, 50, 100, 150, 200, 250, 300, 350, 400))
 
-voxel <- create_study_voxel(
-  template   = template,
-  bathymetry = bathymetry,
-  depths     = depths
-)
+# Elevation -> positive seafloor depth, land clamped to 0.
+seafloor <- terra::clamp(terra::project(bathymetry, template) * -1, lower = 0)
+names(seafloor) <- "seafloor"
 ```
 
 ## The species: a range polygon and a depth band
@@ -197,10 +199,11 @@ p_depthrange
 
 ## Expanding the voxel model and masking to the species
 
-We expand the `study_voxel` into one row per (ocean cell x standard-depth
-layer), exactly as in Figure 1, then flag which voxels the species occupies: the
-cell must fall inside the range polygon and the depth must lie within the band.
-Reachability (depth <= seafloor) is already guaranteed by the expansion.
+We expand the seafloor and the standard depths into one row per (ocean cell x
+standard-depth layer), exactly as in Figure 1, then flag which voxels the
+species occupies: the cell must fall inside the range polygon and the depth must
+lie within the band. Reachability (depth <= seafloor) is already guaranteed by
+the expansion.
 
 ```{r voxel-columns}
 depth_bands <- function(standard_depths) {
@@ -214,9 +217,9 @@ depth_bands <- function(standard_depths) {
   )
 }
 
-voxel_columns <- function(voxel) {
-  bands <- depth_bands(voxel$depths)
-  cells <- terra::as.data.frame(voxel$seafloor, xy = TRUE, na.rm = FALSE)
+voxel_columns <- function(seafloor, standard_depths) {
+  bands <- depth_bands(standard_depths)
+  cells <- terra::as.data.frame(seafloor, xy = TRUE, na.rm = FALSE)
   do.call(rbind, lapply(seq_len(nrow(cells)), function(i) {
     sfd <- cells$seafloor[i]
     if (is.na(sfd) || sfd <= 0) return(NULL)      # skip land / dry cells
@@ -229,7 +232,7 @@ voxel_columns <- function(voxel) {
   }))
 }
 
-vox <- voxel_columns(voxel)
+vox <- voxel_columns(seafloor, depths)
 
 # Which voxels the species occupies: cell inside the polygon AND depth in band.
 sp_mask   <- terra::rasterize(terra::vect(sp_poly), template, field = 1)
@@ -450,8 +453,10 @@ the final `fig-species-voxel.pdf` / `.png` used in the manuscript.
 - A voxelized range is the voxel model masked to a species: cells inside the
   **range polygon**, at depths within the species' **depth band**, clamped to the
   seafloor of the **voxel ocean**.
-- [voxelize_range()] performs that intersection; present cells carry the species,
-  absent cells are NA (empty space).
+- [vect_to_envelope()] performs that intersection in 2.5D, with the seafloor
+  passed as one more `depth_max` constraint, and [envelope_to_voxel()] expands
+  the result onto the standard depths; present cells carry the species, absent
+  cells are NA (empty space).
 - The resulting stack is what [calc_volume()] and [calc_volume_overlap()] measure
   — the same representation as the environmental stacks in Figure 1.
 ```

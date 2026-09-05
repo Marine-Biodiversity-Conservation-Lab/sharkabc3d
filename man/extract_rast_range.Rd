@@ -7,7 +7,7 @@
 extract_rast_range(range_rast, rast_3d)
 }
 \arguments{
-\item{range_rast}{SpatRaster. Output of \code{\link[=voxelize_range]{voxelize_range()}} with layers
+\item{range_rast}{SpatRaster. Output of \code{\link[=vect_to_envelope]{vect_to_envelope()}} with layers
 \code{depth_min} and \code{depth_max} in metres.}
 
 \item{rast_3d}{SpatRaster. Multi-depth raster with layer names following
@@ -19,7 +19,7 @@ per-cell depth window of \code{range_rast}.
 }
 \description{
 Given a multi-depth environmental raster (\code{rast_3d}) and a rasterized range
-(\code{range_rast}, the output of \code{\link[=voxelize_range]{voxelize_range()}} with per-cell \code{depth_min}
+(\code{range_rast}, the output of \code{\link[=vect_to_envelope]{vect_to_envelope()}} with per-cell \code{depth_min}
 and \code{depth_max} layers clamped to bathymetry), return a 3D raster where
 each cell retains the environmental value only at depths inside that
 cell's \verb{[depth_min, depth_max]} window. Cells outside the range are NA

@@ -121,10 +121,10 @@ test_that("as_envelope() rejects a multi-layer footprint", {
   expect_error(as_envelope(make_multidepth_rast(), 0, 200), "single-layer footprint")
 })
 
-test_that("as_envelope() rejects vector geometry with a pointer to voxelize_range()", {
+test_that("as_envelope() rejects vector geometry with a pointer to vect_to_envelope()", {
   poly <- terra::vect("POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))")
 
-  expect_error(as_envelope(poly, 0, 200), "voxelize_range")
+  expect_error(as_envelope(poly, 0, 200), "vect_to_envelope")
 })
 
 test_that("as_envelope() rejects a non-raster x", {
@@ -679,8 +679,8 @@ test_that("vect_to_envelope() returns a valid SpatEnvelope, visibly", {
   expect_true(withVisible(vect_to_envelope(make_polygon(), make_template(), 0, 10))$visible)
 })
 
-# Ported from voxelize_range(): the seafloor is now just another `depth_max`
-# constraint rather than a dedicated `bathymetry` argument.
+# Ported from the retired voxelize_range(): the seafloor is now just another
+# `depth_max` constraint rather than a dedicated `bathymetry` argument.
 test_that("vect_to_envelope() clamps depth_max to the seafloor where it is shallower", {
   seafloor <- make_template(seq(10, 250, length.out = 25))
 
@@ -693,7 +693,7 @@ test_that("vect_to_envelope() clamps depth_max to the seafloor where it is shall
   expect_true(any(got < 200))
 })
 
-# Ported from voxelize_range(): cells whose bed sits above the shallowest depth
+# Ported from the retired voxelize_range(): cells whose bed sits above the shallowest depth
 # the animal occupies carry no envelope at all.
 test_that("vect_to_envelope() drops cells where the seafloor is shallower than depth_min", {
   seafloor <- make_template(seq(10, 250, length.out = 25))
@@ -706,7 +706,7 @@ test_that("vect_to_envelope() drops cells where the seafloor is shallower than d
   expect_true(all(terra::values(seafloor)[kept] > 100))
 })
 
-# Ported from voxelize_range()'s bathymetry CRS / resolution checks, which now
+# Ported from the retired voxelize_range()'s bathymetry CRS / resolution checks, which now
 # apply to every SpatRaster in a depth list.
 test_that("vect_to_envelope() errors on a depth raster that does not align with template", {
   bad_res <- terra::rast(nrows = 9, ncols = 9, xmin = 0, xmax = 5,
@@ -755,21 +755,6 @@ test_that("vect_to_envelope() rejects empty and unusable depth inputs", {
   )
 })
 
-test_that("vect_to_envelope() matches voxelize_range() on the seafloor-clamped case", {
-  # Migration guard: delete alongside voxelize_range().
-  seafloor <- make_template(seq(10, 250, length.out = 25))
-
-  old <- voxelize_range(polygons = make_polygon(), voxel = make_template(),
-                        bathymetry = seafloor, depth_min = 50, depth_max = 200)
-  new <- vect_to_envelope(make_polygon(), make_template(),
-                          depth_min = 50, depth_max = list(200, seafloor))
-
-  expect_equal(as.vector(terra::values(new$depth_min)),
-               as.vector(terra::values(old$depth_min)))
-  expect_equal(as.vector(terra::values(new$depth_max)),
-               as.vector(terra::values(old$depth_max)))
-})
-
 test_that("vect_to_envelope() returns NA values for cells where input raster depth_max is NA", {
   # NA in the depth_max parameter (ex. bathymetry) means there is no valid
   # depth at that cell. These should stay NA in the output as well. 
@@ -782,160 +767,4 @@ test_that("vect_to_envelope() returns NA values for cells where input raster dep
 
   expect_true(all(is.na(terra::values(new$depth_max)[gaps])))
   expect_true(all(is.na(terra::values(new$depth_min)[gaps])))
-})
-
-test_that("create_study_voxel() bundles grid, positive seafloor, and sorted depths", {
-  sv <- create_study_voxel(
-    template = make_template(),
-    bathymetry = make_template(-500),
-    depths = c(100, 0, 50)
-  )
-  expect_s3_class(sv, "study_voxel")
-  expect_named(sv, c("grid", "seafloor", "depths"))
-  expect_equal(sv$depths, c(0, 50, 100))
-  # Elevation -500 becomes positive seafloor depth 500.
-  vals <- terra::values(sv$seafloor)
-  expect_true(all(vals == 500, na.rm = TRUE))
-})
-
-# create_study_voxel() ----
-
-test_that("create_study_voxel() clamps land (positive elevation) to zero depth", {
-  sv <- create_study_voxel(make_template(), make_template(120), depths = c(0, 100))
-  vals <- terra::values(sv$seafloor)
-  expect_true(all(vals == 0, na.rm = TRUE))
-})
-
-test_that("create_study_voxel() validates its inputs", {
-  expect_error(create_study_voxel("nope", make_template(), 1), "template")
-  expect_error(create_study_voxel(make_template(), "nope", 1), "bathymetry")
-  expect_error(create_study_voxel(make_template(), make_template(), "nope"), "depths")
-})
-
-# voxelize_range() ----
-
-test_that("voxelize_range() accepts a study_voxel and derives the seafloor", {
-  skip_if_not_installed("sf")
-  sv <- create_study_voxel(make_template(), make_template(-500), depths = c(0, 100))
-  out <- voxelize_range(
-    polygons = make_polygon(), voxel = sv,
-    depth_min = 0, depth_max = 200
-  )
-  expect_named(out, c("depth_min", "depth_max"))
-  # Seafloor at 500 m, requested max 200 m -> not clamped, present cells = 200.
-  vals <- terra::values(out[["depth_max"]])
-  expect_true(all(vals[!is.na(vals)] == 200))
-})
-
-test_that("voxelize_range() errors when voxel is a SpatRaster and bathymetry is missing", {
-  skip_if_not_installed("sf")
-  expect_error(
-    voxelize_range(make_polygon(), make_template(), depth_min = 0, depth_max = 100),
-    "bathymetry"
-  )
-})
-
-make_grid <- function() {
-  # 5x5 grid covering a 5x5 degree box
-  terra::rast(nrows = 5, ncols = 5,
-              xmin = 0, xmax = 5, ymin = 0, ymax = 5,
-              crs = "EPSG:4326")
-}
-
-make_bathy <- function(depth_val = 500) {
-  r <- make_grid()
-  terra::values(r) <- depth_val
-  r
-}
-
-make_polygon <- function(xmin = 1, xmax = 4, ymin = 1, ymax = 4) {
-  poly <- sf::st_sfc(
-    sf::st_polygon(list(rbind(
-      c(xmin, ymin), c(xmax, ymin), c(xmax, ymax),
-      c(xmin, ymax), c(xmin, ymin)
-    ))),
-    crs = "EPSG:4326"
-  )
-  sf::st_sf(geometry = poly)
-}
-
-test_that("voxelize_range() returns depth_min and depth_max layers", {
-  skip_if_not_installed("sf")
-  out <- voxelize_range(
-    polygons = make_polygon(),
-    voxel = make_grid(),
-    bathymetry = make_bathy(500),
-    depth_min = 0,
-    depth_max = 200
-  )
-  expect_named(out, c("depth_min", "depth_max"))
-  expect_s4_class(out, "SpatRaster")
-})
-
-test_that("voxelize_range() assigns depth_min to cells inside polygon", {
-  skip_if_not_installed("sf")
-  out <- voxelize_range(
-    polygons = make_polygon(),
-    voxel = make_grid(),
-    bathymetry = make_bathy(500),
-    depth_min = 10,
-    depth_max = 200
-  )
-  vals <- terra::values(out[["depth_min"]])
-  inside <- vals[!is.na(vals)]
-  expect_true(all(inside == 10))
-  expect_true(any(is.na(vals)))  # cells outside polygon
-})
-
-test_that("voxelize_range() clamps depth_max to seafloor where shallower", {
-  skip_if_not_installed("sf")
-  # Bathymetry 100m everywhere; requested depth_max = 500m -> clamp to 100.
-  out <- voxelize_range(
-    polygons = make_polygon(),
-    voxel = make_grid(),
-    bathymetry = make_bathy(100),
-    depth_min = 0,
-    depth_max = 500
-  )
-  vals <- terra::values(out[["depth_max"]])
-  vals <- vals[!is.na(vals)]
-  expect_true(all(vals == 100))
-})
-
-test_that("voxelize_range() drops cells where seafloor is shallower than depth_min", {
-  skip_if_not_installed("sf")
-  # Bathymetry 50m; depth_min = 200m -> species cannot be present anywhere.
-  out <- voxelize_range(
-    polygons = make_polygon(),
-    voxel = make_grid(),
-    bathymetry = make_bathy(50),
-    depth_min = 200,
-    depth_max = 500
-  )
-  expect_true(all(is.na(terra::values(out[["depth_min"]]))))
-  expect_true(all(is.na(terra::values(out[["depth_max"]]))))
-})
-
-test_that("voxelize_range() errors on mismatched bathymetry CRS", {
-  skip_if_not_installed("sf")
-  bad_bathy <- terra::rast(nrows = 5, ncols = 5,
-                           xmin = 0, xmax = 5, ymin = 0, ymax = 5,
-                           crs = "EPSG:3857")
-  terra::values(bad_bathy) <- 500
-  expect_error(
-    voxelize_range(make_polygon(), make_grid(), bad_bathy, 0, 100),
-    "CRS"
-  )
-})
-
-test_that("voxelize_range() errors on mismatched bathymetry resolution", {
-  skip_if_not_installed("sf")
-  bad_bathy <- terra::rast(nrows = 10, ncols = 10,
-                           xmin = 0, xmax = 5, ymin = 0, ymax = 5,
-                           crs = "EPSG:4326")
-  terra::values(bad_bathy) <- 500
-  expect_error(
-    voxelize_range(make_polygon(), make_grid(), bad_bathy, 0, 100),
-    "resolution"
-  )
 })

@@ -1,7 +1,7 @@
 #' Mask a 3D raster by a rasterized species range
 #'
 #' Given a multi-depth environmental raster (`rast_3d`) and a rasterized range
-#' (`range_rast`, the output of [voxelize_range()] with per-cell `depth_min`
+#' (`range_rast`, the output of [vect_to_envelope()] with per-cell `depth_min`
 #' and `depth_max` layers clamped to bathymetry), return a 3D raster where
 #' each cell retains the environmental value only at depths inside that
 #' cell's `[depth_min, depth_max]` window. Cells outside the range are NA
@@ -17,7 +17,7 @@
 #' derived from `rast_3d`, or by pre-projecting with
 #' `terra::project(range_rast, rast_3d[[1]], method = "near")`).
 #'
-#' @param range_rast SpatRaster. Output of [voxelize_range()] with layers
+#' @param range_rast SpatRaster. Output of [vect_to_envelope()] with layers
 #'   `depth_min` and `depth_max` in metres.
 #' @param rast_3d SpatRaster. Multi-depth raster with layer names following
 #'   the `{variable}_depth={value}` convention.
@@ -28,7 +28,7 @@
 extract_rast_range <- function(range_rast, rast_3d) {
   if (!all(c("depth_min", "depth_max") %in% names(range_rast))) {
     stop("range_rast must have 'depth_min' and 'depth_max' layers ",
-         "(from voxelize_range()).", call. = FALSE)
+         "(from vect_to_envelope()).", call. = FALSE)
   }
 
   depths <- .parse_depth_layers(rast_3d)
@@ -125,7 +125,7 @@ extract_rast_volume <- function(area, min_depth, max_depth, rast_3d) {
 
 #' Summarise environmental conditions within a species' 3D range
 #'
-#' Takes a rasterized species range (output of [voxelize_range()] with
+#' Takes a rasterized species range (output of [vect_to_envelope()] with
 #' per-cell `depth_min`/`depth_max` clamped to bathymetry) and a named list
 #' of multi-depth environmental rasters. For each environmental raster,
 #' values are restricted to cells + depths inside the species' per-cell
@@ -140,7 +140,7 @@ extract_rast_volume <- function(area, min_depth, max_depth, rast_3d) {
 #' `{name}_min`, `{name}_max`, `{name}_mean`, `{name}_n_surface_cells`,
 #' `{name}_n_cells`, `{name}_n_depths`.
 #'
-#' @param range_rast SpatRaster. Output of [voxelize_range()] with
+#' @param range_rast SpatRaster. Output of [vect_to_envelope()] with
 #'   `depth_min` and `depth_max` layers.
 #' @param raster_list Named list of multi-depth SpatRasters following the
 #'   `{variable}_depth={value}` layer naming convention.

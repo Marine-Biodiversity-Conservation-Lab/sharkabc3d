@@ -242,33 +242,45 @@ seafloor <- terra::clamp(-seafloor, lower = 0)
 
 ### 2b: Rasterize species
 
-`voxelize_range()` converts each polygon + depth range into a multi-layer
-SpatRaster (presence, depth_min, depth_max) aligned to the study grid.
-The depth_max is clamped to the seafloor per cell so that no species or
-fishery extends deeper than the actual bathymetry.
+`vect_to_envelope()` converts one polygon + its depth limits into a
+`SpatEnvelope`: a two-layer raster (`depth_min`, `depth_max`) on the study
+grid. Depth limits are lists, and every entry narrows the envelope — per cell
+the deepest `depth_min` and the shallowest `depth_max` win. Passing `seafloor`
+as a second `depth_max` is what keeps a species or fishery from extending
+below the actual bathymetry, and drops cells where the bed sits above the
+shallowest depth the animal occupies.
+
+`vect_to_envelope()` works one polygon at a time and does not reproject, so we
+transform the ranges onto the grid's CRS once and loop with `lapply()`.
 
 ```{r rasterize-species}
-species_rasters <- voxelize_ranges(
-  sf_data = bangladesh_species,
-  voxel = study_grid,
-  bathymetry = seafloor,
-  depth_min_col = "depth_min_sel",
-  depth_max_col = "depth_max_sel",
-  name_col = "sci_name"
-)
+species_proj <- sf::st_transform(bangladesh_species, bangladesh_crs)
+
+species_rasters <- lapply(seq_len(nrow(species_proj)), function(i) {
+  vect_to_envelope(
+    polygon   = species_proj[i, ],
+    template  = study_grid,
+    depth_min = species_proj$depth_min_sel[i],
+    depth_max = list(species_proj$depth_max_sel[i], seafloor)
+  )
+})
+names(species_rasters) <- species_proj$sci_name
 ```
 
 ### 2c: Rasterize fisheries
 
 ```{r rasterize-fisheries}
-fishery_rasters <- voxelize_ranges(
-  sf_data = fisheries,
-  voxel = study_grid,
-  bathymetry = seafloor,
-  depth_min_col = "depth_min",
-  depth_max_col = "depth_max",
-  name_col = "fishery_type"
-)
+fisheries_proj <- sf::st_transform(fisheries, bangladesh_crs)
+
+fishery_rasters <- lapply(seq_len(nrow(fisheries_proj)), function(i) {
+  vect_to_envelope(
+    polygon   = fisheries_proj[i, ],
+    template  = study_grid,
+    depth_min = fisheries_proj$depth_min[i],
+    depth_max = list(fisheries_proj$depth_max[i], seafloor)
+  )
+})
+names(fishery_rasters) <- fisheries_proj$fishery_type
 ```
 
 ## Step 3: Calculate 3D Volume Overlap
@@ -549,7 +561,7 @@ par(mfrow = c(1, 1))
 | Aspect | Original (Haque et al.) | `sharkabc3d` |
 |--------|-------------------------|--------------|
 | Grid type | Hexagonal grid (1 km cells) | Raster grid (1 km cells) |
-| Depth handling | Uniform depth range across entire intersection footprint | Per-cell depth clamped to bathymetry via `voxelize_range()` |
+| Depth handling | Uniform depth range across entire intersection footprint | Per-cell depth clamped to bathymetry via `vect_to_envelope()` |
 | Volume formula | area × depth_range (single depth per pair) | Sum of per-cell (cell_area × clamped depth) via `calc_volume_overlap()` |
 | Fishery/species richness maps | Custom ggplot code | `count_3d_overlaps()` + ggplot2 |
 | Species × fishery overlap maps | Custom ggplot code | `calc_volume_overlap()` + ggplot2/patchwork |

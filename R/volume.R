@@ -3,7 +3,7 @@
 #' Volume = sum of (cell_area x (depth_max - depth_min)) across all present
 #' cells.
 #'
-#' @param range_rast SpatRaster. Output from [voxelize_range()], with layers:
+#' @param range_rast SpatRaster. Output from [vect_to_envelope()], with layers:
 #'   depth_min, depth_max.
 #'
 #' @returns Numeric. Total volume in km³.
@@ -29,9 +29,9 @@ calc_volume <- function(range_rast) {
 #' layers are NA where the two depth intervals do not overlap.
 #'
 #' @param range_rast_a SpatRaster. First rasterized range (output of
-#'   [voxelize_range()]).
+#'   [vect_to_envelope()]).
 #' @param range_rast_b SpatRaster. Second rasterized range (output of
-#'   [voxelize_range()]).
+#'   [vect_to_envelope()]).
 #'
 #' @returns Multi-layer SpatRaster with 9 layers:
 #'   \describe{
@@ -99,9 +99,9 @@ calc_volume_overlap <- function(range_rast_a, range_rast_b) {
 #' overlap volume is not needed.
 #'
 #' @param range_rast_a SpatRaster. First rasterized range (output of
-#'   [voxelize_range()]).
+#'   [vect_to_envelope()]).
 #' @param range_rast_b SpatRaster. Second rasterized range (output of
-#'   [voxelize_range()]).
+#'   [vect_to_envelope()]).
 #'
 #' @returns Single-layer SpatRaster (`1` where the two ranges overlap in 3D,
 #'   `NA` elsewhere).

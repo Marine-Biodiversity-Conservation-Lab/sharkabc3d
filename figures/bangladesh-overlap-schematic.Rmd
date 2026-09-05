@@ -48,7 +48,7 @@ The three quantities Panel B shows are exactly the ones the analysis computes:
 
 | Panel B element | Analysis quantity |
 |---|---|
-| Purple slab | `depth_min` / `depth_max` from `voxelize_range()` for the species |
+| Purple slab | `depth_min` / `depth_max` from `vect_to_envelope()` for the species |
 | Yellow slab | Same, for the fishery (after the 3 m tidal correction) |
 | Teal slab | `depth_min_overlap` / `depth_max_overlap` from `calc_volume_overlap()` |
 | Slab footprint | Cell area from `terra::cellSize()` |
@@ -359,8 +359,9 @@ The depths below are invented for legibility; only the seafloor depth is real,
 read from the highlighted cell in Panel A. They are chosen to show the two
 behaviours that matter in the analysis:
 
-1. The species' nominal lower limit is compared against the seafloor, and
-   `voxelize_range()` truncates it at the bed when it is deeper. Whether that
+1. The species' nominal lower limit is compared against the seafloor, which
+   `vect_to_envelope()` takes as one more `depth_max` constraint, so the bed
+   wins wherever it is shallower than the stated limit. Whether that
    bites depends on the cell: this one is ~450 m, so a 250 m limit is **not**
    clamped. Raise `species_bot_nominal` past the seafloor depth to show the
    truncation, which is the behaviour the panel is meant to illustrate.
@@ -374,7 +375,7 @@ seafloor_m <- focus_depth        # from Panel A's highlighted cell (450 m here)
 
 species_top <- 80
 species_bot_nominal <- 250                            # IUCN / study depth limit
-species_bot <- min(species_bot_nominal, seafloor_m)   # clamped by voxelize_range()
+species_bot <- min(species_bot_nominal, seafloor_m)   # clamped by vect_to_envelope()
 
 fishery_top <- 0
 fishery_bot <- 120
@@ -477,12 +478,12 @@ spread_labels <- function(ty, top, bot) {
 
 # Build one complete column panel. Every depth is in metres below the surface.
 # `species_bot_nominal` is the species' stated lower limit BEFORE clamping, so
-# the function can report truthfully whether voxelize_range() actually truncated
-# it at this cell's bed.
+# the function can report truthfully whether vect_to_envelope() actually
+# truncated it at this cell's bed.
 column_panel <- function(seafloor_m, species_top, species_bot_nominal,
                          fishery_top, fishery_bot, title, cell_label) {
 
-  # Clamp exactly as voxelize_range() does, then intersect the two clamped
+  # Clamp exactly as vect_to_envelope() does, then intersect the two clamped
   # intervals exactly as calc_volume_overlap() does.
   species_bot <- min(species_bot_nominal, seafloor_m)
   fishery_bot <- min(fishery_bot, seafloor_m)
@@ -624,7 +625,7 @@ column_panel <- function(seafloor_m, species_top, species_bot_nominal,
 ### Panel B: the deep cell
 
 The cell Panel A highlights sits in deep water, so the species' 250 m lower
-limit is shallower than the bed and `voxelize_range()` leaves it untouched. The
+limit is shallower than the bed and `vect_to_envelope()` leaves it untouched. The
 fishery stops well above the seafloor, leaving a thick depth refuge below it.
 
 ```{r panel-b}
@@ -644,7 +645,7 @@ p_column
 
 Panel B alone does not show the behaviour that most shapes the Bangladesh
 results. On the shallow continental shelf the seafloor is often shallower than a
-species' stated lower depth limit, and `voxelize_range()` truncates the range at
+species' stated lower depth limit, and `vect_to_envelope()` truncates the range at
 the bed — which is exactly why this package's volumes come out below the
 original hexagonal-grid analysis (see the vignette's Step 4).
 
@@ -709,14 +710,14 @@ in Inkscape are `label_x` (how far the stack sits from the drawing),
 
 - The grid is **square** and equal-area — the change from the earlier
   hexagonal version of this analysis.
-- Each cell holds one **continuous** depth interval per feature. Nothing is
-  snapped to standard depth levels; the vertical dimension is analytical, and
-  only the horizontal is discretized. That is what makes the model 2.5D rather
-  than a true voxel stack.
-- `voxelize_range()` truncates every interval at the cell's seafloor before any
-  overlap is computed. Whether that truncation is visible in Panel B depends on
-  the focus cell: it bites only when the nominal limit is deeper than that
-  cell's bed.
+- Each cell holds one **continuous** depth interval per feature — a
+  `SpatEnvelope`. Nothing is snapped to standard depth levels; the vertical
+  dimension is analytical, and only the horizontal is discretized. That is what
+  makes the model 2.5D rather than a true voxel stack.
+- `vect_to_envelope()` takes the seafloor as one more `depth_max` constraint, so
+  every interval is truncated at the cell's bed before any overlap is computed.
+  Whether that truncation is visible in Panel B depends on the focus cell: it
+  bites only when the nominal limit is deeper than that cell's bed.
 - `calc_volume_overlap()` intersects the two clamped intervals and multiplies
   the resulting thickness by the cell area. Summed over cells, that is the
   overlap volume the analysis reports.

@@ -28,5 +28,5 @@ outputting an SpatEnvelope object. The depths are clamped by depth_min (shallowe
 and depth_max (deepest), and/or by rasters (ex. bathymetry) that are the same
 coordinate and resolution as the template. Where a constraint raster is NA at
 a cell its limit there is unknown, so the cell is dropped rather than falling
-back to the remaining constraints. Replaces \code{\link[=voxelize_range]{voxelize_range()}}.
+back to the remaining constraints.
 }
