@@ -23,3 +23,17 @@ Build an empty raster covering the combined extent of one or more spatial
 objects. Useful for defining the common grid before rasterizing species
 ranges and fishery footprints.
 }
+\examples{
+# Two features in different places: the grid has to cover both.
+a <- terra::vect("POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))", crs = "EPSG:4326")
+b <- terra::vect("POLYGON ((3 3, 5 3, 5 5, 3 5, 3 3))", crs = "EPSG:4326")
+
+grid <- create_study_raster(list(a, b), res = 0.5)
+terra::ext(grid)
+dim(grid)              # rows, columns, layers
+terra::hasValues(grid) # FALSE: the grid is empty, it only defines geometry
+
+# Inputs are projected to `crs` before their extents are combined, so a list
+# mixing coordinate systems is fine.
+create_study_raster(list(a, terra::project(b, "EPSG:3857")), res = 0.5)
+}

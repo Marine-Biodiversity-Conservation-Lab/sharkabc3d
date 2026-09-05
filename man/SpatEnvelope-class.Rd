@@ -16,6 +16,26 @@ The vertical interval is per-cell and continuous, and is solid by
 construction — an envelope cannot represent a gap in the vertical
 distribution.
 }
+\examples{
+# A two-cell footprint, one cell present and one absent. Build an envelope
+# with as_envelope() (from a raster footprint) or vect_to_envelope() (from
+# polygons).
+fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
+terra::values(fp) <- c(1, NA)
+e <- as_envelope(fp, depth_min = 50, depth_max = 200)
+
+names(e)          # always exactly these two layers
+terra::values(e)  # ...and depth is the cell value, in metres
+
+# The interval is per-cell, so limits can vary across the grid.
+terra::values(
+  as_envelope(fp, depth_min = 50,
+              depth_max = terra::setValues(terra::rast(fp), c(120, 300)))
+)
+
+# Any other set of layers is rejected: a bare footprint is not an envelope.
+try(methods::new("SpatEnvelope", fp))
+}
 \seealso{
 \linkS4class{SpatVoxel}, \linkS4class{SpatVolume}
 }

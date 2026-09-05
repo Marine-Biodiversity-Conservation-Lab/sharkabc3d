@@ -36,3 +36,23 @@ interval per cell, so any interior gap in the voxel is filled in: a cell that
 satisfies \code{fun} at 0 m and 200 m but not at 100 m still yields the envelope
 \verb{[0, 200]}. Use \linkS4class{SpatVoxel} directly where interior gaps matter.
 }
+\examples{
+# Two cells sampled at four standard depths.
+r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+                 nlyrs = 4)
+terra::values(r) <- cbind(c(12, NA), c(11, NA), c(NA, 8), c(6, NA))
+v <- as_voxel(r, depths = c(0, 50, 100, 200), varname = "temp")
+
+# Default predicate: the vertical extent of the data. Cell 1 has values at
+# 0, 50 and 200 m, so it comes back as [0, 200] — the gap at 100 m is filled,
+# because an envelope stores one continuous interval per cell.
+terra::values(voxel_to_envelope(v))
+
+# Another predicate bounds a subset of the values instead: here the depths
+# over which a cell is warmer than 10 degrees. Cell 2 never qualifies, so it
+# is NA in both layers.
+terra::values(voxel_to_envelope(v, fun = function(x) x > 10))
+}
+\seealso{
+\code{\link[=envelope_to_voxel]{envelope_to_voxel()}}, the reverse expansion.
+}

@@ -137,9 +137,19 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' throughout the package, with one layer per standard depth and layer names
 #' following the `{variable}_depth={value}` convention.
 #'
-#' Most terra operations (`crop()`, `mask()`, `[[`) return a plain `SpatRaster`
-#' and so drop the class, which makes re-wrapping a routine step. `as_voxel()`
-#' is idempotent for that reason — given a `SpatVoxel` it returns it untouched.
+#' Most terra operations (`crop()`, `mask()`, `[[`, arithmetic) propagate the
+#' class, so a `SpatVoxel` normally survives them; a few, such as `mean()`,
+#' return a plain `SpatRaster` instead. Re-wrapping is cheap either way, since
+#' `as_voxel()` is idempotent — given a `SpatVoxel` and no `depths` it returns
+#' it untouched.
+#'
+#' Propagating the class does not re-run the validity rules, so an operation
+#' that changes the layer set can leave an object still labelled `SpatVoxel`
+#' that no longer satisfies them: `app()`, for instance, collapses the stack to
+#' a single layer whose name no longer carries a depth. Because
+#' `as_voxel()` returns any `SpatVoxel` unchanged, it will not repair that —
+#' pass `depths` to rebuild the layer names, or check with
+#' [methods::validObject()].
 #'
 #' Depths are positive metres increasing downward, matching the World Ocean
 #' Atlas convention. Negative depths are an error rather than being silently
@@ -167,7 +177,9 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' names(as_voxel(r))
 #' @export
 as_voxel <- function(x, depths = NULL, varname = "value") {
-  # Idempotent: re-wrapping is routine, because terra operations drop the class
+  # Idempotent: re-wrapping is cheap, so callers can do it defensively. Note
+  # this skips validation, so it will not repair a SpatVoxel that a terra
+  # operation left invalid; supplying `depths` rebuilds the names and revalidates.
   if (methods::is(x, "SpatVoxel") && is.null(depths)) return(x)
 
   if (is.list(x)) x <- terra::rast(x)
@@ -369,6 +381,25 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
 #'
 #' @returns A [SpatEnvelope-class] with layers `depth_min` and `depth_max`, on
 #'   the same grid as `v`.
+#'
+#' @seealso [envelope_to_voxel()], the reverse expansion.
+#'
+#' @examples
+#' # Two cells sampled at four standard depths.
+#' r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+#'                  nlyrs = 4)
+#' terra::values(r) <- cbind(c(12, NA), c(11, NA), c(NA, 8), c(6, NA))
+#' v <- as_voxel(r, depths = c(0, 50, 100, 200), varname = "temp")
+#'
+#' # Default predicate: the vertical extent of the data. Cell 1 has values at
+#' # 0, 50 and 200 m, so it comes back as [0, 200] — the gap at 100 m is filled,
+#' # because an envelope stores one continuous interval per cell.
+#' terra::values(voxel_to_envelope(v))
+#'
+#' # Another predicate bounds a subset of the values instead: here the depths
+#' # over which a cell is warmer than 10 degrees. Cell 2 never qualifies, so it
+#' # is NA in both layers.
+#' terra::values(voxel_to_envelope(v, fun = function(x) x > 10))
 #' @export
 voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   if (!is.function(fun)) {
@@ -522,6 +553,37 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #'   replaced with NA.
 #' 
 #' @returns SpatEnvelope, with depth_min and depth_max layers. 
+#'
+#' @seealso [as_envelope()], which attaches depth limits to a footprint that is
+#'   already a raster.
+#'
+#' @examples
+#' # A 4x4 study grid, and a range polygon covering its middle. `polygon` and
+#' # `template` must already share a CRS: this function does not reproject.
+#' template <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 4,
+#'                         ymin = 0, ymax = 4, crs = "EPSG:4326")
+#' poly <- terra::vect("POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", crs = "EPSG:4326")
+#'
+#' # A species recorded between 50 m and 200 m throughout its range. Cells
+#' # outside the polygon are NA.
+#' e <- vect_to_envelope(poly, template, depth_min = 50, depth_max = 200)
+#' terra::values(e)
+#'
+#' # Bathymetry is not a special argument: pass the seafloor as a second
+#' # `depth_max` and, per cell, the shallower of the two wins. This seafloor
+#' # deepens from north to south, so the two rows the polygon covers meet the
+#' # bed very differently.
+#' seafloor <- terra::setValues(terra::rast(template),
+#'                              rep(c(20, 45, 250, 400), each = 4))
+#' e2 <- vect_to_envelope(poly, template,
+#'                        depth_min = 50, depth_max = list(300, seafloor))
+#' terra::values(e2)
+#'
+#' # Two things happened. Where the bed is at 250 m, the nominal 300 m limit is
+#' # truncated to it. Where the bed is at 45 m it sits above `depth_min`, so
+#' # there is no water column left to occupy and the cell drops out entirely —
+#' # leaving 2 of the polygon's 4 cells.
+#' sum(!is.na(terra::values(e2[["depth_min"]])))
 #' @export
 vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   # check params
@@ -591,6 +653,20 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
 #' @param crs Character. Coordinate reference system. Default `"EPSG:4326"`.
 #'
 #' @returns An empty SpatRaster with the computed extent, resolution, and CRS.
+#'
+#' @examples
+#' # Two features in different places: the grid has to cover both.
+#' a <- terra::vect("POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))", crs = "EPSG:4326")
+#' b <- terra::vect("POLYGON ((3 3, 5 3, 5 5, 3 5, 3 3))", crs = "EPSG:4326")
+#'
+#' grid <- create_study_raster(list(a, b), res = 0.5)
+#' terra::ext(grid)
+#' dim(grid)              # rows, columns, layers
+#' terra::hasValues(grid) # FALSE: the grid is empty, it only defines geometry
+#'
+#' # Inputs are projected to `crs` before their extents are combined, so a list
+#' # mixing coordinate systems is fine.
+#' create_study_raster(list(a, terra::project(b, "EPSG:3857")), res = 0.5)
 #' @export
 create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
   extents <- lapply(layers, function(x) {

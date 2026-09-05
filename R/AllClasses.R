@@ -16,6 +16,33 @@ NULL
 #' at the depths above and below it.
 #'
 #' @seealso [SpatEnvelope-class], [SpatVolume-class]
+#'
+#' @examples
+#' # Two cells sampled at three standard depths. Build one with as_voxel(),
+#' # which names the layers for you and sorts them shallow to deep.
+#' r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+#'                  nlyrs = 3)
+#' terra::values(r) <- cbind(c(12, 11), c(9, NA), c(6, 5))
+#' v <- as_voxel(r, depths = c(0, 100, 200), varname = "temp")
+#'
+#' names(v)          # depth lives in the layer name
+#' terra::values(v)  # ...and the variable in the cell values
+#'
+#' # Note cell 2: NA at 100 m, but with values above and below it. A voxel can
+#' # hold that interior gap; a SpatEnvelope cannot.
+#'
+#' # It is an ordinary SpatRaster underneath, so terra operations work on it
+#' # unchanged. Re-wrapping with as_voxel() is cheap either way, since the
+#' # constructor is idempotent.
+#' methods::is(v, "SpatRaster")
+#' terra::nlyr(terra::crop(v, terra::ext(0, 1, 0, 1)))
+#' identical(names(as_voxel(v)), names(v))
+#'
+#' # Validity is enforced on construction: every layer name must carry its
+#' # depth, and the layers must run shallow to deep.
+#' bad <- r
+#' names(bad) <- c("a", "b", "c")
+#' try(methods::new("SpatVoxel", bad))
 #' @export
 setClass("SpatVoxel", contains = "SpatRaster")
 
@@ -32,6 +59,26 @@ setClass("SpatVoxel", contains = "SpatRaster")
 #' distribution.
 #'
 #' @seealso [SpatVoxel-class], [SpatVolume-class]
+#'
+#' @examples
+#' # A two-cell footprint, one cell present and one absent. Build an envelope
+#' # with as_envelope() (from a raster footprint) or vect_to_envelope() (from
+#' # polygons).
+#' fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
+#' terra::values(fp) <- c(1, NA)
+#' e <- as_envelope(fp, depth_min = 50, depth_max = 200)
+#'
+#' names(e)          # always exactly these two layers
+#' terra::values(e)  # ...and depth is the cell value, in metres
+#'
+#' # The interval is per-cell, so limits can vary across the grid.
+#' terra::values(
+#'   as_envelope(fp, depth_min = 50,
+#'               depth_max = terra::setValues(terra::rast(fp), c(120, 300)))
+#' )
+#'
+#' # Any other set of layers is rejected: a bare footprint is not an envelope.
+#' try(methods::new("SpatEnvelope", fp))
 #' @export
 setClass("SpatEnvelope", contains = "SpatRaster")
 
@@ -46,6 +93,32 @@ setClass("SpatEnvelope", contains = "SpatRaster")
 #' dual roles (layer index vs. cell value), so any operation that touches the
 #' depth axis directly should dispatch on the concrete class instead.
 #'
+#' @seealso [SpatVoxel-class] and [SpatEnvelope-class], the two members;
+#'   [envelope_to_voxel()] and [voxel_to_envelope()] convert between them.
+#'
+#' @examples
+#' # The same 3D domain in both representations.
+#' fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
+#' terra::values(fp) <- c(1, 1)
+#' e <- as_envelope(fp, depth_min = 0, depth_max = 200)
+#' v <- envelope_to_voxel(e, depths = c(0, 100, 200))
+#'
+#' # Neither inherits from the other; both belong to the union.
+#' methods::is(e, "SpatVolume")
+#' methods::is(v, "SpatVolume")
+#' methods::is(v, "SpatEnvelope")
+#'
+#' # `SpatVolume` is a dispatch target, so a generic written against it accepts
+#' # either representation.
+#' setGeneric("n_depth_layers", function(x) standardGeneric("n_depth_layers"))
+#' setMethod("n_depth_layers", "SpatVolume", function(x) terra::nlyr(x))
+#' n_depth_layers(e)
+#' n_depth_layers(v)
+#'
+#' # But the depth axis itself is stored differently in the two, so anything
+#' # reading depths must dispatch on the concrete class rather than the union.
+#' names(e)
+#' names(v)
 #' @export
 setClassUnion("SpatVolume", c("SpatVoxel", "SpatEnvelope"))
 
