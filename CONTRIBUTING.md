@@ -97,7 +97,12 @@ We use issues as the unit of work and the record of its current state.
       is the main gate for coordinating work done. Ideally, we would
       have some formal process for PRs, but for now Jay will review
       these before merging with main to keep work coordinated.
-5.  **Merge** and delete the branch.
+5.  **Get Pull Request approval**
+    - Another contributor should review and approve of your code before
+      the PR can get merged into the main branch.
+6.  **Merge** and delete the branch. Currently,
+    [@JayMatsushiba](https://github.com/JayMatsushiba) will be in charge
+    of this step.
     - Reference the issue from the PR so it closes automatically. This
       should happen automatically if the branch is created from the
       issue.
