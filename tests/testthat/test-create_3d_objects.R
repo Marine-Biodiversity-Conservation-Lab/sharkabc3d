@@ -404,9 +404,13 @@ test_that("envelope_to_voxel() generates voxel from envelope", {
   # Defined depth layers 
   a_depths <- c(0, 50, 100, 150, 200, 300, 400)
 
-  # Expected result
+  # Expected result. Each level stands for the slab running down to the next,
+  # so [70, 210] occupies every slab it overlaps: it starts inside 50-100, so
+  # 50 is occupied though 70 > 50, and ends inside 200-300, so 200 is occupied
+  # and 300 is not.
+  occupied <- c(50, 100, 150, 200)
   expected_vox <- lapply(a_depths, function(x) {
-    if(x > 70 & x < 210) {
+    if (x %in% occupied) {
       r <- terra::setValues(temp_r, 1)
     } else {
       r <- terra::setValues(temp_r, NA)
@@ -423,6 +427,63 @@ test_that("envelope_to_voxel() generates voxel from envelope", {
   expect_s4_class(got, "SpatVoxel")
   expect_identical(names(got), names(expected_vox))
   expect_equal(terra::values(got), terra::values(expected_vox))
+})
+
+test_that("envelope_to_voxel() catches an envelope that falls between levels", {
+  # the case the point-in-interval rule missed: [10, 20] contains none of the
+  # levels, but lies inside the slab the 0 m level stands for
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 10, depth_max = 20)
+
+  expect_no_warning(v <- envelope_to_voxel(envel, depths = c(0, 100)))
+  expect_equal(unname(terra::values(v)[1, ]), c(1, NA))
+})
+
+test_that("envelope_to_voxel() occupies every slab the envelope overlaps", {
+  # [70, 210] starts inside the 50-100 slab and ends inside 200-300
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 70, depth_max = 210)
+  vals <- terra::values(envelope_to_voxel(envel, depths = c(0, 50, 100, 200, 300)))
+
+  expect_equal(unname(vals[1, ]), c(NA, 1, 1, 1, NA))
+})
+
+test_that("envelope_to_voxel() gives a boundary depth to the slab it heads", {
+  # an envelope sitting wholly inside one slab occupies that slab alone; the
+  # level below owns its own top, so it is not dragged in
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 60, depth_max = 99)
+  vals <- terra::values(envelope_to_voxel(envel, depths = c(0, 50, 100, 200)))
+
+  expect_equal(unname(vals[1, ]), c(NA, 1, NA, NA))
+
+  # extending it to touch 100 brings that level in, and no more
+  envel2 <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 60, depth_max = 100)
+  vals2 <- terra::values(envelope_to_voxel(envel2, depths = c(0, 50, 100, 200)))
+
+  expect_equal(unname(vals2[1, ]), c(NA, 1, 1, NA))
+})
+
+test_that("envelope_to_voxel() keeps every level the old point rule found", {
+  # overlap is a widening of the rule, never a narrowing: a level whose own
+  # value lies inside the envelope is still occupied
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 50, depth_max = 250)
+  depths <- c(0, 50, 100, 200, 300)
+  vals <- terra::values(envelope_to_voxel(envel, depths = depths))
+
+  inside <- depths >= 50 & depths <= 250
+  expect_true(all(!is.na(unname(vals[1, ]))[inside]))
+})
+
+test_that("envelope_to_voxel() treats the deepest level as a point, not a floor", {
+  # an open-ended deepest slab would swallow any range below the grid and
+  # report it as resolved; keeping it a point leaves the gap visible
+  below <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 310, depth_max = 400)
+  expect_warning(v <- envelope_to_voxel(below, depths = c(0, 100, 200, 300)),
+                 "lying entirely outside")
+  expect_true(all(is.na(terra::values(v))))
+
+  # reaching the deepest level is enough to be recorded at it
+  touching <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 290, depth_max = 400)
+  vals <- terra::values(envelope_to_voxel(touching, depths = c(0, 100, 200, 300)))
+  expect_equal(unname(vals[1, ]), c(NA, NA, 1, 1))
 })
 
 test_that("envelope_to_voxel() includes depths that sit exactly on the limits", {
@@ -577,12 +638,22 @@ test_that("envelope_to_voxel() rejects negative depths (positive-down convention
                "positive metres increasing downward")
 })
 
-test_that("envelope_to_voxel() warns when an envelope resolves to no depth level", {
-  # [10, 20] falls between the standard levels, so the cell has nowhere to go
-  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 10, depth_max = 20)
+test_that("envelope_to_voxel() warns when an envelope lies below every depth level", {
+  # the slabs reach only as deep as max(depths), so nothing can hold this cell
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 500, depth_max = 600)
 
   expect_warning(v <- envelope_to_voxel(envel, depths = c(0, 100, 200)),
-                 "contains none of")
+                 "lying entirely outside")
+  expect_true(all(is.na(terra::values(v))))
+})
+
+test_that("envelope_to_voxel() warns when an envelope lies above every depth level", {
+  # the shallowest level is the top of the first slab, so a cell entirely
+  # above it is out of reach in the same way
+  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 5, depth_max = 40)
+
+  expect_warning(v <- envelope_to_voxel(envel, depths = c(50, 100, 200)),
+                 "lying entirely outside")
   expect_true(all(is.na(terra::values(v))))
 })
 

@@ -241,11 +241,17 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #'     so sum of all depth levels in the voxel equals `values`.
 #' }
 #'
-#' The expansion is limited by the depth levels provided: a cell whose envelope
-#' contains none of `depths`, ex. an interval of `[10, 20]` against levels
-#' `c(0, 100)`, has no layer to be recorded in and comes back empty. That
-#' is the resolution cost of the voxel form, and is warned about rather than
-#' passed over in silence.
+#' A depth level stands for the slab of water running from it down to the next
+#' level, and a cell occupies that level when its envelope overlaps the slab at
+#' all — the vertical counterpart of rasterizing with `touches = TRUE`. An
+#' interval of `[10, 20]` against levels `c(0, 100)` therefore occupies the 0 m
+#' level, rather than falling between the levels and coming back empty.
+#'
+#' The slabs cover everything from the shallowest level to the deepest, so the
+#' expansion is limited only at the two ends: a cell whose envelope lies wholly
+#' above `min(depths)` or wholly below `max(depths)` has no layer to be recorded
+#' in and comes back empty. That is the reach cost of the voxel form, and is
+#' warned about rather than passed over in silence.
 #'
 #' @param x SpatEnvelope, e.g. from [as_envelope()] or [voxel_to_envelope()].
 #' @param depths Array of values that can be coerced into numeric type,
@@ -338,29 +344,37 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
   # requested levels are put in that form up front.
   depths <- sort(unique(depths))
 
-  # Step 1: occupancy. Which levels each cell covers, independent of what will
-  # be written there.
-  # Both comparisons must be raster-on-LHS — terra mishandles
-  # `scalar <op> raster` when the raster value equals the scalar, which is
-  # exactly the case of a standard depth sitting on `depth_min` or `depth_max`.
-  # Cells that are NA in the envelope stay NA here, and so stay NA downstream.
+  # Step 1: occupancy. A level stands for the slab from it down to the next, and
+  # a cell occupies it when its envelope overlaps that slab at all — vertical
+  # `touches = TRUE`. The deepest has no next, so it stays a point, not a floor
+  # swallowing every range below the grid. Comparisons keep the raster on the
+  # left; terra mishandles `scalar <op> raster` on ties.
   lower <- x[["depth_min"]]
   upper <- x[["depth_max"]]
-  ind <- terra::rast(lapply(depths, function(d) (lower <= d) & (upper >= d)))
+  deepest <- length(depths)
+  ind <- terra::rast(lapply(seq_along(depths), function(i) {
+    if (i == deepest) {
+      (lower <= depths[i]) & (upper >= depths[i])
+    } else {
+      # half-open [depths[i], depths[i + 1]): the next level owns its own top,
+      # so a boundary depth is claimed once rather than by both slabs.
+      (lower < depths[i + 1]) & (upper >= depths[i])
+    }
+  }))
   # number of depth levels present per vertical column, cell 
   n_depths <- sum(ind)
 
-  # Present in the envelope, but no requested depth level lies inside it.
+  # The slabs tile `[min(depths), max(depths)]`, so a cell is left empty only
+  # when its envelope lies wholly above the shallowest level or wholly below
+  # the deepest — a range the levels cannot reach, not one that fell between
+  # them.
   # `n_depths` is NA where the envelope is, so this counts only real cells.
   n_missed <- terra::global(n_depths == 0, "sum", na.rm = TRUE)[1, 1]
   if (!is.na(n_missed) && n_missed > 0) {
-    warning(n_missed, " cell(s) have an envelope that contains none of ",
-            "`depths` and are empty in the voxel. Supply finer depth levels ",
-            "to resolve them.", call. = FALSE)
+    warning(n_missed, " cell(s) have an envelope lying entirely outside ",
+            "`depths` and are empty in the voxel. Extend `depths` to span ",
+            "them.", call. = FALSE)
   }
-  # TODO: create param with option for including if there are any intersection
-  # with vertical depth Similar to terra touches = TRUE. Ex. envelope 10, 20 would 
-  # be considered intersecting if the depth levels are 0, 50 
 
   # Step 2: values. The magnitude each cell carries, and how `profile` spreads
   # it down the levels that cell occupies.

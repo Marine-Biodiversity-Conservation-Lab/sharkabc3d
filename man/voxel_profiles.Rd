@@ -49,8 +49,10 @@ arguments, positionally:
 
 \describe{
 \item{\code{ind}}{Logical SpatRaster, one layer per depth, \code{TRUE} where a
-cell's envelope contains that depth. Cells that are \code{NA} in the envelope
-are \code{NA} here.}
+cell's envelope overlaps the slab that depth stands for — from the depth
+down to the next one, the deepest standing for itself alone. A level can
+therefore be occupied without its own value lying in the envelope. Cells
+that are \code{NA} in the envelope are \code{NA} here.}
 \item{\code{depths}}{Numeric vector of the depths those layers stand for,
 shallow to deep. Always \code{terra::nlyr(ind)} long.}
 \item{\code{n_depths}}{Single-layer SpatRaster counting the levels each cell

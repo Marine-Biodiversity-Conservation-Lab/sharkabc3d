@@ -39,7 +39,8 @@ make_footprint <- function(vals = c(1, 5, 0, NA)) {
   terra::setValues(r, vals)
 }
 # Helper: an occupancy stack of the shape a vertical profile is handed — one
-# logical layer per depth, TRUE where a cell's envelope contains that depth.
+# logical layer per depth, TRUE where a cell's envelope overlaps the slab that
+# depth stands for.
 # Built by hand rather than through envelope_to_voxel() so profile tests do not
 # depend on how occupancy is derived. Defaults give a 2x2 grid over four
 # depths whose cells occupy 1, 2, 4 and 0 levels respectively; the last is the
