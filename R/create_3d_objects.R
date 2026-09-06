@@ -249,9 +249,9 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' @param depths Array of values that can be coerced into numeric type,
 #'   represents metres depth below sea level. Sorted shallow to deep, and
 #'   deduplicated, before use.
-#' @param fun Function taking the depths inside a cell's envelope and returning
-#'   the values to write at them: either one value per depth, or a single value
-#'   used at all of them. Defaults to `1` between `depth_min` and `depth_max`
+#' @param vars Parameters to be used as variables in the `fun`, taken in order. 
+#' @param fun Function taking `vars` for the cells inside a cell's envelope and returning
+#'   the values to write at them. Takes Defaults to `1` between `depth_min` and `depth_max`
 #'   of SpatEnvelope type.
 #' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
 #'
@@ -275,7 +275,7 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #'                     varname = "time")
 #' )
 #' @export
-envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "presence") {
+envelope_to_voxel <- function(x, depths, vars, fun = function(vars) {1}, varname = "presence") {
   if (!is(x, "SpatEnvelope")) {
     stop("Input error for envelope_to_voxel(): `x` needs to be of ",
          "`SpatEnvelope` class.", call. = FALSE)
@@ -325,6 +325,10 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
   }
 
   out <- matrix(NA_real_, nrow = length(dmin), ncol = n_depths)
+
+  # Simple presence / absence output
+
+  # Apply function
 
   # Cells sharing an interval share a profile, so `fun` is evaluated per
   # distinct interval. A grid holds far fewer of those than it does cells.
