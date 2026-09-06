@@ -145,8 +145,9 @@ do_annual <- woa_load_nc(do_annual_path, field = "an")
 
 ### 4c: Prepare the study grid and bathymetry
 
-Per-cell depth windows are computed by `voxelize_range()`, which clamps the
-species' nominal depth limits to the seafloor at each cell. We pick one
+Per-cell depth windows are computed by `vect_to_envelope()`, which takes the
+seafloor as one more `depth_max` constraint and so clamps the species' nominal
+lower limit to the bed wherever the bed is shallower. We pick one
 environmental raster as the canonical study grid; every other raster
 (bathymetry and all WOA variables at other resolutions) gets projected onto
 it so the entire downstream pipeline operates on a single, consistent grid.
@@ -211,12 +212,11 @@ sst_values <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   # Per-cell depth window for this species, clamped to the seafloor.
-  range_rast <- voxelize_range(
-    polygons = sp_range,
-    voxel = study_grid,
-    bathymetry = seafloor,
+  range_rast <- vect_to_envelope(
+    polygon = sp_range,
+    template = study_grid,
     depth_min = sp_depths$upper_depth,
-    depth_max = sp_depths$lower_depth
+    depth_max = list(sp_depths$lower_depth, seafloor)
   )
 
   # Surface temperature across the species/WOA overlap.
@@ -317,12 +317,11 @@ sp_id <- depth_table_complete$sis_id[i]
 sp_range <- species_ranges[species_ranges$id_no == sp_id, ]
 sp_depths <- depth_table_complete[i, ]
 
-range_rast <- voxelize_range(
-  polygons = sp_range,
-  voxel = study_grid,
-  bathymetry = seafloor,
+range_rast <- vect_to_envelope(
+  polygon = sp_range,
+  template = study_grid,
   depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
+  depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
 result <- summarise_species_environment(
@@ -346,12 +345,11 @@ results <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   row <- tryCatch({
-    range_rast <- voxelize_range(
-      polygons = sp_range,
-      voxel = study_grid,
-      bathymetry = seafloor,
+    range_rast <- vect_to_envelope(
+      polygon = sp_range,
+      template = study_grid,
       depth_min = sp_depths$upper_depth,
-      depth_max = sp_depths$lower_depth
+      depth_max = list(sp_depths$lower_depth, seafloor)
     )
     summarise_species_environment(range_rast, env_rasters)
   },
@@ -465,11 +463,11 @@ plot_range_at_depth <- function(species_range, depth, rast_3d) {
 
 ```{r plot-depth-profile, fig.width=6, fig.height=4}
 # Temperature depth profile within the white shark's range.
-# Reuse the per-species voxelize_range() output from step 5d.
+# Reuse the per-species vect_to_envelope() output from step 5d.
 sp_range <- species_ranges[species_ranges$sci_name == "Carcharhinus longimanus", ]
-sp_range_rast <- voxelize_range(
-  polygons = sp_range, voxel = study_grid, bathymetry = seafloor,
-  depth_min = 0, depth_max = 1200
+sp_range_rast <- vect_to_envelope(
+  polygon = sp_range, template = study_grid,
+  depth_min = 0, depth_max = list(1200, seafloor)
 )
 
 # Is this really necessary 
@@ -504,12 +502,11 @@ sp_depths <- depth_table_complete[
   depth_table_complete$scientific_name == sp_name, ]
 
 # Per-cell depth window, clamped to bathymetry.
-range_rast <- voxelize_range(
-  polygons = sp_range,
-  voxel = study_grid,
-  bathymetry = seafloor,
+range_rast <- vect_to_envelope(
+  polygon = sp_range,
+  template = study_grid,
   depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
+  depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
 # Mask t_annual to the cells + depths the species actually occupies, then

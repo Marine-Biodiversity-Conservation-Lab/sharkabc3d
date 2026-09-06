@@ -80,11 +80,11 @@ usethis::edit_r_environ()
 
 - `create_study_raster()` — build an empty study-area `SpatRaster`
   covering the combined extent of one or more spatial inputs.
-- `voxelize_range()` — rasterize a single species range or fishery
-  footprint and assign per-cell `depth_min` / `depth_max` clamped to the
-  seafloor.
-- `voxelize_ranges()` — vectorised wrapper that rasterizes every row of
-  an `sf` object with its own depth limits.
+- `vect_to_envelope()` — rasterize a single species range or fishery
+  footprint onto the study grid and attach per-cell `depth_min` /
+  `depth_max`, returning a `SpatEnvelope`. Depth limits are lists mixing
+  numerics and rasters, so bathymetry is just one more constraint: per
+  cell the deepest `depth_min` and the shallowest `depth_max` win.
 
 ### 3D volume and overlap
 

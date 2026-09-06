@@ -7,7 +7,7 @@
 calc_volume(range_rast)
 }
 \arguments{
-\item{range_rast}{SpatRaster. Output from \code{\link[=voxelize_range]{voxelize_range()}}, with layers:
+\item{range_rast}{SpatRaster. Output from \code{\link[=vect_to_envelope]{vect_to_envelope()}}, with layers:
 depth_min, depth_max.}
 }
 \value{

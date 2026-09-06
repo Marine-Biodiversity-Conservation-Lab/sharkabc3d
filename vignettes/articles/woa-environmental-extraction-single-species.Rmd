@@ -99,7 +99,7 @@ t_annual_path <- woa_download("temperature", period = "annual", resolution = "0.
 t_annual <- woa_load_nc(t_annual_path, field = "an")
 
 # Crop to the species range (plus a ~1 degree margin) before any heavy work.
-# WOA ships globally, but the bathymetry projection, voxelization, and
+# WOA ships globally, but the bathymetry projection, envelope construction, and
 # per-depth masking all cost in proportion to grid size. A circumglobal range
 # whose bbox spans the antimeridian makes this a no-op.
 range_ext <- terra::intersect(
@@ -121,18 +121,19 @@ seafloor <- (terra::project(bathy, study_grid) * -1) |>
   terra::clamp(lower = 0)
 ```
 
-## Step 4: Voxelize the species range
+## Step 4: Build the species' depth envelope
 
-`voxelize_range()` builds the per-cell depth window, clamping the species'
-nominal depth limits to the seafloor at each cell.
+`vect_to_envelope()` builds the per-cell depth window. The seafloor goes in as
+one more `depth_max` constraint, so the species' nominal lower limit is clamped
+to the bed wherever the bed is shallower; per cell the shallowest `depth_max`
+wins.
 
-```{r voxelize}
-range_rast <- voxelize_range(
-  polygons = sp_range,
-  voxel = study_grid,
-  bathymetry = seafloor,
+```{r envelope}
+range_rast <- vect_to_envelope(
+  polygon = sp_range,
+  template = study_grid,
   depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
+  depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
 # Mask temperature to the cells + depths the species actually occupies. The
