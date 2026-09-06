@@ -230,33 +230,20 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' outside the interval, and cells that are `NA` in the envelope, are `NA` in
 #' every layer.
 #'
-#' Which levels a cell occupies is settled first, and on its own. What gets
-#' *written* at those levels is a separate question, answered by two arguments:
-#'
 #' \itemize{
-#'   \item `values` is the magnitude — a single number for the whole grid, or a
-#'     raster carrying one per cell. Left `NULL` it is `1`, which makes the
-#'     voxel a presence mask: the direct 3D form of the envelope.
+#'   \item `values` is the magnitude, which can be a single number for the whole grid or a
+#'     SpatRaster carrying a value per cell. Default value is `1`, which makes the
+#'     output a presence mask. Ex. `values` can be 2D fisheries effort rasters. 
 #'   \item `profile` decides how that magnitude is spread down the water
-#'     column. Left `NULL` the full value is written at every occupied level,
-#'     which double-counts a total but is what a footprint map wants.
-#'     [profile_equal()] divides it evenly over the levels the cell occupies,
-#'     so the voxel sums back to `values`.
+#'     column. Default `NULL` means the full value is written at every occupied level. 
+#'     Providing a `profile_*` function determines how `values` is transformed for each 
+#'     depth level. Ex. [profile_equal()] divides it evenly over the levels the cell occupies,
+#'     so sum of all depth levels in the voxel equals `values`.
 #' }
 #'
-#' A cell's share depends on how many levels it occupies, and that varies
-#' across the grid wherever the envelope does. [profile_equal()] therefore
-#' conserves *per cell*: a cell spanning three levels gets a third of its value
-#' at each, one spanning ten gets a tenth. This is the allocation the GFW
-#' effort helpers apply to fishing hours.
-#'
-#' A profile is an ordinary function, so shapes beyond the two supplied — a
-#' normal or linear spread, say — need no change here: write one against the
-#' contract in [voxel_profiles] and pass it.
-#'
-#' The expansion is limited by the levels on offer: a cell whose envelope
-#' contains none of `depths` — an interval of `[10, 20]` against levels
-#' `c(0, 100)`, say — has no layer to be recorded in and comes back empty. That
+#' The expansion is limited by the depth levels provided: a cell whose envelope
+#' contains none of `depths`, ex. an interval of `[10, 20]` against levels
+#' `c(0, 100)`, has no layer to be recorded in and comes back empty. That
 #' is the resolution cost of the voxel form, and is warned about rather than
 #' passed over in silence.
 #'
@@ -371,6 +358,9 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
             "`depths` and are empty in the voxel. Supply finer depth levels ",
             "to resolve them.", call. = FALSE)
   }
+  # TODO: create param with option for including if there are any intersection
+  # with vertical depth Similar to terra touches = TRUE. Ex. envelope 10, 20 would 
+  # be considered intersecting if the depth levels are 0, 50 
 
   # Step 2: values. The magnitude each cell carries, and how `profile` spreads
   # it down the levels that cell occupies.
