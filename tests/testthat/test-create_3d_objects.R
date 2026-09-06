@@ -24,13 +24,6 @@ test_that("SpatEnvelope validity requires exactly depth_min, depth_max", {
 
 # as_envelope() ----
 
-# Helper: 2x2 footprint, cells 1-3 present, cell 4 absent. Values are
-# deliberately varied (and one is 0) because only their non-NA-ness counts.
-make_footprint <- function(vals = c(1, 5, 0, NA)) {
-  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
-  terra::setValues(r, vals)
-}
-
 test_that("as_envelope() builds a SpatEnvelope from a footprint and constant depths", {
   e <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
 
@@ -345,11 +338,33 @@ test_that("envelope_to_voxel() rejects invalid input param types", {
     fixed = TRUE
   )
 
-  # check for param fun valid function
+  # check for param profile a function. A shape is passed as the function
+  # itself, so a name that used to select one is now just the wrong type.
   expect_error(
-    envelope_to_voxel(x = good_envel, depths = good_depths, fun = "not a function"),
-    "`fun` needs to be a function",
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = "equal"),
+    "`profile` needs to be NULL or a function of (ind, depths, n_depths); got character",
     fixed = TRUE
+  )
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = 100),
+    "`profile` needs to be NULL or a function of (ind, depths, n_depths); got numeric",
+    fixed = TRUE
+  )
+  expect_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = NA),
+    "`profile` needs to be NULL or a function",
+    fixed = TRUE
+  )
+
+  # the supplied shapes and the default all have to survive the same check
+  expect_no_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = NULL)
+  )
+  expect_no_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = profile_flat)
+  )
+  expect_no_error(
+    envelope_to_voxel(x = good_envel, depths = good_depths, profile = profile_equal)
   )
 
   # check for param varname valid string
@@ -441,16 +456,43 @@ test_that("envelope_to_voxel() honours per-cell depth limits", {
   expect_true(all(is.na(vals[4, ])))                  # absent footprint
 })
 
-test_that("envelope_to_voxel() writes a vertical profile from `fun`", {
+test_that("envelope_to_voxel() writes a constant `values` at every occupied level", {
   fp <- make_footprint()
   dmax <- terra::setValues(terra::rast(fp), c(100, 300, 300, 300))
   envel <- as_envelope(fp, depth_min = 0, depth_max = dmax)
 
-  # share of time spent at each occupied depth: depends on how many there are,
-  # so the two distinct intervals must get different profiles
+  vals <- terra::values(
+    envelope_to_voxel(envel, depths = c(0, 100, 200, 300), values = 5,
+                      varname = "score")
+  )
+
+  # same occupancy as presence, carrying 5 instead of 1
+  expect_equal(unname(vals[1, ]), c(5, 5, NA, NA))
+  expect_equal(unname(vals[2, ]), rep(5, 4))
+})
+
+test_that("envelope_to_voxel() writes a per-cell `values` raster", {
+  fp <- make_footprint(c(1, 1, 1, 1))
+  envel <- as_envelope(fp, depth_min = 50, depth_max = 200)
+  effort <- terra::setValues(terra::rast(fp), c(10, 20, 30, 40))
+
+  vals <- terra::values(
+    envelope_to_voxel(envel, depths = c(0, 50, 100, 200, 300), values = effort,
+                      varname = "effort")
+  )
+
+  expect_equal(unname(vals[1, ]), c(NA, 10, 10, 10, NA))
+  expect_equal(unname(vals[4, ]), c(NA, 40, 40, 40, NA))
+})
+
+test_that("envelope_to_voxel() profile_equal divides across the occupied depths", {
+  fp <- make_footprint()
+  dmax <- terra::setValues(terra::rast(fp), c(100, 300, 300, 300))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = dmax)
+
+  # the two distinct intervals occupy 2 and 4 levels, so get different shares
   v <- envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
-                         fun = function(d) rep(1 / length(d), length(d)),
-                         varname = "time")
+                         profile = profile_equal, varname = "time")
   vals <- terra::values(v)
 
   expect_identical(names(v), paste0("time_depth=", c(0, 100, 200, 300)))
@@ -458,28 +500,65 @@ test_that("envelope_to_voxel() writes a vertical profile from `fun`", {
   expect_equal(unname(vals[2, ]), rep(0.25, 4))
 })
 
-test_that("envelope_to_voxel() passes the occupied depths to `fun`", {
-  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 50, depth_max = 200)
+test_that("envelope_to_voxel() profile_equal conserves each cell's value", {
+  fp <- make_footprint(c(1, 1, 1, 1))
+  dmax <- terra::setValues(terra::rast(fp), c(100, 200, 300, 300))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = dmax)
+  effort <- terra::setValues(terra::rast(fp), c(10, 20, 30, 40))
 
-  seen <- NULL
-  envelope_to_voxel(envel, depths = c(0, 50, 100, 200, 300),
-                    fun = function(d) { seen <<- d; 1 })
+  vals <- terra::values(
+    envelope_to_voxel(envel, depths = c(0, 100, 200, 300), values = effort,
+                      profile = profile_equal, varname = "effort")
+  )
 
-  expect_equal(seen, c(50, 100, 200))
+  # cells occupy 2, 3, 4 and 4 levels respectively; each still sums to its input
+  expect_equal(unname(vals[1, ]), c(5, 5, NA, NA))
+  expect_equal(unname(rowSums(vals, na.rm = TRUE)), c(10, 20, 30, 40))
 })
 
-test_that("envelope_to_voxel() rejects a `fun` that returns the wrong shape", {
-  envel <- as_envelope(make_footprint(c(1, 1, 1, 1)), depth_min = 0, depth_max = 300)
+test_that("envelope_to_voxel() without a profile does not divide the value", {
+  fp <- make_footprint(c(1, 1, 1, 1))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = 300)
+  effort <- terra::setValues(terra::rast(fp), c(10, 20, 30, 40))
+
+  vals <- terra::values(
+    envelope_to_voxel(envel, depths = c(0, 100, 200, 300), values = effort)
+  )
+
+  # full value at all four levels: a footprint map, not a conserved total
+  expect_equal(unname(vals[1, ]), rep(10, 4))
+  expect_equal(unname(rowSums(vals, na.rm = TRUE)), c(40, 80, 120, 160))
+})
+
+test_that("envelope_to_voxel() presence is the same as values = 1", {
+  fp <- make_footprint()
+  dmax <- terra::setValues(terra::rast(fp), c(100, 300, 300, 300))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = dmax)
+  depths <- c(0, 100, 200, 300)
+
+  expect_identical(
+    terra::values(envelope_to_voxel(envel, depths)),
+    terra::values(envelope_to_voxel(envel, depths, values = 1))
+  )
+})
+
+test_that("envelope_to_voxel() rejects an unusable `values`", {
+  fp <- make_footprint(c(1, 1, 1, 1))
+  envel <- as_envelope(fp, depth_min = 0, depth_max = 300)
 
   expect_error(
-    envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
-                      fun = function(d) c(1, 2)),
-    "one value per depth"
+    envelope_to_voxel(envel, depths = c(0, 100),
+                      values = terra::rast(nrows = 3, ncols = 3)),
+    "same grid", fixed = TRUE
   )
   expect_error(
-    envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
-                      fun = function(d) "deep"),
-    "must return numeric values"
+    envelope_to_voxel(envel, depths = c(0, 100),
+                      values = c(terra::rast(fp), terra::rast(fp))),
+    "must be a single-layer SpatRaster", fixed = TRUE
+  )
+  expect_error(
+    envelope_to_voxel(envel, depths = c(0, 100), values = c(1, 2)),
+    "single non-missing number", fixed = TRUE
   )
 })
 

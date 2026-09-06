@@ -7,9 +7,8 @@
 envelope_to_voxel(
   x,
   depths,
-  fun = function(depths) {
-     1
- },
+  values = NULL,
+  profile = NULL,
   varname = "presence"
 )
 }
@@ -20,10 +19,17 @@ envelope_to_voxel(
 represents metres depth below sea level. Sorted shallow to deep, and
 deduplicated, before use.}
 
-\item{fun}{Function taking the depths inside a cell's envelope and returning
-the values to write at them: either one value per depth, or a single value
-used at all of them. Defaults to \code{1} between \code{depth_min} and \code{depth_max}
-of SpatEnvelope type.}
+\item{values}{Optional numeric or SpatRaster of same CRS, resolution, extent as \code{x}.
+Defines values to write for voxel cells that are within depth intervals.
+\code{NULL} (the default) writes \code{1} at every occupied level, giving simple
+presence/absence.}
+
+\item{profile}{Optional function distributing \code{values} across the depth
+dimension, taking \verb{(ind, depths, n_depths)} and returning the weight to
+apply. \code{NULL} (the default) writes the same value at every depth, as
+\code{\link[=profile_flat]{profile_flat()}} does; \code{\link[=profile_equal]{profile_equal()}} divides the value equally across
+the depths a cell occupies. Any function meeting the contract in
+\link{voxel_profiles} works, including your own.}
 
 \item{varname}{Name to use for depth layer, taking on form of \verb{\{varname\}_depth=\{depths[i]\}}}
 }
@@ -39,14 +45,29 @@ outside the interval, and cells that are \code{NA} in the envelope, are \code{NA
 every layer.
 }
 \details{
-\code{fun} supplies the values written at the levels a cell occupies, and so
-controls what the voxel \emph{means}. The default writes \code{1} at every occupied
-level, giving a presence voxel — the direct 3D form of the envelope. A
-function of the occupied depths instead writes a vertical profile, which is
-what vertical-migration work needs: pass the share of time spent at each
-depth and the voxel carries that distribution rather than bare presence.
-\code{fun} is called once per distinct envelope interval on the grid, not once
-per cell, since its result depends only on which depths are inside.
+Which levels a cell occupies is settled first, and on its own. What gets
+\emph{written} at those levels is a separate question, answered by two arguments:
+
+\itemize{
+\item \code{values} is the magnitude — a single number for the whole grid, or a
+raster carrying one per cell. Left \code{NULL} it is \code{1}, which makes the
+voxel a presence mask: the direct 3D form of the envelope.
+\item \code{profile} decides how that magnitude is spread down the water
+column. Left \code{NULL} the full value is written at every occupied level,
+which double-counts a total but is what a footprint map wants.
+\code{\link[=profile_equal]{profile_equal()}} divides it evenly over the levels the cell occupies,
+so the voxel sums back to \code{values}.
+}
+
+A cell's share depends on how many levels it occupies, and that varies
+across the grid wherever the envelope does. \code{\link[=profile_equal]{profile_equal()}} therefore
+conserves \emph{per cell}: a cell spanning three levels gets a third of its value
+at each, one spanning ten gets a tenth. This is the allocation the GFW
+effort helpers apply to fishing hours.
+
+A profile is an ordinary function, so shapes beyond the two supplied — a
+normal or linear spread, say — need no change here: write one against the
+contract in \link{voxel_profiles} and pass it.
 
 The expansion is limited by the levels on offer: a cell whose envelope
 contains none of \code{depths} — an interval of \verb{[10, 20]} against levels
@@ -62,11 +83,29 @@ e <- as_envelope(fp, depth_min = 50, depth_max = 200)
 # presence at every standard depth the envelope covers
 terra::values(envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300)))
 
-# a vertical profile instead: the share of time spent at each occupied depth
+# the same pattern, carrying a constant of your choosing instead of 1
 terra::values(
   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
-                    fun = function(d) rep(1 / length(d), length(d)),
+                    values = 5)
+)
+
+# spread that value down the column instead: an even share at each of the
+# depths the cell occupies, summing back to 1
+terra::values(
+  envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
+                    profile = profile_equal,
                     varname = "time")
+)
+
+# a per-cell magnitude comes in as a raster: split each cell's effort evenly
+# over the depths it occupies, conserving the cell total
+effort <- terra::setValues(terra::rast(fp), c(100, NA))
+terra::values(
+  envelope_to_voxel(
+    e, depths = c(0, 50, 100, 200, 300), values = effort,
+    profile = profile_equal,
+    varname = "effort"
+  )
 )
 }
 \seealso{

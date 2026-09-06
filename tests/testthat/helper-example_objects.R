@@ -32,3 +32,27 @@ make_polygon <- function() {
   )
   sf::st_sf(geometry = poly)
 }
+# Helper: 2x2 footprint, cells 1-3 present, cell 4 absent. Values are
+# deliberately varied (and one is 0) because only their non-NA-ness counts.
+make_footprint <- function(vals = c(1, 5, 0, NA)) {
+  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
+  terra::setValues(r, vals)
+}
+# Helper: an occupancy stack of the shape a vertical profile is handed — one
+# logical layer per depth, TRUE where a cell's envelope contains that depth.
+# Built by hand rather than through envelope_to_voxel() so profile tests do not
+# depend on how occupancy is derived. Defaults give a 2x2 grid over four
+# depths whose cells occupy 1, 2, 4 and 0 levels respectively; the last is the
+# cell whose envelope contains none of the depths.
+make_occupancy <- function(cells = list(c(TRUE, FALSE, FALSE, FALSE),
+                                        c(TRUE, TRUE, FALSE, FALSE),
+                                        c(TRUE, TRUE, TRUE, TRUE),
+                                        c(FALSE, FALSE, FALSE, FALSE)),
+                           depths = c(0, 100, 200, 300)) {
+  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2)
+  # A layer holds one value per cell, so the per-cell rows are read down.
+  lays <- lapply(seq_along(depths), function(i) {
+    terra::setValues(r, vapply(cells, function(c) c[i], logical(1)))
+  })
+  terra::rast(lays)
+}

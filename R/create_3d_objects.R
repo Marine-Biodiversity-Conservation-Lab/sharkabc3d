@@ -230,14 +230,29 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' outside the interval, and cells that are `NA` in the envelope, are `NA` in
 #' every layer.
 #'
-#' `fun` supplies the values written at the levels a cell occupies, and so
-#' controls what the voxel *means*. The default writes `1` at every occupied
-#' level, giving a presence voxel — the direct 3D form of the envelope. A
-#' function of the occupied depths instead writes a vertical profile, which is
-#' what vertical-migration work needs: pass the share of time spent at each
-#' depth and the voxel carries that distribution rather than bare presence.
-#' `fun` is called once per distinct envelope interval on the grid, not once
-#' per cell, since its result depends only on which depths are inside.
+#' Which levels a cell occupies is settled first, and on its own. What gets
+#' *written* at those levels is a separate question, answered by two arguments:
+#'
+#' \itemize{
+#'   \item `values` is the magnitude — a single number for the whole grid, or a
+#'     raster carrying one per cell. Left `NULL` it is `1`, which makes the
+#'     voxel a presence mask: the direct 3D form of the envelope.
+#'   \item `profile` decides how that magnitude is spread down the water
+#'     column. Left `NULL` the full value is written at every occupied level,
+#'     which double-counts a total but is what a footprint map wants.
+#'     [profile_equal()] divides it evenly over the levels the cell occupies,
+#'     so the voxel sums back to `values`.
+#' }
+#'
+#' A cell's share depends on how many levels it occupies, and that varies
+#' across the grid wherever the envelope does. [profile_equal()] therefore
+#' conserves *per cell*: a cell spanning three levels gets a third of its value
+#' at each, one spanning ten gets a tenth. This is the allocation the GFW
+#' effort helpers apply to fishing hours.
+#'
+#' A profile is an ordinary function, so shapes beyond the two supplied — a
+#' normal or linear spread, say — need no change here: write one against the
+#' contract in [voxel_profiles] and pass it.
 #'
 #' The expansion is limited by the levels on offer: a cell whose envelope
 #' contains none of `depths` — an interval of `[10, 20]` against levels
@@ -249,10 +264,16 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' @param depths Array of values that can be coerced into numeric type,
 #'   represents metres depth below sea level. Sorted shallow to deep, and
 #'   deduplicated, before use.
-#' @param vars Parameters to be used as variables in the `fun`, taken in order. 
-#' @param fun Function taking `vars` for the cells inside a cell's envelope and returning
-#'   the values to write at them. Takes Defaults to `1` between `depth_min` and `depth_max`
-#'   of SpatEnvelope type.
+#' @param values Optional numeric or SpatRaster of same CRS, resolution, extent as `x`. 
+#'   Defines values to write for voxel cells that are within depth intervals. 
+#'   `NULL` (the default) writes `1` at every occupied level, giving simple 
+#'   presence/absence.
+#' @param profile Optional function distributing `values` across the depth
+#'   dimension, taking `(ind, depths, n_depths)` and returning the weight to
+#'   apply. `NULL` (the default) writes the same value at every depth, as
+#'   [profile_flat()] does; [profile_equal()] divides the value equally across
+#'   the depths a cell occupies. Any function meeting the contract in
+#'   [voxel_profiles] works, including your own.
 #' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
 #'
 #' @returns A [SpatVoxel-class] with one layer per depth in `depths`, on the
@@ -268,14 +289,33 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' # presence at every standard depth the envelope covers
 #' terra::values(envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300)))
 #'
-#' # a vertical profile instead: the share of time spent at each occupied depth
+#' # the same pattern, carrying a constant of your choosing instead of 1
 #' terra::values(
 #'   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
-#'                     fun = function(d) rep(1 / length(d), length(d)),
+#'                     values = 5)
+#' )
+#'
+#' # spread that value down the column instead: an even share at each of the
+#' # depths the cell occupies, summing back to 1
+#' terra::values(
+#'   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
+#'                     profile = profile_equal,
 #'                     varname = "time")
 #' )
+#'
+#' # a per-cell magnitude comes in as a raster: split each cell's effort evenly
+#' # over the depths it occupies, conserving the cell total
+#' effort <- terra::setValues(terra::rast(fp), c(100, NA))
+#' terra::values(
+#'   envelope_to_voxel(
+#'     e, depths = c(0, 50, 100, 200, 300), values = effort,
+#'     profile = profile_equal,
+#'     varname = "effort"
+#'   )
+#' )
 #' @export
-envelope_to_voxel <- function(x, depths, vars, fun = function(vars) {1}, varname = "presence") {
+envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
+                              varname = "presence") {
   if (!is(x, "SpatEnvelope")) {
     stop("Input error for envelope_to_voxel(): `x` needs to be of ",
          "`SpatEnvelope` class.", call. = FALSE)
@@ -287,10 +327,6 @@ envelope_to_voxel <- function(x, depths, vars, fun = function(vars) {1}, varname
     stop("Input error for envelope_to_voxel(): `depths` needs to be array ",
          "coercible to numeric type.", call. = FALSE)
   }
-  if (!is.function(fun)) {
-    stop("Input error for envelope_to_voxel(): `fun` needs to be a function.",
-         call. = FALSE)
-  }
   if (!is.character(varname) || length(varname) != 1 || is.na(varname)) {
     stop("Input error for envelope_to_voxel(): `varname` needs to be a string.",
          call. = FALSE)
@@ -300,63 +336,84 @@ envelope_to_voxel <- function(x, depths, vars, fun = function(vars) {1}, varname
          "increasing downward; got ", paste(depths[depths < 0], collapse = ", "),
          ".", call. = FALSE)
   }
+  # Checked up front rather than on first use, so a bad profile is an error
+  # even on an envelope where no cell turns out to be occupied. What the
+  # function returns is checked later, once there is an `ind` to size it
+  # against.
+  if (!is.null(profile) && !is.function(profile)) {
+    stop("Input error for envelope_to_voxel(): `profile` needs to be NULL or ",
+         "a function of (ind, depths, n_depths); got ",
+         paste(class(profile), collapse = "/"), ". See ?voxel_profiles.",
+         call. = FALSE)
+  }
 
   # A voxel's layer axis is one layer per depth, shallow to deep, so the
   # requested levels are put in that form up front.
   depths <- sort(unique(depths))
-  n_depths <- length(depths)
 
-  dmin <- terra::values(x[["depth_min"]], mat = FALSE)
-  dmax <- terra::values(x[["depth_max"]], mat = FALSE)
-
-  # The levels a cell occupies are always a contiguous run of `depths`, because
-  # an envelope is a single solid interval. Recording that run as its first and
-  # last index avoids building a cells-by-depths logical matrix.
-  first <- findInterval(dmin, depths, left.open = TRUE) + 1L  # first depth >= dmin
-  last <- findInterval(dmax, depths)                          # last depth <= dmax
-  occupied <- !is.na(first) & !is.na(last) & first <= last
+  # Step 1: occupancy. Which levels each cell covers, independent of what will
+  # be written there.
+  # Both comparisons must be raster-on-LHS — terra mishandles
+  # `scalar <op> raster` when the raster value equals the scalar, which is
+  # exactly the case of a standard depth sitting on `depth_min` or `depth_max`.
+  # Cells that are NA in the envelope stay NA here, and so stay NA downstream.
+  lower <- x[["depth_min"]]
+  upper <- x[["depth_max"]]
+  ind <- terra::rast(lapply(depths, function(d) (lower <= d) & (upper >= d)))
+  # number of depth levels present per vertical column, cell 
+  n_depths <- sum(ind)
 
   # Present in the envelope, but no requested depth level lies inside it.
-  n_missed <- sum(!is.na(dmin) & !is.na(dmax) & !occupied)
-  if (n_missed > 0) {
+  # `n_depths` is NA where the envelope is, so this counts only real cells.
+  n_missed <- terra::global(n_depths == 0, "sum", na.rm = TRUE)[1, 1]
+  if (!is.na(n_missed) && n_missed > 0) {
     warning(n_missed, " cell(s) have an envelope that contains none of ",
             "`depths` and are empty in the voxel. Supply finer depth levels ",
             "to resolve them.", call. = FALSE)
   }
 
-  out <- matrix(NA_real_, nrow = length(dmin), ncol = n_depths)
+  # Step 2: values. The magnitude each cell carries, and how `profile` spreads
+  # it down the levels that cell occupies.
+  v <- .cell_values(values, x)
 
-  # Simple presence / absence output
+  # NULL means the flat shape, which is a profile like any other. Called
+  # positionally, so a caller's own profile is free to name its arguments
+  # however it likes.
+  if (is.null(profile)) profile <- profile_flat
+  w <- .profile_weights(profile, ind, depths, n_depths)
 
-  # Apply function
+  # Raster stays on the left throughout: terra broadcasts the single-layer `v`
+  # and `w` across every depth layer of `ind`.
+  out <- ind * v * w
+  # Multiplication left out-of-band cells at 0 rather than NA.
+  out <- terra::mask(out, ind, maskvalues = 0)
+  names(out) <- paste0(varname, "_depth=", depths)
 
-  # Cells sharing an interval share a profile, so `fun` is evaluated per
-  # distinct interval. A grid holds far fewer of those than it does cells.
-  interval <- first * (n_depths + 1L) + last
-  for (cells in split(which(occupied), interval[occupied])) {
-    levels_in <- first[cells[1]]:last[cells[1]]
-    vals <- fun(depths[levels_in])
+  as_voxel(out)
+}
 
-    if (!is.numeric(vals) && !is.logical(vals)) {
-      stop("`fun` must return numeric values for the depths it is given; got ",
-           paste(class(vals), collapse = "/"), ".", call. = FALSE)
+# Internal: resolve `values` into the magnitude each cell carries — a single
+# number applying to the whole grid, or a single-layer raster on its grid.
+.cell_values <- function(values, template) {
+  if (is.null(values)) return(1)
+
+  if (inherits(values, "SpatRaster")) {
+    if (terra::nlyr(values) != 1) {
+      stop("`values` must be a single-layer SpatRaster; got ",
+           terra::nlyr(values), " layers.", call. = FALSE)
     }
-    if (length(vals) != 1 && length(vals) != length(levels_in)) {
-      stop("`fun` must return one value per depth, or a single value for all ",
-           "of them; got ", length(vals), " values for ", length(levels_in),
-           " depths.", call. = FALSE)
+    if (!terra::compareGeom(values, template, stopOnError = FALSE)) {
+      stop("`values` must be on the same grid (CRS, extent, resolution) as ",
+           "`x`.", call. = FALSE)
     }
-
-    # Column-major fill: `each` repeats a depth's value down the cells sharing
-    # this interval, matching how the target submatrix is laid out.
-    out[cells, levels_in] <- rep(as.numeric(vals), each = length(cells))
+    return(values)
   }
 
-  v <- terra::rast(terra::rast(x[["depth_min"]]), nlyrs = n_depths)
-  terra::values(v) <- out
-  names(v) <- paste0(varname, "_depth=", depths)
-
-  as_voxel(v)
+  if (!is.numeric(values) || length(values) != 1 || is.na(values)) {
+    stop("`values` must be a single non-missing number or a single-layer ",
+         "SpatRaster.", call. = FALSE)
+  }
+  values
 }
 
 #' Collapse Voxel 3D -> Envelope 2.5D
