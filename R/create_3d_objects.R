@@ -541,6 +541,7 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   if (!is(v, "SpatVoxel")) {
     stop("`v` must be a SpatVoxel object.")
   }
+  .check_3d(v, "v")
   depths <- .parse_depth_layers(v)
   n_cells <- terra::ncell(v)
   n_depths <- length(depths)

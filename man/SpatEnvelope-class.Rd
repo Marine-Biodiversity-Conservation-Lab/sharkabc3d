@@ -14,7 +14,8 @@ variable within it.
 \details{
 The vertical interval is per-cell and continuous, and is solid by
 construction — an envelope cannot represent a gap in the vertical
-distribution.
+distribution. Depths are positive metres increasing downward, and
+\code{depth_max} is at least \code{depth_min} in every cell.
 }
 \examples{
 # A two-cell footprint, one cell present and one absent. Build an envelope

@@ -20,6 +20,7 @@
 #' @export
 setMethod("volume", "SpatEnvelope", function(x, ...) {
   .no_extra_args(...)
+  .check_3d(x, "x")
 
   depth_extent <- .envelope_layer(x, "depth_max") - .envelope_layer(x, "depth_min")
 

@@ -1175,3 +1175,40 @@ test_that("SpatVoxel validity rejects duplicate depths, as as_voxel() does", {
   # Otherwise volume() counts the repeated slab and returns a wrong number.
   expect_error(volume(dup), "not a valid one")
 })
+
+test_that("SpatEnvelope validity rejects inverted and negative depth intervals", {
+  e <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+
+  # terra keeps the class tag through subsetting, so swapping the two layers
+  # yields a tagged envelope whose interval runs backwards.
+  inv <- e[[c("depth_max", "depth_min")]]
+  names(inv) <- c("depth_min", "depth_max")
+  expect_s4_class(inv, "SpatEnvelope")
+  expect_false(isTRUE(methods::validObject(inv, test = TRUE)))
+
+  # Arithmetic keeps the tag too, and can lift depths above the surface.
+  expect_false(isTRUE(methods::validObject(e - 500, test = TRUE)))
+
+  # as_envelope() has always refused both.
+  expect_error(as_envelope(make_footprint(), depth_min = 200, depth_max = 0),
+               "at least")
+  expect_error(as_envelope(make_footprint(), depth_min = -10, depth_max = 200),
+               "positive metres")
+})
+
+test_that("volume() and voxel_to_envelope() reject invalid 3D input", {
+  e <- as_envelope(make_footprint(), depth_min = 0, depth_max = 200)
+  inv <- e[[c("depth_max", "depth_min")]]
+  names(inv) <- c("depth_min", "depth_max")
+
+  # Otherwise volume() reports a negative volume for an impossible domain.
+  expect_error(volume(inv), "not a valid one")
+
+  r <- terra::rast(nrows = 2, ncols = 2, nlyrs = 3)
+  terra::values(r) <- 1
+  names(r) <- paste0("t_depth=", c(0, 100, 200))
+  v <- as_voxel(r)
+
+  # A reversed voxel would otherwise collapse to an inverted envelope.
+  expect_error(voxel_to_envelope(v[[c(3, 2, 1)]]), "not a valid one")
+})

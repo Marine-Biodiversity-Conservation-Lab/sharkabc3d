@@ -56,7 +56,8 @@ setClass("SpatVoxel", contains = "SpatRaster")
 #'
 #' The vertical interval is per-cell and continuous, and is solid by
 #' construction — an envelope cannot represent a gap in the vertical
-#' distribution.
+#' distribution. Depths are positive metres increasing downward, and
+#' `depth_max` is at least `depth_min` in every cell.
 #'
 #' @seealso [SpatVoxel-class], [SpatVolume-class]
 #'
@@ -134,5 +135,22 @@ setValidity("SpatVoxel", function(object) {
 setValidity("SpatEnvelope", function(object) {
   if (!identical(names(object), c("depth_min", "depth_max")))
     return("layers must be exactly: depth_min, depth_max")
+
+  # Depth is the cell value here, not the layer name, so the interval rules
+  # can only be checked by reading the values. That costs a pass over the
+  # grid, which the sibling class avoids because its depths live in the layer
+  # names. It is worth paying: without it a tagged raster that terra produced
+  # passes as a valid envelope, and volume() returns a negative number.
+  min_of <- function(r) {
+    v <- terra::global(r, "min", na.rm = TRUE)[1, 1]
+    if (is.null(v) || is.na(v)) NA_real_ else v
+  }
+  shallowest <- min_of(.envelope_layer(object, "depth_min"))
+  if (!is.na(shallowest) && shallowest < 0)
+    return("depths are positive metres increasing downward")
+  thinnest <- min_of(.envelope_layer(object, "depth_max") -
+                       .envelope_layer(object, "depth_min"))
+  if (!is.na(thinnest) && thinnest < 0)
+    return("depth_max must be at least depth_min in every cell")
   TRUE
 })
