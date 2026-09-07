@@ -7,9 +7,9 @@
 envelope_to_voxel(
   x,
   depths,
-  fun = function(depths) {
-     1
- },
+  values = NULL,
+  profile = NULL,
+  bounds = c("top", "midpoint"),
   varname = "presence"
 )
 }
@@ -20,10 +20,23 @@ envelope_to_voxel(
 represents metres depth below sea level. Sorted shallow to deep, and
 deduplicated, before use.}
 
-\item{fun}{Function taking the depths inside a cell's envelope and returning
-the values to write at them: either one value per depth, or a single value
-used at all of them. Defaults to \code{1} between \code{depth_min} and \code{depth_max}
-of SpatEnvelope type.}
+\item{values}{Optional numeric or SpatRaster of same CRS, resolution, extent as \code{x}.
+Defines values to write for voxel cells that are within depth intervals.
+\code{NULL} (the default) writes \code{1} at every occupied level, giving simple
+presence/absence.}
+
+\item{profile}{Optional function distributing \code{values} across the depth
+dimension, taking \verb{(ind, depths, n_depths)} and returning the weight to
+apply. \code{NULL} (the default) writes the same value at every depth, as
+\code{\link[=profile_flat]{profile_flat()}} does; \code{\link[=profile_equal]{profile_equal()}} divides the value equally across
+the depths a cell occupies. Any function meeting the contract in
+\link{voxel_profiles} works, including your own.}
+
+\item{bounds}{How to place the edges of the slab each depth level stands for.
+\code{"top"} (the default) runs the slab from the level down to the next, so the
+level is its shallow edge; \code{"midpoint"} puts the edges halfway between
+neighbouring levels. Under both, the outer edges are clamped to \code{range(depths)}
+rather than extrapolated.}
 
 \item{varname}{Name to use for depth layer, taking on form of \verb{\{varname\}_depth=\{depths[i]\}}}
 }
@@ -39,20 +52,42 @@ outside the interval, and cells that are \code{NA} in the envelope, are \code{NA
 every layer.
 }
 \details{
-\code{fun} supplies the values written at the levels a cell occupies, and so
-controls what the voxel \emph{means}. The default writes \code{1} at every occupied
-level, giving a presence voxel — the direct 3D form of the envelope. A
-function of the occupied depths instead writes a vertical profile, which is
-what vertical-migration work needs: pass the share of time spent at each
-depth and the voxel carries that distribution rather than bare presence.
-\code{fun} is called once per distinct envelope interval on the grid, not once
-per cell, since its result depends only on which depths are inside.
+\itemize{
+\item \code{values} is the magnitude, which can be a single number for the whole grid or a
+SpatRaster carrying a value per cell. Default value is \code{1}, which makes the
+output a presence mask. Ex. \code{values} can be 2D fisheries effort rasters.
+\item \code{profile} decides how that magnitude is spread down the water
+column. Default \code{NULL} means the full value is written at every occupied level.
+Providing a \verb{profile_*} function determines how \code{values} is transformed for each
+depth level. Ex. \code{\link[=profile_equal]{profile_equal()}} divides it evenly over the levels the cell occupies,
+so sum of all depth levels in the voxel equals \code{values}.
+}
 
-The expansion is limited by the levels on offer: a cell whose envelope
-contains none of \code{depths} — an interval of \verb{[10, 20]} against levels
-\code{c(0, 100)}, say — has no layer to be recorded in and comes back empty. That
-is the resolution cost of the voxel form, and is warned about rather than
-passed over in silence.
+A depth level stands for a slab of water rather than a knife-edge, and a cell
+occupies that level when its envelope overlaps the slab at all — the vertical
+counterpart of rasterizing with \code{touches = TRUE}. An interval of \verb{[10, 20]}
+against levels \code{c(0, 100)} therefore occupies the 0 m level, rather than
+falling between the levels and coming back empty.
+
+Where a slab's edges fall is a property of the dataset the levels came from,
+not of the levels themselves, so \code{bounds} selects the convention:
+
+\itemize{
+\item \code{"top"} (the default) runs each slab from its level down to the next,
+so a level names the top of what it stands for. Levels \code{c(0, 100, 200)}
+give slabs \code{0-100}, \code{100-200}.
+\item \code{"midpoint"} puts the edges halfway between neighbouring levels, so a
+level sits in the middle of what it stands for. This is the World Ocean
+Atlas convention: \verb{0, 5, 10, ...} the 0 m layer covers \code{0-2.5} m, the 5 m
+layer \code{2.5-7.5} m, the 10 m layer \code{7.5-12.5} m, and so on.
+}
+
+Under either convention the slabs cover the span from the shallowest level to
+the deepest and no further: outer edges are clamped to \code{range(depths)} rather
+than extrapolated, which is why WOA's 0 m layer starts at the surface rather
+than half a gap above it. The expansion is therefore limited only at the two
+ends when a cell whose envelope lies wholly above \code{min(depths)} or wholly below
+\code{max(depths)}.
 }
 \examples{
 fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
@@ -62,11 +97,36 @@ e <- as_envelope(fp, depth_min = 50, depth_max = 200)
 # presence at every standard depth the envelope covers
 terra::values(envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300)))
 
-# a vertical profile instead: the share of time spent at each occupied depth
+# the same pattern, carrying a constant of your choosing instead of 1
 terra::values(
   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
-                    fun = function(d) rep(1 / length(d), length(d)),
+                    values = 5)
+)
+
+# spread that value down the column instead: an even share at each of the
+# depths the cell occupies, summing back to 1
+terra::values(
+  envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
+                    profile = profile_equal,
                     varname = "time")
+)
+
+# the same envelope read against WOA-style layer bounds: [60, 70] sits in the
+# 50-150 m slab of the 100 m level, where the default puts it at 0-100 m
+shallow <- as_envelope(fp, depth_min = 60, depth_max = 70)
+terra::values(envelope_to_voxel(shallow, depths = c(0, 100, 200)))
+terra::values(envelope_to_voxel(shallow, depths = c(0, 100, 200),
+                                bounds = "midpoint"))
+
+# a per-cell magnitude comes in as a raster: split each cell's effort evenly
+# over the depths it occupies, conserving the cell total
+effort <- terra::setValues(terra::rast(fp), c(100, NA))
+terra::values(
+  envelope_to_voxel(
+    e, depths = c(0, 50, 100, 200, 300), values = effort,
+    profile = profile_equal,
+    varname = "effort"
+  )
 )
 }
 \seealso{

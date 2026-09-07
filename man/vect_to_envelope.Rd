@@ -30,3 +30,35 @@ coordinate and resolution as the template. Where a constraint raster is NA at
 a cell its limit there is unknown, so the cell is dropped rather than falling
 back to the remaining constraints.
 }
+\examples{
+# A 4x4 study grid, and a range polygon covering its middle. `polygon` and
+# `template` must already share a CRS: this function does not reproject.
+template <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 4,
+                        ymin = 0, ymax = 4, crs = "EPSG:4326")
+poly <- terra::vect("POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", crs = "EPSG:4326")
+
+# A species recorded between 50 m and 200 m throughout its range. Cells
+# outside the polygon are NA.
+e <- vect_to_envelope(poly, template, depth_min = 50, depth_max = 200)
+terra::values(e)
+
+# Bathymetry is not a special argument: pass the seafloor as a second
+# `depth_max` and, per cell, the shallower of the two wins. This seafloor
+# deepens from north to south, so the two rows the polygon covers meet the
+# bed very differently.
+seafloor <- terra::setValues(terra::rast(template),
+                             rep(c(20, 45, 250, 400), each = 4))
+e2 <- vect_to_envelope(poly, template,
+                       depth_min = 50, depth_max = list(300, seafloor))
+terra::values(e2)
+
+# Two things happened. Where the bed is at 250 m, the nominal 300 m limit is
+# truncated to it. Where the bed is at 45 m it sits above `depth_min`, so
+# there is no water column left to occupy and the cell drops out entirely —
+# leaving 2 of the polygon's 4 cells.
+sum(!is.na(terra::values(e2[["depth_min"]])))
+}
+\seealso{
+\code{\link[=as_envelope]{as_envelope()}}, which attaches depth limits to a footprint that is
+already a raster.
+}

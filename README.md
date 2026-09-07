@@ -126,10 +126,10 @@ usethis::edit_r_environ()
 - `gfw_effort_to_raster()` — turn the long-format apparent-fishing-hours
   tibble from `gfwr::gfw_ais_fishing_hours()` into a multi-layer
   `SpatRaster`, one layer per gear (or other grouping).
-- `gfw_gear_depth_bands()` — combine a single-gear effort raster with
-  bathymetry and a user-supplied gear-to-depth-band lookup to produce a
-  depth-stratified effort stack (pelagic, benthic, midwater, or
-  unknown).
+  Extending that into 3D uses the general converters — `as_envelope()` and
+  `envelope_to_voxel()` — driven by a gear-to-depth-band lookup. Those
+  operating-depth priors are analysis assumptions rather than package data,
+  so they live in the `gfw-fishing-effort-3d` article.
 
 ## Contributing
 

@@ -137,9 +137,19 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' throughout the package, with one layer per standard depth and layer names
 #' following the `{variable}_depth={value}` convention.
 #'
-#' Most terra operations (`crop()`, `mask()`, `[[`) return a plain `SpatRaster`
-#' and so drop the class, which makes re-wrapping a routine step. `as_voxel()`
-#' is idempotent for that reason — given a `SpatVoxel` it returns it untouched.
+#' Most terra operations (`crop()`, `mask()`, `[[`, arithmetic) propagate the
+#' class, so a `SpatVoxel` normally survives them; a few, such as `mean()`,
+#' return a plain `SpatRaster` instead. Re-wrapping is cheap either way, since
+#' `as_voxel()` is idempotent — given a `SpatVoxel` and no `depths` it returns
+#' it untouched.
+#'
+#' Propagating the class does not re-run the validity rules, so an operation
+#' that changes the layer set can leave an object still labelled `SpatVoxel`
+#' that no longer satisfies them: `app()`, for instance, collapses the stack to
+#' a single layer whose name no longer carries a depth. Because
+#' `as_voxel()` returns any `SpatVoxel` unchanged, it will not repair that —
+#' pass `depths` to rebuild the layer names, or check with
+#' [methods::validObject()].
 #'
 #' Depths are positive metres increasing downward, matching the World Ocean
 #' Atlas convention. Negative depths are an error rather than being silently
@@ -167,7 +177,9 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' names(as_voxel(r))
 #' @export
 as_voxel <- function(x, depths = NULL, varname = "value") {
-  # Idempotent: re-wrapping is routine, because terra operations drop the class
+  # Idempotent: re-wrapping is cheap, so callers can do it defensively. Note
+  # this skips validation, so it will not repair a SpatVoxel that a terra
+  # operation left invalid; supplying `depths` rebuilds the names and revalidates.
   if (methods::is(x, "SpatVoxel") && is.null(depths)) return(x)
 
   if (is.list(x)) x <- terra::rast(x)
@@ -218,29 +230,62 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' outside the interval, and cells that are `NA` in the envelope, are `NA` in
 #' every layer.
 #'
-#' `fun` supplies the values written at the levels a cell occupies, and so
-#' controls what the voxel *means*. The default writes `1` at every occupied
-#' level, giving a presence voxel — the direct 3D form of the envelope. A
-#' function of the occupied depths instead writes a vertical profile, which is
-#' what vertical-migration work needs: pass the share of time spent at each
-#' depth and the voxel carries that distribution rather than bare presence.
-#' `fun` is called once per distinct envelope interval on the grid, not once
-#' per cell, since its result depends only on which depths are inside.
+#' \itemize{
+#'   \item `values` is the magnitude, which can be a single number for the whole grid or a
+#'     SpatRaster carrying a value per cell. Default value is `1`, which makes the
+#'     output a presence mask. Ex. `values` can be 2D fisheries effort rasters. 
+#'   \item `profile` decides how that magnitude is spread down the water
+#'     column. Default `NULL` means the full value is written at every occupied level. 
+#'     Providing a `profile_*` function determines how `values` is transformed for each 
+#'     depth level. Ex. [profile_equal()] divides it evenly over the levels the cell occupies,
+#'     so sum of all depth levels in the voxel equals `values`.
+#' }
 #'
-#' The expansion is limited by the levels on offer: a cell whose envelope
-#' contains none of `depths` — an interval of `[10, 20]` against levels
-#' `c(0, 100)`, say — has no layer to be recorded in and comes back empty. That
-#' is the resolution cost of the voxel form, and is warned about rather than
-#' passed over in silence.
+#' A depth level stands for a slab of water rather than a knife-edge, and a cell
+#' occupies that level when its envelope overlaps the slab at all — the vertical
+#' counterpart of rasterizing with `touches = TRUE`. An interval of `[10, 20]`
+#' against levels `c(0, 100)` therefore occupies the 0 m level, rather than
+#' falling between the levels and coming back empty.
+#'
+#' Where a slab's edges fall is a property of the dataset the levels came from,
+#' not of the levels themselves, so `bounds` selects the convention:
+#'
+#' \itemize{
+#'   \item `"top"` (the default) runs each slab from its level down to the next,
+#'     so a level names the top of what it stands for. Levels `c(0, 100, 200)`
+#'     give slabs `0-100`, `100-200`.
+#'   \item `"midpoint"` puts the edges halfway between neighbouring levels, so a
+#'     level sits in the middle of what it stands for. This is the World Ocean
+#'     Atlas convention: `0, 5, 10, ...` the 0 m layer covers `0-2.5` m, the 5 m 
+#'     layer `2.5-7.5` m, the 10 m layer `7.5-12.5` m, and so on.
+#' }
+#'
+#' Under either convention the slabs cover the span from the shallowest level to
+#' the deepest and no further: outer edges are clamped to `range(depths)` rather
+#' than extrapolated, which is why WOA's 0 m layer starts at the surface rather
+#' than half a gap above it. The expansion is therefore limited only at the two
+#' ends when a cell whose envelope lies wholly above `min(depths)` or wholly below
+#' `max(depths)`. 
 #'
 #' @param x SpatEnvelope, e.g. from [as_envelope()] or [voxel_to_envelope()].
 #' @param depths Array of values that can be coerced into numeric type,
 #'   represents metres depth below sea level. Sorted shallow to deep, and
 #'   deduplicated, before use.
-#' @param fun Function taking the depths inside a cell's envelope and returning
-#'   the values to write at them: either one value per depth, or a single value
-#'   used at all of them. Defaults to `1` between `depth_min` and `depth_max`
-#'   of SpatEnvelope type.
+#' @param values Optional numeric or SpatRaster of same CRS, resolution, extent as `x`. 
+#'   Defines values to write for voxel cells that are within depth intervals. 
+#'   `NULL` (the default) writes `1` at every occupied level, giving simple 
+#'   presence/absence.
+#' @param profile Optional function distributing `values` across the depth
+#'   dimension, taking `(ind, depths, n_depths)` and returning the weight to
+#'   apply. `NULL` (the default) writes the same value at every depth, as
+#'   [profile_flat()] does; [profile_equal()] divides the value equally across
+#'   the depths a cell occupies. Any function meeting the contract in
+#'   [voxel_profiles] works, including your own.
+#' @param bounds How to place the edges of the slab each depth level stands for.
+#'   `"top"` (the default) runs the slab from the level down to the next, so the
+#'   level is its shallow edge; `"midpoint"` puts the edges halfway between
+#'   neighbouring levels. Under both, the outer edges are clamped to `range(depths)` 
+#'   rather than extrapolated.
 #' @param varname Name to use for depth layer, taking on form of `{varname}_depth={depths[i]}`
 #'
 #' @returns A [SpatVoxel-class] with one layer per depth in `depths`, on the
@@ -256,14 +301,41 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' # presence at every standard depth the envelope covers
 #' terra::values(envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300)))
 #'
-#' # a vertical profile instead: the share of time spent at each occupied depth
+#' # the same pattern, carrying a constant of your choosing instead of 1
 #' terra::values(
 #'   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
-#'                     fun = function(d) rep(1 / length(d), length(d)),
+#'                     values = 5)
+#' )
+#'
+#' # spread that value down the column instead: an even share at each of the
+#' # depths the cell occupies, summing back to 1
+#' terra::values(
+#'   envelope_to_voxel(e, depths = c(0, 50, 100, 200, 300),
+#'                     profile = profile_equal,
 #'                     varname = "time")
 #' )
+#'
+#' # the same envelope read against WOA-style layer bounds: [60, 70] sits in the
+#' # 50-150 m slab of the 100 m level, where the default puts it at 0-100 m
+#' shallow <- as_envelope(fp, depth_min = 60, depth_max = 70)
+#' terra::values(envelope_to_voxel(shallow, depths = c(0, 100, 200)))
+#' terra::values(envelope_to_voxel(shallow, depths = c(0, 100, 200),
+#'                                 bounds = "midpoint"))
+#'
+#' # a per-cell magnitude comes in as a raster: split each cell's effort evenly
+#' # over the depths it occupies, conserving the cell total
+#' effort <- terra::setValues(terra::rast(fp), c(100, NA))
+#' terra::values(
+#'   envelope_to_voxel(
+#'     e, depths = c(0, 50, 100, 200, 300), values = effort,
+#'     profile = profile_equal,
+#'     varname = "effort"
+#'   )
+#' )
 #' @export
-envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "presence") {
+envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
+                              bounds = c("top", "midpoint"),
+                              varname = "presence") {
   if (!is(x, "SpatEnvelope")) {
     stop("Input error for envelope_to_voxel(): `x` needs to be of ",
          "`SpatEnvelope` class.", call. = FALSE)
@@ -275,10 +347,9 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
     stop("Input error for envelope_to_voxel(): `depths` needs to be array ",
          "coercible to numeric type.", call. = FALSE)
   }
-  if (!is.function(fun)) {
-    stop("Input error for envelope_to_voxel(): `fun` needs to be a function.",
-         call. = FALSE)
-  }
+  # match.arg() is the single source of truth for the accepted conventions:
+  # they are named once, in the signature, where .depth_slabs() also reads them.
+  bounds <- match.arg(bounds)
   if (!is.character(varname) || length(varname) != 1 || is.na(varname)) {
     stop("Input error for envelope_to_voxel(): `varname` needs to be a string.",
          call. = FALSE)
@@ -288,59 +359,123 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
          "increasing downward; got ", paste(depths[depths < 0], collapse = ", "),
          ".", call. = FALSE)
   }
+  # Checked up front rather than on first use, so a bad profile is an error
+  # even on an envelope where no cell turns out to be occupied. What the
+  # function returns is checked later, once there is an `ind` to size it
+  # against.
+  if (!is.null(profile) && !is.function(profile)) {
+    stop("Input error for envelope_to_voxel(): `profile` needs to be NULL or ",
+         "a function of (ind, depths, n_depths); got ",
+         paste(class(profile), collapse = "/"), ". See ?voxel_profiles.",
+         call. = FALSE)
+  }
 
   # A voxel's layer axis is one layer per depth, shallow to deep, so the
   # requested levels are put in that form up front.
   depths <- sort(unique(depths))
-  n_depths <- length(depths)
 
-  dmin <- terra::values(x[["depth_min"]], mat = FALSE)
-  dmax <- terra::values(x[["depth_max"]], mat = FALSE)
+  # Step 1: occupancy. Each level stands for a slab of water, `bounds` says
+  # where its edges fall, and a cell occupies the level when its envelope
+  # overlaps that slab at all — the vertical form of `touches = TRUE`. Slabs
+  # are half-open so a shared edge is claimed by the deeper level alone, the
+  # deepest closed. Raster stays left: terra mishandles `scalar <op> raster`.
+  slab <- .depth_slabs(depths, bounds)
+  lower <- x[["depth_min"]]
+  upper <- x[["depth_max"]]
+  deepest <- length(depths)
+  ind <- terra::rast(lapply(seq_along(depths), function(i) {
+    if (i == deepest) {
+      (lower <= slab$upper[i]) & (upper >= slab$lower[i])
+    } else {
+      (lower < slab$upper[i]) & (upper >= slab$lower[i])
+    }
+  }))
+  # number of depth levels present per vertical column, cell 
+  n_depths <- sum(ind)
 
-  # The levels a cell occupies are always a contiguous run of `depths`, because
-  # an envelope is a single solid interval. Recording that run as its first and
-  # last index avoids building a cells-by-depths logical matrix.
-  first <- findInterval(dmin, depths, left.open = TRUE) + 1L  # first depth >= dmin
-  last <- findInterval(dmax, depths)                          # last depth <= dmax
-  occupied <- !is.na(first) & !is.na(last) & first <= last
-
-  # Present in the envelope, but no requested depth level lies inside it.
-  n_missed <- sum(!is.na(dmin) & !is.na(dmax) & !occupied)
-  if (n_missed > 0) {
-    warning(n_missed, " cell(s) have an envelope that contains none of ",
-            "`depths` and are empty in the voxel. Supply finer depth levels ",
-            "to resolve them.", call. = FALSE)
+  # The slabs tile `[min(depths), max(depths)]`, so a cell is left empty only
+  # when its envelope lies wholly above the shallowest level or wholly below
+  # the deepest — a range the levels cannot reach, not one that fell between
+  # them.
+  # `n_depths` is NA where the envelope is, so this counts only real cells.
+  n_missed <- terra::global(n_depths == 0, "sum", na.rm = TRUE)[1, 1]
+  if (!is.na(n_missed) && n_missed > 0) {
+    warning(n_missed, " cell(s) have an envelope lying entirely outside ",
+            "`depths` and are empty in the voxel. Extend `depths` to span ",
+            "them.", call. = FALSE)
   }
 
-  out <- matrix(NA_real_, nrow = length(dmin), ncol = n_depths)
+  # Step 2: values. The magnitude each cell carries, and how `profile` spreads
+  # it down the levels that cell occupies.
+  v <- .cell_values(values, x)
 
-  # Cells sharing an interval share a profile, so `fun` is evaluated per
-  # distinct interval. A grid holds far fewer of those than it does cells.
-  interval <- first * (n_depths + 1L) + last
-  for (cells in split(which(occupied), interval[occupied])) {
-    levels_in <- first[cells[1]]:last[cells[1]]
-    vals <- fun(depths[levels_in])
+  # NULL means the flat shape, which is a profile like any other. Called
+  # positionally, so a caller's own profile is free to name its arguments
+  # however it likes.
+  if (is.null(profile)) profile <- profile_flat
+  w <- .profile_weights(profile, ind, depths, n_depths)
 
-    if (!is.numeric(vals) && !is.logical(vals)) {
-      stop("`fun` must return numeric values for the depths it is given; got ",
-           paste(class(vals), collapse = "/"), ".", call. = FALSE)
+  # Raster stays on the left throughout: terra broadcasts the single-layer `v`
+  # and `w` across every depth layer of `ind`.
+  out <- ind * v * w
+  # Multiplication left out-of-band cells at 0 rather than NA.
+  out <- terra::mask(out, ind, maskvalues = 0)
+  names(out) <- paste0(varname, "_depth=", depths)
+
+  as_voxel(out)
+}
+
+# Internal: the slab of water each depth level stands for, as parallel vectors
+# of its shallow and deep edge. Slabs are half-open, `[lower, upper)`, except
+# the deepest, which is closed so an envelope sitting exactly on the last level
+# is still caught.
+#
+# Outer edges are clamped to `range(depths)` rather than extrapolated, under
+# both conventions. Extrapolating would invent reach the levels were never
+# given: at the top it can run above the surface (WOA's shallowest level is
+# 0 m, and half a gap above that is a negative depth), and at the bottom it
+# would quietly swallow every range below the grid, turning a range the levels
+# cannot express into a plausible-looking answer instead of the warning the
+# caller needs to see.
+.depth_slabs <- function(depths, bounds) {
+  n <- length(depths)
+  switch(
+    bounds,
+    # The level names the top of what it stands for, so the slab runs down to
+    # the next level. The deepest has no next and collapses to a point.
+    top = list(lower = depths, upper = c(depths[-1], depths[n])),
+    # The level sits in the middle of what it stands for, so the edges fall
+    # halfway to each neighbour. This is the World Ocean Atlas convention.
+    midpoint = {
+      mids <- (depths[-n] + depths[-1]) / 2
+      list(lower = c(depths[1], mids), upper = c(mids, depths[n]))
+    },
+    stop("Unhandled `bounds`: \"", bounds, "\".", call. = FALSE)
+  )
+}
+
+# Internal: resolve `values` into the magnitude each cell carries — a single
+# number applying to the whole grid, or a single-layer raster on its grid.
+.cell_values <- function(values, template) {
+  if (is.null(values)) return(1)
+
+  if (inherits(values, "SpatRaster")) {
+    if (terra::nlyr(values) != 1) {
+      stop("`values` must be a single-layer SpatRaster; got ",
+           terra::nlyr(values), " layers.", call. = FALSE)
     }
-    if (length(vals) != 1 && length(vals) != length(levels_in)) {
-      stop("`fun` must return one value per depth, or a single value for all ",
-           "of them; got ", length(vals), " values for ", length(levels_in),
-           " depths.", call. = FALSE)
+    if (!terra::compareGeom(values, template, stopOnError = FALSE)) {
+      stop("`values` must be on the same grid (CRS, extent, resolution) as ",
+           "`x`.", call. = FALSE)
     }
-
-    # Column-major fill: `each` repeats a depth's value down the cells sharing
-    # this interval, matching how the target submatrix is laid out.
-    out[cells, levels_in] <- rep(as.numeric(vals), each = length(cells))
+    return(values)
   }
 
-  v <- terra::rast(terra::rast(x[["depth_min"]]), nlyrs = n_depths)
-  terra::values(v) <- out
-  names(v) <- paste0(varname, "_depth=", depths)
-
-  as_voxel(v)
+  if (!is.numeric(values) || length(values) != 1 || is.na(values)) {
+    stop("`values` must be a single non-missing number or a single-layer ",
+         "SpatRaster.", call. = FALSE)
+  }
+  values
 }
 
 #' Collapse Voxel 3D -> Envelope 2.5D
@@ -369,6 +504,25 @@ envelope_to_voxel <- function(x, depths, fun = function(depths) {1}, varname = "
 #'
 #' @returns A [SpatEnvelope-class] with layers `depth_min` and `depth_max`, on
 #'   the same grid as `v`.
+#'
+#' @seealso [envelope_to_voxel()], the reverse expansion.
+#'
+#' @examples
+#' # Two cells sampled at four standard depths.
+#' r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+#'                  nlyrs = 4)
+#' terra::values(r) <- cbind(c(12, NA), c(11, NA), c(NA, 8), c(6, NA))
+#' v <- as_voxel(r, depths = c(0, 50, 100, 200), varname = "temp")
+#'
+#' # Default predicate: the vertical extent of the data. Cell 1 has values at
+#' # 0, 50 and 200 m, so it comes back as [0, 200] — the gap at 100 m is filled,
+#' # because an envelope stores one continuous interval per cell.
+#' terra::values(voxel_to_envelope(v))
+#'
+#' # Another predicate bounds a subset of the values instead: here the depths
+#' # over which a cell is warmer than 10 degrees. Cell 2 never qualifies, so it
+#' # is NA in both layers.
+#' terra::values(voxel_to_envelope(v, fun = function(x) x > 10))
 #' @export
 voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   if (!is.function(fun)) {
@@ -522,6 +676,37 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
 #'   replaced with NA.
 #' 
 #' @returns SpatEnvelope, with depth_min and depth_max layers. 
+#'
+#' @seealso [as_envelope()], which attaches depth limits to a footprint that is
+#'   already a raster.
+#'
+#' @examples
+#' # A 4x4 study grid, and a range polygon covering its middle. `polygon` and
+#' # `template` must already share a CRS: this function does not reproject.
+#' template <- terra::rast(nrows = 4, ncols = 4, xmin = 0, xmax = 4,
+#'                         ymin = 0, ymax = 4, crs = "EPSG:4326")
+#' poly <- terra::vect("POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))", crs = "EPSG:4326")
+#'
+#' # A species recorded between 50 m and 200 m throughout its range. Cells
+#' # outside the polygon are NA.
+#' e <- vect_to_envelope(poly, template, depth_min = 50, depth_max = 200)
+#' terra::values(e)
+#'
+#' # Bathymetry is not a special argument: pass the seafloor as a second
+#' # `depth_max` and, per cell, the shallower of the two wins. This seafloor
+#' # deepens from north to south, so the two rows the polygon covers meet the
+#' # bed very differently.
+#' seafloor <- terra::setValues(terra::rast(template),
+#'                              rep(c(20, 45, 250, 400), each = 4))
+#' e2 <- vect_to_envelope(poly, template,
+#'                        depth_min = 50, depth_max = list(300, seafloor))
+#' terra::values(e2)
+#'
+#' # Two things happened. Where the bed is at 250 m, the nominal 300 m limit is
+#' # truncated to it. Where the bed is at 45 m it sits above `depth_min`, so
+#' # there is no water column left to occupy and the cell drops out entirely —
+#' # leaving 2 of the polygon's 4 cells.
+#' sum(!is.na(terra::values(e2[["depth_min"]])))
 #' @export
 vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   # check params
@@ -591,6 +776,20 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
 #' @param crs Character. Coordinate reference system. Default `"EPSG:4326"`.
 #'
 #' @returns An empty SpatRaster with the computed extent, resolution, and CRS.
+#'
+#' @examples
+#' # Two features in different places: the grid has to cover both.
+#' a <- terra::vect("POLYGON ((0 0, 2 0, 2 2, 0 2, 0 0))", crs = "EPSG:4326")
+#' b <- terra::vect("POLYGON ((3 3, 5 3, 5 5, 3 5, 3 3))", crs = "EPSG:4326")
+#'
+#' grid <- create_study_raster(list(a, b), res = 0.5)
+#' terra::ext(grid)
+#' dim(grid)              # rows, columns, layers
+#' terra::hasValues(grid) # FALSE: the grid is empty, it only defines geometry
+#'
+#' # Inputs are projected to `crs` before their extents are combined, so a list
+#' # mixing coordinate systems is fine.
+#' create_study_raster(list(a, terra::project(b, "EPSG:3857")), res = 0.5)
 #' @export
 create_study_raster <- function(layers, res = 0.01, crs = "EPSG:4326") {
   extents <- lapply(layers, function(x) {

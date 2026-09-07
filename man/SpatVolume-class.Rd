@@ -15,3 +15,31 @@ It deliberately asserts no shared structure. The two members store depth in
 dual roles (layer index vs. cell value), so any operation that touches the
 depth axis directly should dispatch on the concrete class instead.
 }
+\examples{
+# The same 3D domain in both representations.
+fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)
+terra::values(fp) <- c(1, 1)
+e <- as_envelope(fp, depth_min = 0, depth_max = 200)
+v <- envelope_to_voxel(e, depths = c(0, 100, 200))
+
+# Neither inherits from the other; both belong to the union.
+methods::is(e, "SpatVolume")
+methods::is(v, "SpatVolume")
+methods::is(v, "SpatEnvelope")
+
+# `SpatVolume` is a dispatch target, so a generic written against it accepts
+# either representation.
+setGeneric("n_depth_layers", function(x) standardGeneric("n_depth_layers"))
+setMethod("n_depth_layers", "SpatVolume", function(x) terra::nlyr(x))
+n_depth_layers(e)
+n_depth_layers(v)
+
+# But the depth axis itself is stored differently in the two, so anything
+# reading depths must dispatch on the concrete class rather than the union.
+names(e)
+names(v)
+}
+\seealso{
+\linkS4class{SpatVoxel} and \linkS4class{SpatEnvelope}, the two members;
+\code{\link[=envelope_to_voxel]{envelope_to_voxel()}} and \code{\link[=voxel_to_envelope]{voxel_to_envelope()}} convert between them.
+}
