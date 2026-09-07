@@ -1,7 +1,8 @@
 # R/AllGenerics.R
 #
 # Generics for the operations that are meaningful on either 3D representation.
-# The methods live in R/volume.R; only the dispatch contract is declared here.
+# The methods live in R/volume.R and R/intersect.R; only the dispatch contract
+# is declared here.
 
 #' @importFrom methods setGeneric setMethod
 NULL
@@ -49,8 +50,9 @@ NULL
 #'
 #' @returns Numeric of length 1. Total volume in km³.
 #'
-#' @seealso [calc_volume_overlap()] for the volume two domains share;
-#'   [SpatVolume-class] for why the two representations dispatch separately.
+#' @seealso [calc_volume_overlap()] for the volume two domains share, and
+#'   [intersect_3d()] for the shared domain itself; [SpatVolume-class] for why
+#'   the two representations dispatch separately.
 #'
 #' @examples
 #' fp <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2000,
@@ -76,17 +78,154 @@ NULL
 #' @export
 setGeneric("volume", function(x, ...) standardGeneric("volume"))
 
+#' The 3D space two objects share
+#'
+#' `intersect_3d()` returns the part of space that is inside both `x` and
+#' `y`. It answers the question "what do these two share?". To ask only
+#' "do they share anything?", use [intersects_3d()]. To keep one object's
+#' values where the other is present, use [mask()].
+#'
+#' At least one of `x` and `y` must be a 3D object: a [SpatEnvelope-class] or
+#' a [SpatVoxel-class]. The other can be a 3D object too, or a 2D object. A 2D
+#' object restricts the result horizontally and leaves its depths alone.
+#'
+#' \describe{
+#'   \item{Two envelopes}{Cell by cell, the result runs from the deeper
+#'     `depth_min` to the shallower `depth_max`. Intervals that only touch
+#'     share no water, so that cell is empty (`NA`).}
+#'   \item{Two voxels}{Both must be sampled at the same depth levels. A level
+#'     is in the result where both voxels occupy it.}
+#'   \item{An envelope and a voxel}{The envelope is first placed on the
+#'     voxel's depth levels with [envelope_to_voxel()]. The result is a voxel.}
+#'   \item{A 3D object and a `SpatRaster`}{The raster is a footprint. Its
+#'     non-`NA` cells are inside; its values are not read. It must have one
+#'     layer and be on the same grid.}
+#'   \item{A 3D object and polygons}{A `SpatVector`, `sf` or `sfc` object. The
+#'     polygons are rasterised onto the 3D object's grid. A cell is inside when
+#'     its centre is. Polygons in another CRS are projected first.}
+#' }
+#'
+#' The order of `x` and `y` does not matter.
+#'
+#' The result is a domain, not a field. An envelope result carries the shared
+#' depth interval. A voxel result carries presence: `1` where a level is
+#' shared, `NA` elsewhere, in layers named `presence_depth=<value>`. The cell
+#' values of a voxel input are not carried over. To keep them, use [mask()].
+#'
+#' @param x,y The two objects. At least one must be a [SpatEnvelope-class] or
+#'   a [SpatVoxel-class]. The other can be either of those, a single-layer
+#'   `SpatRaster` footprint, or polygons (`SpatVector`, `sf`, `sfc`). Rasters
+#'   must share one grid (CRS, extent, resolution).
+#' @param ... Arguments for the voxel methods. They are an error when both
+#'   inputs are envelopes.
+#' @param bounds Only when one input is an envelope and the other a voxel. How
+#'   the envelope is placed on the voxel's depth levels: `"top"` (default) or
+#'   `"midpoint"`. See [envelope_to_voxel()].
+#' @param fun Voxel input only. A function of one depth layer that returns
+#'   `TRUE` where the voxel is occupied. Default: `function(v) !is.na(v)`.
+#'
+#' @returns A [SpatEnvelope-class] when both inputs are envelopes, or when one
+#'   is an envelope and the other is 2D. Otherwise a [SpatVoxel-class] of
+#'   presence. Either is on the grid of the 3D input.
+#'
+#' @seealso [intersects_3d()] for the yes/no form; [mask()] to keep a voxel's
+#'   values inside a domain; [volume()] for the volume of the result;
+#'   [calc_volume_overlap()], which is built on this function.
+#'
+#' @examples
+#' fp <- terra::rast(nrows = 1, ncols = 3, xmin = 0, xmax = 3000,
+#'                   ymin = 0, ymax = 1000,
+#'                   crs = "+proj=laea +lat_0=0 +lon_0=0 +datum=WGS84 +units=m")
+#' terra::values(fp) <- c(1, 1, 1)
+#'
+#' # Two species: one at 0-100 m, one at 50-200 m everywhere.
+#' a <- as_envelope(fp, depth_min = 0, depth_max = 100)
+#' b <- as_envelope(fp, depth_min = 50, depth_max = 200)
+#'
+#' # They share 50-100 m in every cell.
+#' shared <- intersect_3d(a, b)
+#' terra::values(shared)
+#' volume(shared)
+#'
+#' # With a voxel, the result is a presence voxel on the voxel's levels.
+#' bv <- envelope_to_voxel(b, depths = c(0, 50, 100, 150, 200))
+#' names(intersect_3d(a, bv))
+#'
+#' # With polygons, the envelope is kept where the polygon is.
+#' poly <- terra::vect("POLYGON ((0 0, 2000 0, 2000 1000, 0 1000, 0 0))",
+#'                     crs = terra::crs(fp))
+#' terra::values(intersect_3d(a, poly))
+#' @export
+setGeneric("intersect_3d", function(x, y, ...) standardGeneric("intersect_3d"))
+
+#' Do two objects share any 3D space?
+#'
+#' `intersects_3d()` tests, cell by cell, whether `x` and `y` overlap in 3D.
+#' It is the yes/no form of [intersect_3d()] and takes the same inputs. It
+#' computes only the presence pattern, with no cell areas and no volumes, so
+#' it is the cheap choice for richness and tally maps.
+#'
+#' Each cell gets one of three answers:
+#' \itemize{
+#'   \item `TRUE`: both objects are present and their depths overlap.
+#'   \item `FALSE`: both are present but their depths do not overlap, or only
+#'     one of them is present.
+#'   \item `NA`: neither is present. There is nothing to compare.
+#' }
+#'
+#' This is how `terra` answers the 2D question for two rasters, so the result
+#' sums and plots like any other boolean layer. Depth intervals that only touch
+#' do not overlap. When `y` is a 2D footprint or polygons there is no depth
+#' axis to compare, so the test is only whether both are present.
+#'
+#' The order of `x` and `y` does not matter.
+#'
+#' @inheritParams intersect_3d
+#'
+#' @returns A single-layer boolean `SpatRaster` named `intersects`, on the
+#'   grid of the 3D input: `TRUE`, `FALSE` or `NA` per cell as above.
+#'
+#' @seealso [intersect_3d()] for the shared space itself; [mask()] to keep a
+#'   voxel's values inside a domain.
+#'
+#' @examples
+#' fp <- terra::rast(nrows = 1, ncols = 4, xmin = 0, xmax = 4000,
+#'                   ymin = 0, ymax = 1000,
+#'                   crs = "+proj=laea +lat_0=0 +lon_0=0 +datum=WGS84 +units=m")
+#'
+#' # Four cells. A is present in cells 1-3 at 0-100 m. B is present in cells
+#' # 1, 2 and 4, at 50-200 m in cell 1 and 300-400 m elsewhere.
+#' a <- as_envelope(terra::setValues(fp, c(1, 1, 1, NA)),
+#'                  depth_min = 0, depth_max = 100)
+#' b <- as_envelope(terra::setValues(fp, c(1, 1, NA, 1)),
+#'                  depth_min = terra::setValues(fp, c(50, 300, NA, 300)),
+#'                  depth_max = terra::setValues(fp, c(200, 400, NA, 400)))
+#'
+#' # Cell 1: overlap. Cell 2: both present, depths disjoint. Cell 3: A only.
+#' # Cell 4: B only.
+#' terra::values(intersects_3d(a, b))
+#'
+#' # Summing a stack of these gives a richness map. na.rm = TRUE counts each
+#' # TRUE as 1 and each FALSE as 0.
+#' richness <- sum(c(intersects_3d(a, b), intersects_3d(a, a)), na.rm = TRUE)
+#' terra::values(richness)
+#' @export
+setGeneric("intersects_3d",
+           function(x, y, ...) standardGeneric("intersects_3d"))
+
 #' Per-cell 3D volume overlap between two rasterized domains
 #'
 #' Computes the depth interval and volume of each domain and of their
-#' intersection, cell by cell. Accepts any combination of
-#' [SpatEnvelope-class] and [SpatVoxel-class]; when the two differ, the
-#' envelope is discretized onto the voxel's depth levels with
-#' [envelope_to_voxel()] rather than the voxel being collapsed, because
-#' [voxel_to_envelope()] fills interior gaps and would overstate the overlap.
+#' intersection, cell by cell. The intersection is [intersect_3d()]; this
+#' function measures it. Accepts any combination of [SpatEnvelope-class] and
+#' [SpatVoxel-class]; when the two differ, the envelope is discretized onto
+#' the voxel's depth levels with [envelope_to_voxel()] rather than the voxel
+#' being collapsed, because [voxel_to_envelope()] fills interior gaps and
+#' would overstate the overlap.
 #'
 #' Two voxels must be sampled at the same depth levels, and all inputs must be
-#' on the same grid.
+#' on the same grid. To ask only whether two domains overlap, use
+#' [intersects_3d()]; it computes no volumes.
 #'
 #' @param x,y The two domains, each a [SpatEnvelope-class] or
 #'   [SpatVoxel-class].
@@ -114,7 +253,9 @@ setGeneric("volume", function(x, ...) standardGeneric("volume"))
 #'   occupied volume. The result is a plain SpatRaster: it is neither an
 #'   envelope nor a voxel.
 #'
-#' @seealso [count_3d_overlap()] when only the presence of overlap is needed.
+#' @seealso [intersect_3d()] for the shared domain itself, and [volume()] for
+#'   its total volume; [intersects_3d()] when only the presence of overlap is
+#'   needed.
 #'
 #' @examples
 #' fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2000,
@@ -137,48 +278,3 @@ setGeneric("volume", function(x, ...) standardGeneric("volume"))
 #' @export
 setGeneric("calc_volume_overlap",
            function(x, y, ...) standardGeneric("calc_volume_overlap"))
-
-#' Binary 3D overlap between two rasterized domains
-#'
-#' Returns a single-layer raster that is `1` in cells where the two domains
-#' overlap both horizontally (both present) and vertically (their depths
-#' intersect), and `NA` otherwise. Use it for richness and tally maps, where
-#' the per-cell overlap volume is not needed: unlike [calc_volume_overlap()]
-#' it computes only the presence pattern, with no cell areas and no volumes.
-#'
-#' Mixed input is resolved the same way as in [calc_volume_overlap()] — the
-#' envelope is discretized onto the voxel's depth levels.
-#'
-#' @param x,y The two domains, each a [SpatEnvelope-class] or
-#'   [SpatVoxel-class].
-#' @param ... Arguments for the voxel methods, which are an error for a pair
-#'   of envelopes.
-#' @param bounds Used only where an envelope must be discretized onto a
-#'   voxel's levels. See [volume()].
-#' @param fun Voxel methods only. See [volume()].
-#'
-#' @returns Single-layer SpatRaster named `overlap`, `1` where the two domains
-#'   overlap in 3D and `NA` elsewhere.
-#'
-#' @seealso [calc_volume_overlap()] for the overlap volume itself.
-#'
-#' @examples
-#' fp <- terra::rast(nrows = 1, ncols = 3, xmin = 0, xmax = 3000,
-#'                   ymin = 0, ymax = 1000,
-#'                   crs = "+proj=laea +lat_0=0 +lon_0=0 +datum=WGS84 +units=m")
-#' terra::values(fp) <- c(1, 1, NA)
-#'
-#' a <- as_envelope(fp, depth_min = 0, depth_max = 100)
-#' b <- as_envelope(
-#'   fp, depth_min = 0,
-#'   depth_max = terra::setValues(terra::rast(fp), c(50, NA, 300))
-#' )
-#'
-#' # Cell 1 overlaps; cell 2 has no B; cell 3 has no A.
-#' terra::values(count_3d_overlap(a, b))
-#'
-#' # Summing a stack of these gives a richness map.
-#' terra::global(count_3d_overlap(a, b), "sum", na.rm = TRUE)
-#' @export
-setGeneric("count_3d_overlap",
-           function(x, y, ...) standardGeneric("count_3d_overlap"))

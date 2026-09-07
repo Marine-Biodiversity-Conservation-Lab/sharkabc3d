@@ -20,10 +20,11 @@
 # Internal: two domains can only be combined cell by cell if they are on the
 # same grid. Nothing upstream guarantees this -- the old code took cell areas
 # from the first argument and silently reused them for the second.
-.check_same_grid <- function(x, y) {
+.check_same_grid <- function(x, y, names = c("x", "y")) {
   if (!terra::compareGeom(x, y, stopOnError = FALSE)) {
-    stop("`x` and `y` must be on the same grid (CRS, extent, resolution). ",
-         "Project or resample one onto the other first.", call. = FALSE)
+    stop("`", names[1], "` and `", names[2], "` must be on the same grid ",
+         "(CRS, extent, resolution). Project or resample one onto the other ",
+         "first.", call. = FALSE)
   }
   invisible(TRUE)
 }
@@ -64,7 +65,8 @@
     terra::ifel(is.na(hit) | !hit, 0, 1)
   }))
   names(occ) <- names(x)
-  occ
+  # terra tags the stack with the voxel's class; occupancy is not a voxel.
+  .as_plain_raster(occ)
 }
 
 # Internal: vertical extent each depth level stands for, in metres.
@@ -131,3 +133,91 @@
        call. = FALSE)
 }
 
+
+# Internal: a 3D input must satisfy its class's validity rules before it is
+# read. terra keeps the SpatVoxel / SpatEnvelope tag through operations that
+# change the layer set, so an object can arrive tagged but not valid; the
+# query verbs check here and say how to rebuild it, instead of failing deeper
+# in on a missing layer name.
+.check_3d <- function(x, arg) {
+  ok <- methods::validObject(x, test = TRUE)
+  if (!isTRUE(ok)) {
+    stop("`", arg, "` is tagged ", class(x)[[1]], " but is not a valid one: ",
+         ok, ". A terra operation probably changed its layers; rebuild it ",
+         "with as_voxel() or as_envelope().", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# Internal: one depth layer of an envelope as a plain SpatRaster. `[[` keeps
+# the SpatEnvelope tag on a single layer, which is both invalid and, since a
+# tagged raster dispatches to the depth-aware methods in R/intersect.R,
+# hazardous to compute with. Every internal that reads an envelope's layers
+# goes through here.
+.envelope_layer <- function(x, which = c("depth_min", "depth_max")) {
+  which <- match.arg(which)
+  .as_plain_raster(x[[which]])
+}
+
+# Internal: where an envelope is present, as a plain logical layer without NA.
+.envelope_present <- function(x) {
+  !is.na(.envelope_layer(x, "depth_min")) & !is.na(.envelope_layer(x, "depth_max"))
+}
+
+# Internal: drop the SpatVoxel / SpatEnvelope class tag. terra propagates the
+# subclass through nearly every operation (`mask()`, `[[`, arithmetic,
+# `ifel()`, `c()`), so anything that is not a 3D domain -- a predicate layer, a
+# footprint, an overlap stack -- must be stripped explicitly or it comes back
+# wearing a class it does not satisfy. `as()` copies; it does not alias.
+.as_plain_raster <- function(x) {
+  methods::as(x, "SpatRaster")
+}
+
+# Internal: where a 3D object is present at any depth, as a plain single-layer
+# SpatRaster: 1 where present, NA elsewhere. An envelope cell is present when
+# both depth layers are non-NA; a voxel cell when `fun` holds at any level.
+.footprint <- function(x, fun = function(v) !is.na(v)) {
+  out <- if (methods::is(x, "SpatEnvelope")) {
+    terra::ifel(.envelope_present(x), 1, NA)
+  } else if (methods::is(x, "SpatVoxel")) {
+    .voxel_present(.voxel_occupancy(x, fun))
+  } else {
+    stop("internal: .footprint() expects a SpatEnvelope or SpatVoxel.",
+         call. = FALSE)
+  }
+  names(out) <- "footprint"
+  .as_plain_raster(out)
+}
+
+# Internal: the 2D side of a spatial query as a footprint on `template`'s grid,
+# 1 where present and NA elsewhere. A SpatRaster is read by its non-NA pattern
+# and must be single-layer and already on the grid. Polygons (SpatVector, sf,
+# sfc) are projected onto the template's CRS when they differ, then rasterised
+# with the same cell-centre rule vect_to_envelope() uses: a cell is inside when
+# its centre is. Anything else is rejected with the list of accepted types.
+.footprint_of <- function(y, template, arg = "y") {
+  if (inherits(y, c("sf", "sfc"))) y <- terra::vect(y)
+
+  if (inherits(y, "SpatVector")) {
+    if (!terra::same.crs(y, template)) {
+      y <- terra::project(y, terra::crs(template))
+    }
+    ones <- terra::setValues(terra::rast(.as_plain_raster(template[[1]])), 1)
+    out <- terra::mask(ones, y)
+  } else if (inherits(y, "SpatRaster")) {
+    if (terra::nlyr(y) != 1) {
+      stop("`", arg, "` must be a single-layer footprint when it is a plain ",
+           "SpatRaster; got ", terra::nlyr(y), " layers. If it is a ",
+           "multi-depth raster, wrap it with as_voxel() so its depth axis is ",
+           "used.", call. = FALSE)
+    }
+    .check_same_grid(template, y)
+    out <- terra::ifel(is.na(y), NA, 1)
+  } else {
+    stop("`", arg, "` must be a SpatEnvelope, a SpatVoxel, a single-layer ",
+         "SpatRaster footprint, or polygons (SpatVector, sf, sfc); got ",
+         paste(class(y), collapse = "/"), ".", call. = FALSE)
+  }
+  names(out) <- "footprint"
+  .as_plain_raster(out)
+}

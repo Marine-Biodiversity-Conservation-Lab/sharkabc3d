@@ -53,6 +53,10 @@ as_envelope <- function(x, depth_min, depth_max) {
   if (!inherits(x, "SpatRaster")) {
     stop("`x` must be a SpatRaster.", call. = FALSE)
   }
+  # Work on a plain raster whatever class tag `x` arrived with: a footprint
+  # taken from a voxel is still tagged SpatVoxel, and a tagged intermediate
+  # would dispatch to the depth-aware mask() methods in R/intersect.R.
+  x <- .as_plain_raster(x)
 
   # A raster already carrying the two depth layers is promoted, not rebuilt.
   already_envelope <- identical(names(x), c("depth_min", "depth_max"))
@@ -380,8 +384,12 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
   # are half-open so a shared edge is claimed by the deeper level alone, the
   # deepest closed. Raster stays left: terra mishandles `scalar <op> raster`.
   slab <- .depth_slabs(depths, bounds)
-  lower <- x[["depth_min"]]
-  upper <- x[["depth_max"]]
+  # Plain layers, so the occupancy stack and everything derived from it is a
+  # plain SpatRaster rather than an object still tagged SpatEnvelope. terra
+  # propagates the class through `[[` and arithmetic, and a tagged
+  # intermediate would reach the depth-aware mask() methods in R/intersect.R.
+  lower <- .as_plain_raster(x[["depth_min"]])
+  upper <- .as_plain_raster(x[["depth_max"]])
   deepest <- length(depths)
   ind <- terra::rast(lapply(seq_along(depths), function(i) {
     if (i == deepest) {
@@ -572,7 +580,7 @@ voxel_to_envelope <- function(v, fun = function(x) !is.na(x)) {
   depth_min[never] <- NA_real_
   depth_max[never] <- NA_real_
 
-  out <- terra::setValues(terra::rast(v[[1]], nlyrs = 2),
+  out <- terra::setValues(terra::rast(.as_plain_raster(v[[1]]), nlyrs = 2),
                           cbind(depth_min, depth_max))
   names(out) <- c("depth_min", "depth_max")
 
@@ -719,6 +727,9 @@ vect_to_envelope <- function(polygon, template, depth_min, depth_max) {
   if (!is(template, "SpatRaster")) {
     stop("`template` needs to be of class SpatRaster")
   }
+  # Only the grid is used. Drop any class tag so a voxel can serve as the
+  # template without its layers reaching the depth-aware mask() methods.
+  template <- .as_plain_raster(template[[1]])
   if(!terra::same.crs(crs(polygon), crs(template))) {
     stop("`polygon` and `template` have different CRS.")
   }

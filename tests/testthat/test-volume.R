@@ -272,66 +272,22 @@ test_that("calc_volume_overlap() rejects voxels on different depth levels", {
   expect_error(calc_volume_overlap(a, b), "same depth levels")
 })
 
-# ---- count_3d_overlap -------------------------------------------------------
+# ---- output class -----------------------------------------------------------
 
-test_that("count_3d_overlap() marks only cells overlapping in both dimensions", {
-  # Cell 1: overlaps. Cell 2: B absent. Cell 3: present but disjoint in depth.
-  a <- make_range_rast(
-    depth_min_vals = rep(0, 9),
-    depth_max_vals = rep(100, 9)
-  )
-  b <- make_range_rast(
-    depth_min_vals = c(50, NA, 200, rep(NA, 6)),
-    depth_max_vals = c(150, NA, 300, rep(NA, 6))
-  )
+test_that("calc_volume_overlap() returns a plain SpatRaster", {
+  # terra keeps the input's class on `[[` and `c()`, so the nine-layer stack
+  # used to come back tagged SpatEnvelope while failing that class's rules.
+  a <- make_range_rast(rep(0, 9), rep(100, 9))
+  b <- make_range_rast(rep(50, 9), rep(200, 9))
+  depths <- c(0, 50, 100, 150, 200)
+  va <- envelope_to_voxel(a, depths)
+  vb <- envelope_to_voxel(b, depths)
 
-  out <- count_3d_overlap(a, b)
-
-  expect_equal(terra::nlyr(out), 1L)
-  expect_equal(names(out), "overlap")
-  vals <- as.vector(terra::values(out))
-  expect_equal(vals[1], 1)
-  expect_true(is.na(vals[2]))
-  expect_true(is.na(vals[3]))
-  expect_equal(terra::global(out, "sum", na.rm = TRUE)$sum, 1)
-})
-
-test_that("count_3d_overlap() agrees with calc_volume_overlap() presence pattern", {
-  a <- make_range_rast(
-    depth_min_vals = c(0, 0, 0, 0, 0, 0, NA, NA, NA),
-    depth_max_vals = c(100, 100, 100, 40, 40, 40, NA, NA, NA)
-  )
-  b <- make_range_rast(
-    depth_min_vals = c(50, 50, 50, 50, 50, 50, 0, 0, 0),
-    depth_max_vals = c(200, 200, 200, 200, 200, 200, 100, 100, 100)
-  )
-
-  from_volume <- terra::ifel(
-    !is.na(calc_volume_overlap(a, b)[["depth_min_overlap"]]), 1, NA
-  )
-  expect_equal(as.vector(terra::values(count_3d_overlap(a, b))),
-               as.vector(terra::values(from_volume)))
-})
-
-test_that("count_3d_overlap() works on voxels and on mixed input", {
-  depths <- c(0, 100, 200)
-
-  # A occupies the top two levels everywhere; B only the deepest, except in
-  # cell 1 where it also occupies the top.
-  a <- make_voxel(cbind(rep(1, 9), rep(1, 9), rep(NA, 9)), depths)
-  b <- make_voxel(cbind(c(1, rep(NA, 8)), rep(NA, 9), rep(1, 9)), depths)
-
-  out <- count_3d_overlap(a, b)
-  expect_equal(names(out), "overlap")
-  expect_equal(terra::global(out, "sum", na.rm = TRUE)$sum, 1)
-
-  # Mixed input agrees with promoting by hand.
-  e <- make_range_rast(rep(0, 9), rep(100, 9))
-  ev <- envelope_to_voxel(e, depths = depths)
-  expect_equal(terra::values(count_3d_overlap(e, b)),
-               terra::values(count_3d_overlap(ev, b)))
-  expect_equal(terra::values(count_3d_overlap(b, e)),
-               terra::values(count_3d_overlap(b, ev)))
+  for (out in list(calc_volume_overlap(a, b), calc_volume_overlap(va, vb),
+                   calc_volume_overlap(a, vb), calc_volume_overlap(va, b))) {
+    expect_identical(class(out)[[1]], "SpatRaster")
+    expect_equal(terra::nlyr(out), 9L)
+  }
 })
 
 # ---- input contract ---------------------------------------------------------
@@ -351,14 +307,11 @@ test_that("volume functions reject bare SpatRasters", {
 
   expect_error(volume(bare), "not a bare SpatRaster")
   expect_error(calc_volume_overlap(bare, bare), "not a bare SpatRaster")
-  expect_error(count_3d_overlap(bare, bare), "not a bare SpatRaster")
 
   # Mixed with a real envelope, in either position.
   e <- as_envelope(bare)
   expect_error(calc_volume_overlap(e, bare), "not a bare SpatRaster")
   expect_error(calc_volume_overlap(bare, e), "not a bare SpatRaster")
-  expect_error(count_3d_overlap(e, bare), "not a bare SpatRaster")
-  expect_error(count_3d_overlap(bare, e), "not a bare SpatRaster")
 })
 
 test_that("volume functions reject inputs on different grids", {
@@ -366,7 +319,6 @@ test_that("volume functions reject inputs on different grids", {
   b <- make_range_rast(rep(0, 16), rep(100, 16), ncol = 4, nrow = 4)
 
   expect_error(calc_volume_overlap(a, b), "same grid")
-  expect_error(count_3d_overlap(a, b), "same grid")
 })
 
 test_that("voxel-only arguments are an error for an envelope", {
@@ -374,6 +326,4 @@ test_that("voxel-only arguments are an error for an envelope", {
 
   expect_error(volume(e, bounds = "midpoint"), "unused argument")
   expect_error(calc_volume_overlap(e, e, bounds = "midpoint"), "unused argument")
-  expect_error(count_3d_overlap(e, e, fun = function(x) !is.na(x)),
-               "unused argument")
 })

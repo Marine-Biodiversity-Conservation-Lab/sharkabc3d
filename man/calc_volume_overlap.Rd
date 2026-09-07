@@ -7,8 +7,6 @@
 \alias{calc_volume_overlap,SpatEnvelope,SpatVoxel-method}
 \alias{calc_volume_overlap,SpatVoxel,SpatEnvelope-method}
 \alias{calc_volume_overlap,SpatRaster,SpatRaster-method}
-\alias{calc_volume_overlap,SpatRaster,SpatVolume-method}
-\alias{calc_volume_overlap,SpatVolume,SpatRaster-method}
 \title{Per-cell 3D volume overlap between two rasterized domains}
 \usage{
 calc_volume_overlap(x, y, ...)
@@ -27,10 +25,6 @@ calc_volume_overlap(x, y, ...)
 \S4method{calc_volume_overlap}{SpatVoxel,SpatEnvelope}(x, y, bounds = c("top", "midpoint"), ...)
 
 \S4method{calc_volume_overlap}{SpatRaster,SpatRaster}(x, y, ...)
-
-\S4method{calc_volume_overlap}{SpatRaster,SpatVolume}(x, y, ...)
-
-\S4method{calc_volume_overlap}{SpatVolume,SpatRaster}(x, y, ...)
 }
 \arguments{
 \item{x, y}{The two domains, each a \link[=SpatEnvelope-class]{SpatEnvelope} or
@@ -65,15 +59,17 @@ envelope nor a voxel.
 }
 \description{
 Computes the depth interval and volume of each domain and of their
-intersection, cell by cell. Accepts any combination of
-\link[=SpatEnvelope-class]{SpatEnvelope} and \link[=SpatVoxel-class]{SpatVoxel}; when the two differ, the
-envelope is discretized onto the voxel's depth levels with
-\code{\link[=envelope_to_voxel]{envelope_to_voxel()}} rather than the voxel being collapsed, because
-\code{\link[=voxel_to_envelope]{voxel_to_envelope()}} fills interior gaps and would overstate the overlap.
+intersection, cell by cell. The intersection is \code{\link[=intersect_3d]{intersect_3d()}}; this
+function measures it. Accepts any combination of \link[=SpatEnvelope-class]{SpatEnvelope} and
+\link[=SpatVoxel-class]{SpatVoxel}; when the two differ, the envelope is discretized onto
+the voxel's depth levels with \code{\link[=envelope_to_voxel]{envelope_to_voxel()}} rather than the voxel
+being collapsed, because \code{\link[=voxel_to_envelope]{voxel_to_envelope()}} fills interior gaps and
+would overstate the overlap.
 }
 \details{
 Two voxels must be sampled at the same depth levels, and all inputs must be
-on the same grid.
+on the same grid. To ask only whether two domains overlap, use
+\code{\link[=intersects_3d]{intersects_3d()}}; it computes no volumes.
 }
 \examples{
 fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2000,
@@ -95,5 +91,7 @@ terra::global(calc_volume_overlap(a, bv)[["volume_overlap"]], "sum",
               na.rm = TRUE)
 }
 \seealso{
-\code{\link[=count_3d_overlap]{count_3d_overlap()}} when only the presence of overlap is needed.
+\code{\link[=intersect_3d]{intersect_3d()}} for the shared domain itself, and \code{\link[=volume]{volume()}} for
+its total volume; \code{\link[=intersects_3d]{intersects_3d()}} when only the presence of overlap is
+needed.
 }

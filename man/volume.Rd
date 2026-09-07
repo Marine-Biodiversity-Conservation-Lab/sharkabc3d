@@ -86,6 +86,7 @@ volume(gappy)
 volume(voxel_to_envelope(gappy))
 }
 \seealso{
-\code{\link[=calc_volume_overlap]{calc_volume_overlap()}} for the volume two domains share;
-\link[=SpatVolume-class]{SpatVolume} for why the two representations dispatch separately.
+\code{\link[=calc_volume_overlap]{calc_volume_overlap()}} for the volume two domains share, and
+\code{\link[=intersect_3d]{intersect_3d()}} for the shared domain itself; \link[=SpatVolume-class]{SpatVolume} for why
+the two representations dispatch separately.
 }
