@@ -92,10 +92,9 @@ test_that("intersect_3d() is symmetric", {
   expect_equal(terra::values(intersect_3d(a, b)), terra::values(intersect_3d(b, a)))
 })
 
-test_that("intersect_3d() rejects `bounds` and `fun` for a pair of envelopes", {
+test_that("intersect_3d() rejects voxel-only arguments for a pair of envelopes", {
   a <- make_range_rast(rep(0, 9), rep(100, 9))
   expect_error(intersect_3d(a, a, bounds = "top"), "unused argument")
-  expect_error(intersect_3d(a, a, fun = function(v) !is.na(v)), "unused argument")
 })
 
 # ---- intersect_3d: voxels and mixed input -----------------------------------
@@ -117,12 +116,13 @@ test_that("intersect_3d() on voxels is the co-occupied set of levels", {
                unname(cbind(c(1, NA, NA), c(NA, NA, NA), c(1, NA, NA))))
 })
 
-test_that("intersect_3d() on voxels honours `fun` and requires shared depths", {
+test_that("intersect_3d() on voxels intersects presence and requires shared depths", {
   depths <- c(0, 100)
   a <- make_voxel(cbind(c(5, 5, 5), c(5, 5, 5)), depths, ncol = 3, nrow = 1, varname = "t")
   b <- make_voxel(cbind(c(1, 10, NA), c(10, 1, NA)), depths, ncol = 3, nrow = 1, varname = "t")
 
-  out <- intersect_3d(a, b, fun = function(v) v > 3)
+  out <- intersect_3d(occupied(a, function(v) v > 3),
+                      occupied(b, function(v) v > 3))
   expect_equal(unname(terra::values(out)),
                unname(cbind(c(NA, 1, NA), c(1, NA, NA))))
 
@@ -403,7 +403,7 @@ test_that("mask(voxel, voxel) requires the same depth levels", {
 
   # `fun` decides where the mask is occupied.
   cold <- make_field()
-  out_fun <- mask(field, cold, fun = function(v) v > 20)
+  out_fun <- mask(field, occupied(cold, function(v) v > 20))
   expect_equal(is.na(terra::values(out_fun)), terra::values(cold) <= 20)
 })
 
@@ -442,7 +442,7 @@ test_that("mask(plain raster, voxel) keeps cells occupied at any depth", {
   out <- mask(fp, v)
   expect_identical(class(out)[[1]], "SpatRaster")
   expect_equal(vals_of(out), c(7, 8, NA))
-  expect_equal(vals_of(mask(fp, v, fun = function(x) x > 5)), rep(NA_real_, 3))
+  expect_equal(vals_of(mask(fp, occupied(v, function(x) x > 5))), rep(NA_real_, 3))
 
   e <- make_range_rast(c(0, NA, 0), c(100, NA, 100), ncol = 3, nrow = 1)
   expect_equal(vals_of(mask(fp, e)), c(7, NA, 9))

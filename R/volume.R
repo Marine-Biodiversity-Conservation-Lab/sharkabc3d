@@ -33,11 +33,11 @@ setMethod("volume", "SpatEnvelope", function(x, ...) {
 #' @export
 setMethod(
   "volume", "SpatVoxel",
-  function(x, bounds = c("top", "midpoint"), fun = function(v) !is.na(v)) {
+  function(x, bounds = c("top", "midpoint")) {
     bounds <- match.arg(bounds)
 
     depths <- .parse_depth_layers(x)
-    occ <- .voxel_occupancy(x, fun)
+    occ <- .voxel_occupancy(x)
     vol_rast <- .voxel_cell_volume(occ, depths, bounds, .cell_area_km2(x))
 
     terra::global(vol_rast, "sum", na.rm = TRUE)[[1]]
@@ -102,17 +102,17 @@ setMethod(
 #' @export
 setMethod(
   "calc_volume_overlap", c("SpatVoxel", "SpatVoxel"),
-  function(x, y, bounds = c("top", "midpoint"), fun = function(v) !is.na(v)) {
+  function(x, y, bounds = c("top", "midpoint")) {
     bounds <- match.arg(bounds)
     # Validates both inputs and checks they share a grid and depth levels.
-    shared <- intersect_3d(x, y, fun = fun)
+    shared <- intersect_3d(x, y)
     depths <- .parse_depth_layers(x)
 
-    occ_a <- .voxel_occupancy(x, fun)
-    occ_b <- .voxel_occupancy(y, fun)
-    # `shared` is presence, 1/NA, so the default predicate reads it back as
-    # the 1/0 occupancy stack the volume arithmetic wants.
-    occ_overlap <- .voxel_occupancy(shared, function(v) !is.na(v))
+    occ_a <- .voxel_occupancy(x)
+    occ_b <- .voxel_occupancy(y)
+    # `shared` is presence (1/NA). Reading it back as occupancy gives the
+    # 1/0 stack the volume arithmetic needs.
+    occ_overlap <- .voxel_occupancy(shared)
 
     cell_area_km2 <- .cell_area_km2(x)
 

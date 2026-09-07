@@ -1080,3 +1080,82 @@ test_that("masking drops cells that are NA in the envelope", {
 
   expect_equal(sum(!is.na(terra::values(out))), 2)  # one cell x two depths
 })
+
+# ---- occupied() -------------------------------------------------------------
+
+# Local helper: a 1x3 voxel over two standard depths, named by variable.
+make_named_voxel <- function(vals, varname, depths = c(0, 100)) {
+  r <- terra::rast(nrows = 1, ncols = 3, xmin = 0, xmax = 3, ymin = 0, ymax = 1,
+                   nlyrs = length(depths))
+  terra::values(r) <- vals
+  as_voxel(r, depths = depths, varname = varname)
+}
+
+test_that("occupied() turns a variable voxel into a 1/NA presence voxel", {
+  v <- as_voxel(make_multidepth_rast())
+
+  out <- occupied(v)
+
+  expect_s4_class(out, "SpatVoxel")
+  expect_equal(names(out), paste0("presence_depth=", c(0, 100, 200, 300)))
+  expect_equal(depths(out), depths(v))
+  # Presence is 1 where the variable was recorded, NA where it was not.
+  expect_equal(unname(terra::values(out)),
+               unname(ifelse(is.na(terra::values(v)), NA, 1)))
+})
+
+test_that("occupied() applies the predicate one depth layer at a time", {
+  v <- as_voxel(make_multidepth_rast())
+
+  out <- occupied(v, function(x) x > 10)
+
+  vals <- terra::values(v)
+  expected <- ifelse(!is.na(vals) & vals > 10, 1, NA)
+  expect_equal(unname(terra::values(out)), unname(expected))
+})
+
+test_that("occupied() is idempotent on a presence voxel", {
+  v <- as_voxel(make_multidepth_rast())
+  once <- occupied(v)
+
+  expect_equal(terra::values(occupied(once)), terra::values(once))
+  expect_equal(names(occupied(once)), names(once))
+})
+
+test_that("occupied() rejects input that is not a voxel", {
+  expect_error(occupied(make_footprint()), "must be a SpatVoxel")
+  expect_error(occupied(as_envelope(make_footprint(), 0, 100)),
+               "must be a SpatVoxel")
+})
+
+test_that("occupied() gives a reducing predicate its per-depth meaning", {
+  # `fun` gets each layer's values as a numeric vector, so the predicate
+  # compares each cell against its own depth's mean. On a one-layer
+  # SpatRaster, terra's mean() returns the layer itself, making
+  # `x > mean(x)` all-FALSE.
+  v <- make_named_voxel(cbind(c(1, 2, 3), c(10, 20, 30)), "temp")
+  above_mean <- function(x) x > mean(x, na.rm = TRUE)
+
+  out <- occupied(v, above_mean)
+
+  # Above each layer's own mean (2 and 20): the third cell in both layers.
+  expect_equal(unname(terra::values(out)),
+               unname(cbind(c(NA, NA, 1), c(NA, NA, 1))))
+  expect_gt(volume(out), 0)
+
+  # ...and it agrees with the same predicate through voxel_to_envelope().
+  expect_equal(terra::values(voxel_to_envelope(v, fun = above_mean)),
+               terra::values(voxel_to_envelope(out)))
+})
+
+test_that("occupied() lets each side of a query use its own predicate", {
+  temp <- make_named_voxel(cbind(c(20, 20, 4), c(20, 4, 4)), "temp")
+  effort <- make_named_voxel(cbind(c(0, 5, 5), c(5, 5, 0)), "effort")
+
+  # Warm water and fished. One shared predicate cannot express both cutoffs.
+  out <- intersect_3d(occupied(temp, function(v) v > 15),
+                      occupied(effort, function(v) v > 0))
+
+  expect_equal(unname(terra::values(out)),
+               unname(cbind(c(NA, 1, NA), c(1, NA, NA))))
+})

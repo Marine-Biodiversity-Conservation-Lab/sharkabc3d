@@ -39,30 +39,35 @@
   nms <- if (is.null(nms)) rep("", length(extra)) else nms
   nms[nms == ""] <- "<unnamed>"
   stop("unused argument(s): ", paste(nms, collapse = ", "),
-       ". `bounds` and `fun` apply to SpatVoxel input only; a SpatEnvelope ",
+       ". `bounds` applies to SpatVoxel input only; a SpatEnvelope ",
        "carries its depth interval per cell.", call. = FALSE)
 }
 
-# Internal: occupancy of a voxel as a 0/1 stack, one layer per depth, so it can
-# be multiplied by slab thicknesses directly. `fun` is the same predicate
-# argument voxel_to_envelope() takes, with the same default, applied one depth
-# layer at a time.
-.voxel_occupancy <- function(x, fun) {
+# Internal: a voxel's occupancy as a 0/1 stack, one layer per depth, ready to
+# multiply by slab thicknesses. Only occupied() passes a non-default `fun`;
+# the query verbs read presence as it stands.
+.voxel_occupancy <- function(x, fun = function(v) !is.na(v)) {
   if (!is.function(fun)) {
-    stop("`fun` must be a function taking one depth layer and returning a ",
-         "logical value per cell.", call. = FALSE)
+    stop("`fun` must take a vector of cell values and return a logical ",
+         "vector of the same length.", call. = FALSE)
   }
+  n_cells <- terra::ncell(x)
 
   occ <- terra::rast(lapply(seq_len(terra::nlyr(x)), function(i) {
-    hit <- fun(x[[i]])
-    if (!inherits(hit, "SpatRaster") || terra::nlyr(hit) != 1) {
-      stop("`fun` must return a single-layer SpatRaster when applied to one ",
-           "depth layer; got ", paste(class(hit), collapse = "/"), ".",
-           call. = FALSE)
+    # `[[` keeps the SpatVoxel tag, and a tagged raster dispatches to the
+    # depth-aware methods in R/intersect.R, so strip it first. `fun` reads
+    # values rather than the SpatRaster, so ordinary R predicates work: on a
+    # one-layer SpatRaster, `v > mean(v)` compares the layer against itself.
+    layer <- .as_plain_raster(x[[i]])
+    hit <- as.logical(fun(terra::values(layer)[, 1]))
+    if (length(hit) != n_cells) {
+      stop("`fun` must return one TRUE/FALSE per cell value; got ",
+           length(hit), " values for ", n_cells, " cells.", call. = FALSE)
     }
-    # A cell the predicate rejects and a cell it could not judge are both
-    # unoccupied, so NA collapses to 0 instead of poisoning the layer sum.
-    terra::ifel(is.na(hit) | !hit, 0, 1)
+    # A rejected cell and an NA cell are both unoccupied. NA becomes 0 so
+    # that it does not spoil the layer sum.
+    hit[is.na(hit)] <- FALSE
+    terra::setValues(terra::rast(layer), as.numeric(hit))
   }))
   names(occ) <- names(x)
   # terra tags the stack with the voxel's class; occupancy is not a voxel.
@@ -175,12 +180,12 @@
 
 # Internal: where a 3D object is present at any depth, as a plain single-layer
 # SpatRaster: 1 where present, NA elsewhere. An envelope cell is present when
-# both depth layers are non-NA; a voxel cell when `fun` holds at any level.
-.footprint <- function(x, fun = function(v) !is.na(v)) {
+# both depth layers are non-NA; a voxel cell when it is occupied at any level.
+.footprint <- function(x) {
   out <- if (methods::is(x, "SpatEnvelope")) {
     terra::ifel(.envelope_present(x), 1, NA)
   } else if (methods::is(x, "SpatVoxel")) {
-    .voxel_present(.voxel_occupancy(x, fun))
+    .voxel_present(.voxel_occupancy(x))
   } else {
     stop("internal: .footprint() expects a SpatEnvelope or SpatVoxel.",
          call. = FALSE)

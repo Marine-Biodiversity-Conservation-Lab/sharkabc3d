@@ -198,9 +198,9 @@ test_that("volume() honours a custom occupancy predicate", {
   # Default !is.na() counts all three levels (100 + 100 + 0 m). A threshold
   # drops the middle one, leaving only the 100 m slab the surface level names.
   expect_equal(volume(v), 9 * 0.2, tolerance = 0.01)
-  expect_equal(volume(v, fun = function(x) x > 0.5), 9 * 0.1,
+  expect_equal(volume(occupied(v, function(x) x > 0.5)), 9 * 0.1,
                tolerance = 0.01)
-  expect_equal(volume(v, fun = function(x) x > 0.99), 0)
+  expect_equal(volume(occupied(v, function(x) x > 0.99)), 0)
 })
 
 # ---- SpatVoxel and mixed overlap --------------------------------------------

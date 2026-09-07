@@ -16,8 +16,7 @@ calc_volume_overlap(x, y, ...)
 \S4method{calc_volume_overlap}{SpatVoxel,SpatVoxel}(
   x,
   y,
-  bounds = c("top", "midpoint"),
-  fun = function(v) !is.na(v)
+  bounds = c("top", "midpoint")
 )
 
 \S4method{calc_volume_overlap}{SpatEnvelope,SpatVoxel}(x, y, bounds = c("top", "midpoint"), ...)
@@ -36,7 +35,6 @@ of envelopes.}
 \item{bounds}{Voxel methods only. See \code{\link[=volume]{volume()}}. Also governs how an
 envelope is discretized when the two inputs differ.}
 
-\item{fun}{Voxel methods only. See \code{\link[=volume]{volume()}}.}
 }
 \value{
 Multi-layer SpatRaster with 9 layers:

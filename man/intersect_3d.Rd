@@ -26,7 +26,7 @@ intersect_3d(x, y, ...)
 
 \S4method{intersect_3d}{SpatEnvelope,SpatEnvelope}(x, y, ...)
 
-\S4method{intersect_3d}{SpatVoxel,SpatVoxel}(x, y, fun = function(v) !is.na(v))
+\S4method{intersect_3d}{SpatVoxel,SpatVoxel}(x, y)
 
 \S4method{intersect_3d}{SpatEnvelope,SpatVoxel}(x, y, bounds = c("top", "midpoint"), ...)
 
@@ -34,7 +34,7 @@ intersect_3d(x, y, ...)
 
 \S4method{intersect_3d}{SpatEnvelope,ANY}(x, y, ...)
 
-\S4method{intersect_3d}{SpatVoxel,ANY}(x, y, fun = function(v) !is.na(v))
+\S4method{intersect_3d}{SpatVoxel,ANY}(x, y)
 
 \S4method{intersect_3d}{ANY,SpatEnvelope}(x, y, ...)
 
@@ -50,9 +50,6 @@ must share one grid (CRS, extent, resolution).}
 
 \item{...}{Arguments for the voxel methods. They are an error when both
 inputs are envelopes.}
-
-\item{fun}{Voxel input only. A function of one depth layer that returns
-\code{TRUE} where the voxel is occupied. Default: \code{function(v) !is.na(v)}.}
 
 \item{bounds}{Only when one input is an envelope and the other a voxel. How
 the envelope is placed on the voxel's depth levels: \code{"top"} (default) or

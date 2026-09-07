@@ -11,7 +11,7 @@ volume(x, ...)
 
 \S4method{volume}{SpatEnvelope}(x, ...)
 
-\S4method{volume}{SpatVoxel}(x, bounds = c("top", "midpoint"), fun = function(v) !is.na(v))
+\S4method{volume}{SpatVoxel}(x, bounds = c("top", "midpoint"))
 
 \S4method{volume}{SpatRaster}(x, ...)
 }
@@ -30,11 +30,6 @@ with edges halfway to each neighbour (the World Ocean Atlas convention).
 Under \code{"top"} the deepest level has no next level and contributes no
 volume. Outer edges are clamped to \code{range(depths)} under both. Same
 argument, same meaning, as in \code{\link[=envelope_to_voxel]{envelope_to_voxel()}}.}
-
-\item{fun}{SpatVoxel only. Predicate deciding whether a voxel is occupied,
-applied one depth layer at a time. Defaults to \code{function(v) !is.na(v)},
-the same default \code{\link[=voxel_to_envelope]{voxel_to_envelope()}} uses. \code{NA} results count as
-unoccupied.}
 }
 \value{
 Numeric of length 1. Total volume in km³.

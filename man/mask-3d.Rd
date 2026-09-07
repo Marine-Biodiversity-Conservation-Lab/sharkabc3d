@@ -12,15 +12,15 @@
 \usage{
 \S4method{mask}{SpatVoxel,SpatEnvelope}(x, mask, bounds = c("top", "midpoint"), ...)
 
-\S4method{mask}{SpatVoxel,SpatVoxel}(x, mask, fun = function(v) !is.na(v), ...)
+\S4method{mask}{SpatVoxel,SpatVoxel}(x, mask, ...)
 
 \S4method{mask}{SpatEnvelope,SpatEnvelope}(x, mask, ...)
 
-\S4method{mask}{SpatEnvelope,SpatVoxel}(x, mask, bounds = c("top", "midpoint"), fun = function(v) !is.na(v), ...)
+\S4method{mask}{SpatEnvelope,SpatVoxel}(x, mask, bounds = c("top", "midpoint"), ...)
 
 \S4method{mask}{SpatRaster,SpatEnvelope}(x, mask, ...)
 
-\S4method{mask}{SpatRaster,SpatVoxel}(x, mask, fun = function(v) !is.na(v), ...)
+\S4method{mask}{SpatRaster,SpatVoxel}(x, mask, ...)
 }
 \arguments{
 \item{x}{The raster whose values are kept: a \link[=SpatVoxel-class]{SpatVoxel}, a
@@ -35,10 +35,6 @@ the envelope is placed on the voxel's depth levels: \code{"top"} (default) or
 
 \item{...}{Passed on to \code{\link[terra:mask]{terra::mask()}}. For example, \code{inverse = TRUE}
 keeps the values \emph{outside} the domain instead.}
-
-\item{fun}{Only when \code{mask} is a voxel. A function of one depth layer that
-returns \code{TRUE} where the mask is occupied. Default:
-\code{function(v) !is.na(v)}.}
 }
 \value{
 \code{x}, with the same class and layers, with every value outside the
@@ -61,7 +57,7 @@ hand-written \code{terra::mask(v, envelope_to_voxel(e, depths(v)))} and
 cannot be pointed at the wrong depths.}
 \item{voxel masked by a voxel}{Both must be sampled at the same depth
 levels. Each depth layer of \code{x} is masked by the matching layer of the
-mask, where \code{fun} says the mask is occupied.}
+mask, wherever the mask is occupied.}
 \item{envelope masked by an envelope or a voxel}{A cell of \code{x} is kept
 where \code{\link[=intersects_3d]{intersects_3d()}} finds the two domains overlap. Its depth
 interval is kept whole. To narrow the interval instead, use

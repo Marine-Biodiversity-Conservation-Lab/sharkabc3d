@@ -43,10 +43,6 @@ NULL
 #'   Under `"top"` the deepest level has no next level and contributes no
 #'   volume. Outer edges are clamped to `range(depths)` under both. Same
 #'   argument, same meaning, as in [envelope_to_voxel()].
-#' @param fun SpatVoxel only. Predicate deciding whether a voxel is occupied,
-#'   applied one depth layer at a time. Defaults to `function(v) !is.na(v)`,
-#'   the same default [voxel_to_envelope()] uses. `NA` results count as
-#'   unoccupied.
 #'
 #' @returns Numeric of length 1. Total volume in km³.
 #'
@@ -121,8 +117,6 @@ setGeneric("volume", function(x, ...) standardGeneric("volume"))
 #' @param bounds Only when one input is an envelope and the other a voxel. How
 #'   the envelope is placed on the voxel's depth levels: `"top"` (default) or
 #'   `"midpoint"`. See [envelope_to_voxel()].
-#' @param fun Voxel input only. A function of one depth layer that returns
-#'   `TRUE` where the voxel is occupied. Default: `function(v) !is.na(v)`.
 #'
 #' @returns A [SpatEnvelope-class] when both inputs are envelopes, or when one
 #'   is an envelope and the other is 2D. Otherwise a [SpatVoxel-class] of
@@ -233,7 +227,6 @@ setGeneric("intersects_3d",
 #'   of envelopes.
 #' @param bounds Voxel methods only. See [volume()]. Also governs how an
 #'   envelope is discretized when the two inputs differ.
-#' @param fun Voxel methods only. See [volume()].
 #'
 #' @returns Multi-layer SpatRaster with 9 layers:
 #'   \describe{

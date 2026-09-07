@@ -66,13 +66,13 @@ setMethod(
 #' @export
 setMethod(
   "intersect_3d", c("SpatVoxel", "SpatVoxel"),
-  function(x, y, fun = function(v) !is.na(v)) {
+  function(x, y) {
     .check_3d(x, "x")
     .check_3d(y, "y")
     .check_same_grid(x, y)
     depths <- .shared_depths(x, y)
 
-    occ <- .voxel_occupancy(x, fun) * .voxel_occupancy(y, fun)
+    occ <- .voxel_occupancy(x) * .voxel_occupancy(y)
     .presence_voxel(occ, depths)
   }
 )
@@ -122,10 +122,10 @@ setMethod(
 #' @export
 setMethod(
   "intersect_3d", c("SpatVoxel", "ANY"),
-  function(x, y, fun = function(v) !is.na(v)) {
+  function(x, y) {
     .check_3d(x, "x")
     fp <- .footprint_of(y, x)
-    occ <- terra::mask(.voxel_occupancy(x, fun), fp, updatevalue = 0)
+    occ <- terra::mask(.voxel_occupancy(x), fp, updatevalue = 0)
     .presence_voxel(occ, .parse_depth_layers(x))
   }
 )
@@ -189,14 +189,14 @@ setMethod(
 #' @export
 setMethod(
   "intersects_3d", c("SpatVoxel", "SpatVoxel"),
-  function(x, y, fun = function(v) !is.na(v)) {
+  function(x, y) {
     .check_3d(x, "x")
     .check_3d(y, "y")
     .check_same_grid(x, y)
     .shared_depths(x, y)
 
-    occ_x <- .voxel_occupancy(x, fun)
-    occ_y <- .voxel_occupancy(y, fun)
+    occ_x <- .voxel_occupancy(x)
+    occ_y <- .voxel_occupancy(y)
     .intersects_answer(sum(occ_x * occ_y) > 0, sum(occ_x) > 0, sum(occ_y) > 0)
   }
 )
@@ -243,9 +243,9 @@ setMethod(
 #' @export
 setMethod(
   "intersects_3d", c("SpatVoxel", "ANY"),
-  function(x, y, fun = function(v) !is.na(v)) {
+  function(x, y) {
     .check_3d(x, "x")
-    present_x <- sum(.voxel_occupancy(x, fun)) > 0
+    present_x <- sum(.voxel_occupancy(x)) > 0
     present_y <- !is.na(.footprint_of(y, x))
     .intersects_answer(present_x & present_y, present_x, present_y)
   }
@@ -285,7 +285,7 @@ setMethod("intersects_3d", c("ANY", "ANY"),
 #'     cannot be pointed at the wrong depths.}
 #'   \item{voxel masked by a voxel}{Both must be sampled at the same depth
 #'     levels. Each depth layer of `x` is masked by the matching layer of the
-#'     mask, where `fun` says the mask is occupied.}
+#'     mask, wherever the mask is occupied.}
 #'   \item{envelope masked by an envelope or a voxel}{A cell of `x` is kept
 #'     where [intersects_3d()] finds the two domains overlap. Its depth
 #'     interval is kept whole. To narrow the interval instead, use
@@ -306,9 +306,6 @@ setMethod("intersects_3d", c("ANY", "ANY"),
 #' @param bounds Only when one side is an envelope and the other a voxel. How
 #'   the envelope is placed on the voxel's depth levels: `"top"` (default) or
 #'   `"midpoint"`. See [envelope_to_voxel()].
-#' @param fun Only when `mask` is a voxel. A function of one depth layer that
-#'   returns `TRUE` where the mask is occupied. Default:
-#'   `function(v) !is.na(v)`.
 #' @param ... Passed on to [terra::mask()]. For example, `inverse = TRUE`
 #'   keeps the values *outside* the domain instead.
 #'
@@ -368,12 +365,12 @@ setMethod(
 #' @export
 setMethod(
   "mask", c("SpatVoxel", "SpatVoxel"),
-  function(x, mask, fun = function(v) !is.na(v), ...) {
+  function(x, mask, ...) {
     .check_3d(x, "x")
     .check_3d(mask, "mask")
     .check_same_grid(x, mask, c("x", "mask"))
     .shared_depths(x, mask)
-    keep <- .presence_voxel(.voxel_occupancy(mask, fun),
+    keep <- .presence_voxel(.voxel_occupancy(mask),
                             .parse_depth_layers(mask))
     as_voxel(.mask_plain(x, keep, ...))
   }
@@ -395,13 +392,11 @@ setMethod(
 #' @export
 setMethod(
   "mask", c("SpatEnvelope", "SpatVoxel"),
-  function(x, mask, bounds = c("top", "midpoint"),
-           fun = function(v) !is.na(v), ...) {
+  function(x, mask, bounds = c("top", "midpoint"), ...) {
     bounds <- match.arg(bounds)
     .check_3d(x, "x")
     .check_3d(mask, "mask")
-    keep <- terra::ifel(intersects_3d(x, mask, bounds = bounds, fun = fun),
-                        1, NA)
+    keep <- terra::ifel(intersects_3d(x, mask, bounds = bounds), 1, NA)
     as_envelope(.mask_plain(x, keep, ...))
   }
 )
@@ -421,10 +416,10 @@ setMethod(
 #' @export
 setMethod(
   "mask", c("SpatRaster", "SpatVoxel"),
-  function(x, mask, fun = function(v) !is.na(v), ...) {
+  function(x, mask, ...) {
     .check_3d(mask, "mask")
     .check_same_grid(x, mask, c("x", "mask"))
-    terra::mask(x, .footprint(mask, fun), ...)
+    terra::mask(x, .footprint(mask), ...)
   }
 )
 
