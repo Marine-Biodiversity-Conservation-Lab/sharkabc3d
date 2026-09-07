@@ -35,6 +35,7 @@ setMethod(
   "volume", "SpatVoxel",
   function(x, bounds = c("top", "midpoint")) {
     bounds <- match.arg(bounds)
+    .check_3d(x, "x")
 
     depths <- .parse_depth_layers(x)
     occ <- .voxel_occupancy(x)

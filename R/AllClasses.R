@@ -9,8 +9,8 @@ NULL
 #' A `SpatVoxel` is a [terra::SpatRaster] in which **depth is the layer index**
 #' and the cell values are the variable (temperature, oxygen, presence, ...).
 #' Layer names follow the `{variable}_depth={value}` convention and must be
-#' ordered shallow to deep. The depth axis is grid-wide: every cell is sampled
-#' at the same set of standard depths.
+#' distinct and ordered shallow to deep. The depth axis is grid-wide: every
+#' cell is sampled at the same set of standard depths.
 #'
 #' A voxel may have interior gaps — a cell can be NA at one depth and non-NA
 #' at the depths above and below it.
@@ -126,6 +126,7 @@ setValidity("SpatVoxel", function(object) {
   d <- .parse_depth_layers(object, error = FALSE)
   if (anyNA(d)) return("every layer name must follow {variable}_depth={value}")
   if (is.unsorted(d)) return("depth layers must be ordered shallow to deep")
+  if (anyDuplicated(d)) return("depth layers must be distinct")
   if (any(d < 0)) return("depths are positive metres increasing downward")
   TRUE
 })

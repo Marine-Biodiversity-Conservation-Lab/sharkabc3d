@@ -8,8 +8,8 @@
 A \code{SpatVoxel} is a \link[terra:SpatRaster]{terra::SpatRaster} in which \strong{depth is the layer index}
 and the cell values are the variable (temperature, oxygen, presence, ...).
 Layer names follow the \verb{\{variable\}_depth=\{value\}} convention and must be
-ordered shallow to deep. The depth axis is grid-wide: every cell is sampled
-at the same set of standard depths.
+distinct and ordered shallow to deep. The depth axis is grid-wide: every
+cell is sampled at the same set of standard depths.
 }
 \details{
 A voxel may have interior gaps — a cell can be NA at one depth and non-NA

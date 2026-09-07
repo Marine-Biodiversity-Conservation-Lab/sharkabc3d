@@ -1159,3 +1159,19 @@ test_that("occupied() lets each side of a query use its own predicate", {
   expect_equal(unname(terra::values(out)),
                unname(cbind(c(NA, 1, NA), c(1, NA, NA))))
 })
+
+test_that("SpatVoxel validity rejects duplicate depths, as as_voxel() does", {
+  raw <- make_multidepth_rast()
+
+  # as_voxel() has always refused duplicates.
+  expect_error(as_voxel(raw[[c(1, 1, 2)]]), "duplicate depth")
+
+  # terra keeps the class tag through subsetting, so an invalid voxel can
+  # still reach the verbs. Validity must catch what the constructor refuses.
+  dup <- as_voxel(raw)[[c(1, 1, 2)]]
+  expect_s4_class(dup, "SpatVoxel")
+  expect_false(isTRUE(methods::validObject(dup, test = TRUE)))
+
+  # Otherwise volume() counts the repeated slab and returns a wrong number.
+  expect_error(volume(dup), "not a valid one")
+})
