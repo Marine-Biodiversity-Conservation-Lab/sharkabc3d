@@ -1,194 +1,171 @@
-# sharkabc3d (development version)
-
-# sharkabc3d 0.1.1
-* Add NetCDF extraction to observation points (#6, @davidruizgarci)
-
-# sharkabc3d 0.1.1.9000
-* deprecate woa_nc_extract(), refactor to move functionality into woa_load_nc() since that is the only place woa_nc_extract() was used. addressed issue with test objects that had layer names that didn't follow package convention that caused failed tests, added check in the woa_load_nc() function for this.
-
-# sharkabc3d 0.1.1.9001
-* Retire `R/plot.R`. The `plot_*()` functions were used by a single article
-  and are no longer exported; `plot_depth_profile()` and
-  `plot_range_at_depth()` now live inline in the WOA environmental extraction
-  articles. `ggplot2` and `tidyterra` move from Imports to Suggests.
-
-# sharkabc3d 0.1.1.9002
-* Generalizes point extraction from netCDF files through extract_to_point() and adds runnable examples for all exported point-extraction functions. The new interface supports data frames, tibbles, sf POINT objects, matrices, named lists, and direct longitude/latitude/depth/date values or vectors. It also preserves input structure where appropriate and transforms projected sf coordinates to longitude/latitude when possible.
-* Runnable synthetic 2D and 3D netCDF examples are included for:
-    `extract_to_point()`
-    `extract2d()`
-    `extract3d_surface()`
-    `extract3d_bottom()`
-    `extract3d_nearest()`
-    `extract3d_all()`
-
-# sharkabc3d 0.1.1.9003
-* Rename `load_bathymetry()` to `load_gebco_bathymetry()` and move it from
-  `R/load_data.R` to `R/gebco_bathymetry.R`. The new name makes the expected
-  data source explicit; the function is otherwise unchanged. Callers must
-  update to the new name.
-* Add a runnable worked example to `load_gebco_bathymetry()`, which builds a
-  small stand-in NetCDF rather than requiring a multi-gigabyte GEBCO
-  download (#37).
-* Add a runnable worked example to `fill_missing_depths()` and move it to
-  `R/iucn_utils.R`, alongside `fetch_species_assessments()` whose depth limits
-  it is designed to repair.
-    
-# sharkabc3d 0.1.1.9004
-* Improve `gfw_effort_to_raster()` function to be able to assume grid resolution and extent from input dataframe. 
-
 # sharkabc3d 0.1.1.9005
-* Add the S4 classes for the 3D object model, both extending `terra::SpatRaster`
-  with their own validity rules: `SpatVoxel` (one layer per standard depth, cell
-  values are the variable) and `SpatEnvelope` (exactly `depth_min`/`depth_max`,
-  depth as the cell value). `SpatVolume` is a class union over the two and the
-  dispatch target for volumetric operations, replacing the virtual
-  `SpatDepthRaster` superclass.
-* Add `as_voxel()` and `as_envelope()`, the constructors for those classes.
-  Prefer them over `methods::new()`: both validate, but only these normalise
-  first, and both are idempotent, so re-wrapping after a terra operation that
-  drops the class is cheap. `as_voxel()` accepts a conforming multi-depth
-  SpatRaster, a list of single-depth rasters, or an existing `SpatVoxel`, and
-  sorts layers shallow to deep. `as_envelope()` attaches depth limits to any 2D
-  presence footprint, with an optional `seafloor` that clamps `depth_max` and
-  drops cells with no water column below `depth_min`.
-* Add `voxel_to_envelope()` and `envelope_to_voxel()`, the conversions between
-  the two representations. `voxel_to_envelope()` takes a predicate `fun`
-  (default `\(x) !is.na(x)`) and is lossy, since an envelope stores one
-  continuous interval per cell and interior gaps are filled.
-  `envelope_to_voxel()` takes a `fun` deciding what each voxel carries, writing
-  presence by default; pass a profile function to carry a vertical-migration
-  distribution instead.
-* Depths are positive metres increasing downward throughout the 3D object model.
-  Negative depths are an error in the class validity rules and in every
-  constructor and conversion, rather than being silently flipped.
-* Add `vect_to_envelope()`, which replaces `voxelize_range()` for polygons.
-  Depth limits are `depth_min`/`depth_max` lists mixing numerics and rasters;
-  per cell the deepest `depth_min` and shallowest `depth_max` win, so bathymetry
-  is just another constraint rather than a dedicated argument. Constraint
-  rasters must match the template's CRS, resolution, and extent, and their NAs
-  propagate rather than falling back to the remaining constraints, so a cell
-  with no bathymetry coverage gets no envelope.
-* Breaking: the `fun = c("extent", "threshold")` character interface on
-  `voxel_to_envelope()` is gone, replaced by the predicate above.
-* `methods` moves into Imports, required by the S4 class definitions.
-* Breaking: `voxelize_range()` and `create_study_voxel()` (with its
-  `print.study_voxel()` method and the `study_voxel` class) are retired. Build
-  the envelope directly instead, passing the seafloor as a `depth_max`
-  constraint:
 
-  ```r
-  # before
-  voxel <- create_study_voxel(template, bathymetry, depths)
-  range_rast <- voxelize_range(sp_range, voxel, depth_min = 0, depth_max = 500)
+The 3D object model. `SpatVoxel` / `SpatEnvelope` replace the ad-hoc "3D
+raster" conventions, and the volumetric functions now dispatch on them.
 
-  # after
-  seafloor <- terra::clamp(terra::project(bathymetry, template) * -1, lower = 0)
-  range_rast <- vect_to_envelope(sp_range, template,
-                                 depth_min = 0,
-                                 depth_max = list(500, seafloor))
-  ```
+## New classes and constructors
 
-  The `study_voxel` bundle has no replacement object: pass the grid template,
-  the seafloor raster, and the standard depths as separate arguments.
-  `vect_to_envelope()` requires `polygon` and `template` to already share a CRS
-  rather than projecting silently, so project the polygons yourself first.
+* `SpatVoxel` (one layer per standard depth, cell value is the variable) and
+  `SpatEnvelope` (exactly `depth_min`/`depth_max`, cell value is depth): S4
+  classes extending `terra::SpatRaster` with their own validity rules.
+  `SpatVolume` is a class union over the two and the dispatch target for
+  volumetric operations, replacing the virtual `SpatDepthRaster`.
+* `as_voxel()` / `as_envelope()` construct them. Prefer these over
+  `methods::new()`: they normalise as well as validate, and are idempotent, so
+  re-wrapping after a terra operation that drops the class is cheap.
+  `as_voxel()` accepts a conforming multi-depth `SpatRaster`, a list of
+  single-depth rasters, or a `SpatVoxel`, and sorts layers shallow to deep.
+  `as_envelope()` attaches depth limits to a 2D footprint: each limit is a
+  single number or a per-cell single-layer `SpatRaster`, or `x` already
+  carries the two depth layers.
+* `voxel_to_envelope()` / `envelope_to_voxel()` convert between the two, each
+  taking a `fun` — an occupancy predicate one way (default `\(x) !is.na(x)`),
+  a per-voxel profile the other. `voxel_to_envelope()` is lossy: an envelope
+  is one continuous interval per cell, so interior gaps are filled.
+* `vect_to_envelope()` builds an envelope from polygons. `depth_min` /
+  `depth_max` are lists mixing numerics and rasters; per cell the deepest
+  `depth_min` and shallowest `depth_max` win, so bathymetry is just another
+  constraint. Constraint rasters must match the template's CRS, resolution and
+  extent, and their NAs propagate rather than falling back to the remaining
+  constraints.
+* `depths()`, exported: the depths a voxel's layers stand for, parsed from
+  `{variable}_depth={value}` layer names. It accepts a `SpatVoxel`, any
+  conforming `SpatRaster`, or a bare character vector, so
+  `depths(rownames(terra::global(v, "sum")))` works.
+* Depths are positive metres increasing downward throughout the 3D model.
+  Negative depths are an error, not silently flipped.
 
-* `volume()` (renamed from `calc_volume()`), `calc_volume_overlap()` and
-  `count_3d_overlap()` become S4
-  generics dispatching on the 3D representation, so they now accept a
-  `SpatVoxel` as well as a `SpatEnvelope`. A voxel's volume sums the slab each
-  occupied depth level stands for, using the same `bounds` conventions as
-  `envelope_to_voxel()` and the same `fun` occupancy predicate as
-  `voxel_to_envelope()`, so interior gaps cost volume rather than being filled
-  in. Given one envelope and one voxel, the envelope is discretized onto the
-  voxel's depth levels — `voxel_to_envelope()` fills gaps and would overstate
-  an overlap.
+## New spatial query verbs
 
-  Three breaking changes come with this. `calc_volume()` is renamed to
-  `volume()`, matching how `terra` names `area()`; the class is now the
-  contract, so a bare `SpatRaster` carrying `depth_min` / `depth_max` layers
-  is rejected rather than duck-typed; and the formals are `x` / `y`.
+Each takes a `SpatEnvelope` or `SpatVoxel` paired with another 3D object, a 2D
+`SpatRaster` footprint, or polygons (`SpatVector`, `sf`, `sfc`). A 2D object
+restricts the domain horizontally and leaves its depths alone.
 
-  ```r
-  # before
-  calc_volume(range_rast)
-  calc_volume_overlap(range_rast_a = a, range_rast_b = b)
+* `intersect_3d(x, y)` returns the 3D space the two share: an envelope with the
+  shared depth interval, or a presence voxel. It is the one place that decides
+  where two domains overlap; `calc_volume_overlap()` is now built on it, with
+  unchanged numbers.
+* `intersects_3d(x, y)` is the yes/no form: `TRUE` where both are present and
+  their depths overlap, `FALSE` where both are present but disjoint or only one
+  is, `NA` where neither is. terra's own three-way answer, made depth-aware.
+* `mask()` gains depth-aware methods on terra's generic, so the article idiom
+  `terra::mask(v, envelope_to_voxel(range, depths(v)))` becomes
+  `mask(v, range)`. A voxel masked by an envelope puts the envelope on the
+  voxel's depth levels first; a voxel masked by a voxel requires the same
+  levels. Mismatched levels used to mask by layer position, silently; that is
+  now an error.
+* `terra::intersect()` on a `SpatEnvelope` or `SpatVoxel` is now an error
+  naming `intersects_3d()` / `intersect_3d()`. terra's version is a 2D "both
+  have data" test, and because terra keeps the subclass on its result, two
+  envelopes 100 m apart came back as a `SpatEnvelope` of `TRUE` that passed
+  validity.
+* The verbs re-check tagged inputs and point to `as_voxel()` / `as_envelope()`,
+  since terra keeps the class tag through operations that change the layer set
+  (`[[`, `app()`).
 
-  # after
-  volume(as_envelope(range_rast))
-  calc_volume_overlap(x = a, y = b)
-  ```
+## Breaking changes
 
-  The three functions also now check that their two inputs share a grid
-  instead of taking cell areas from the first argument and reusing them for
-  the second, and `count_3d_overlap()` computes only the presence pattern
-  rather than the whole nine-layer overlap stack. Its output layer is named
-  `overlap`. Volumes for `SpatEnvelope` input are numerically unchanged.
+| before | after |
+| --- | --- |
+| `calc_volume(r)` | `volume(as_envelope(r))` |
+| `calc_volume_overlap(range_rast_a = a, range_rast_b = b)` | `calc_volume_overlap(x = a, y = b)` |
+| `count_3d_overlap(a, b)` | `intersects_3d(a, b)` |
+| `extract_rast_range(range, v)` | `mask(v, range)` |
+| `extract_rast_volume(area, min_depth = 40, max_depth = 600, rast_3d = v)` | `extract_to_area(area, v, min_depth = 40, max_depth = 600)` |
+| `voxelize_range(poly, voxel, depth_min = 0, depth_max = 500)` | `vect_to_envelope(poly, template, depth_min = 0, depth_max = list(500, seafloor))` |
+| `create_study_voxel(template, bathymetry, depths)` | no replacement object — pass the three separately (the `study_voxel` class and its `print()` method go too) |
+| `summarise_species_environment()` | `summarise_range()` in `vignette("woa-environmental-extraction")` |
+| `voxel_to_envelope(fun = "extent" \| "threshold")` | `voxel_to_envelope(fun = <predicate>)` |
 
-* Retire `R/extract.R`. Its contents predated the `SpatVoxel` / `SpatEnvelope`
-  classes and re-derived by hand what those classes now guarantee.
+* `volume()` (was `calc_volume()`, matching how terra names `area()`) and
+  `calc_volume_overlap()` are S4 generics on the 3D classes, so they accept a
+  `SpatVoxel` as well as a `SpatEnvelope`, with formals `x` / `y`. The class is
+  now the contract: a bare `SpatRaster` carrying `depth_min`/`depth_max` layers
+  is rejected rather than duck-typed. A voxel's volume sums the slab each
+  occupied level stands for, so interior gaps cost volume rather than being
+  filled in; given one envelope and one voxel, the envelope is discretized onto
+  the voxel's levels. Both now check that their inputs share a grid instead of
+  reusing the first argument's cell areas for the second. Envelope volumes are
+  numerically unchanged.
+* `count_3d_overlap()` is retired for `intersects_3d()`, which returns
+  `TRUE`/`FALSE`/`NA` instead of `1`/`NA`. `sum(stack, na.rm = TRUE)` over a
+  stack of results still gives a richness map, now with a real `0` where a
+  domain is present but nothing overlaps it.
+* `extract_to_area()` (was `extract_rast_volume()`) takes the target first and
+  the source second, as `extract_to_point()` does, and its depth bounds are
+  optional and named. It requires and returns a `SpatVoxel`, accepts `sfc`
+  areas alongside `sf` and `SpatVector`, and compares CRS with
+  `terra::same.crs()` rather than string equality on WKT.
+* `vect_to_envelope()` requires `polygon` and `template` to already share a
+  CRS rather than projecting silently.
+* `summarise_species_environment()` was analysis rather than package
+  machinery. Its column contract (`{name}_min`, `_max`, `_mean`,
+  `_n_surface_cells`, `_n_cells`, `_n_depths`) is unchanged in the vignette
+  helper.
+* `R/extract.R` is retired — it re-derived by hand what the classes now
+  guarantee. `methods` moves into Imports.
 
-* `extract_rast_range()` is retired. It was a thin wrapper over a masking
-  operation the class converters already express, so compose them directly:
+## Bug fixes
 
-  ```r
-  # before
-  masked <- extract_rast_range(range_rast, rast_3d)
+* `mask(v, range)` also fixes a depth bug in `extract_rast_range()`, which
+  tested exact point containment, so an envelope falling between two depth
+  levels occupied none of them: `[10, 20]` against depths `c(0, 100, 200)` came
+  back empty. `envelope_to_voxel()` tests slab overlap instead, so the same
+  envelope now occupies the 0 m level, and its `bounds` argument chooses where
+  the slab edges fall (`"top"` or the World Ocean Atlas `"midpoint"`).
+* `calc_volume_overlap()` returned its nine-layer stack tagged `SpatEnvelope`.
+  It is now the plain `SpatRaster` its documentation describes.
 
-  # after
-  masked <- terra::mask(rast_3d, envelope_to_voxel(range_rast, depths(rast_3d)))
-  ```
+## Documentation and internals
 
-  This is also a **behaviour fix**. `extract_rast_range()` tested exact point
-  containment (`depth_min <= depth & depth_max >= depth`), so an envelope that
-  fell between two depth levels occupied none of them and the cell disappeared:
-  `[10, 20]` against depths `c(0, 100, 200)` came back empty. `envelope_to_voxel()`
-  tests slab overlap — a cell occupies a level when its envelope overlaps the
-  slab that level stands for — so the same envelope now occupies the 0 m level.
-  It also brings a `bounds` argument for choosing where the slab edges fall
-  (`"top"` or the World Ocean Atlas `"midpoint"` convention).
-
-* `summarise_species_environment()` is retired. It computed summary statistics
-  over a masked voxel — analysis rather than package machinery — and now lives
-  as a `summarise_range()` helper inside
-  `vignette("woa-environmental-extraction")`, alongside the plotting helpers
-  retired the same way. The column contract (`{name}_min`, `{name}_max`,
-  `{name}_mean`, `{name}_n_surface_cells`, `{name}_n_cells`, `{name}_n_depths`)
-  is unchanged.
-
-* `extract_rast_volume()` is renamed to `extract_to_area()`, matching the
-  `extract_to_point()` family in `R/extract_to_points.R`. Its signature changes:
-  the voxel is now the second argument (target first, source second, as in
-  `extract_to_point()`) and the depth bounds are optional and named.
-
-  ```r
-  # before
-  extract_rast_volume(area, min_depth = 40, max_depth = 600, rast_3d = v)
-
-  # after
-  extract_to_area(area, v, min_depth = 40, max_depth = 600)
-  extract_to_area(area, v)                      # every layer
-  extract_to_area(area, v, min_depth = 40)      # 40 m to the deepest layer
-  ```
-
-  It now requires a `SpatVoxel` and returns one, accepts `sfc` areas alongside
-  `sf` and `SpatVector`, and compares CRS with `terra::same.crs()` rather than
-  string equality on WKT.
-
-* New `depths()`, exported. The depths a voxel's layers stand for, parsed from
-  the `{variable}_depth={value}` layer names — previously an internal helper in
-  `R/extract.R`, hand-copied into three articles. It accepts a `SpatVoxel`, any
-  `SpatRaster` following the convention, or a bare character vector of layer
-  names, which makes the row names of a `terra::global()` result directly
-  usable:
-
-  ```r
-  per_depth <- terra::global(v, "sum", na.rm = TRUE)
-  per_depth$depth <- depths(rownames(per_depth))
-  ```
-
-* New article, `vignette("woa-species-range-voxels")`: a species range polygon
+* New article `vignette("woa-species-range-voxels")`: a species range polygon
   to a `SpatEnvelope`, applied to a WOA-shaped `SpatVoxel`, through to the
   overlapping voxel values and their summaries. Unlike the other articles it is
-  fully synthetic and runs, so it doubles as a worked check of the idioms above.
+  fully synthetic and runs, so it doubles as a worked check of the idioms.
+* Helpers shared by `R/volume.R` and the new `R/intersect.R` move to
+  `R/utils-3d.R`. The constructors work on plain copies of their input, so a
+  voxel layer can serve as a footprint without its class tag reaching the
+  depth-aware `mask()` methods.
+
+# sharkabc3d 0.1.1.9004
+
+* `gfw_effort_to_raster()` can infer grid resolution and extent from the input
+  data frame.
+
+# sharkabc3d 0.1.1.9003
+
+* Breaking: `load_bathymetry()` is renamed `load_gebco_bathymetry()` and moves
+  from `R/load_data.R` to `R/gebco_bathymetry.R`. The new name makes the
+  expected data source explicit; the function is otherwise unchanged.
+* Runnable examples for `load_gebco_bathymetry()` — building a small stand-in
+  NetCDF rather than requiring a multi-gigabyte GEBCO download (#37) — and for
+  `fill_missing_depths()`, which moves to `R/iucn_utils.R` alongside the
+  `fetch_species_assessments()` depth limits it repairs.
+
+# sharkabc3d 0.1.1.9002
+
+* `extract_to_point()` generalises point extraction from netCDF files, taking
+  data frames, tibbles, `sf` POINT objects, matrices, named lists, and bare
+  longitude/latitude/depth/date values or vectors. It preserves input structure
+  where appropriate and transforms projected `sf` coordinates to
+  longitude/latitude when possible.
+* Runnable synthetic 2D and 3D netCDF examples for `extract_to_point()`,
+  `extract2d()`, `extract3d_surface()`, `extract3d_bottom()`,
+  `extract3d_nearest()` and `extract3d_all()`.
+
+# sharkabc3d 0.1.1.9001
+
+* Retire `R/plot.R`. The `plot_*()` functions were used by a single article and
+  are no longer exported; `plot_depth_profile()` and `plot_range_at_depth()`
+  now live inline in the WOA environmental extraction articles. `ggplot2` and
+  `tidyterra` move from Imports to Suggests.
+
+# sharkabc3d 0.1.1.9000
+
+* Deprecate `woa_nc_extract()`, folding it into `woa_load_nc()`, its only
+  caller. `woa_load_nc()` now checks for layer names that don't follow the
+  package convention.
+
+# sharkabc3d 0.1.1
+
+* Add NetCDF extraction to observation points (#6, @davidruizgarci)

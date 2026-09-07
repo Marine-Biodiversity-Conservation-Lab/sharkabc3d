@@ -11,8 +11,7 @@
 #'
 #' To restrict a voxel to a species' *per-cell* depth window rather than one
 #' depth band across the whole area, build a [SpatEnvelope-class] and mask with
-#' it instead:
-#' `terra::mask(rast_3d, envelope_to_voxel(range_rast, depths(rast_3d)))`.
+#' it instead: `mask(rast_3d, range_rast)`. See [mask-3d].
 #'
 #' @param area sf, sfc, or SpatVector. Area polygon to crop the voxel to.
 #'   Reprojected to the voxel's CRS when the two differ.

@@ -223,11 +223,10 @@ sst_values <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
     depth_max = list(sp_depths$lower_depth, seafloor)
   )
 
-  # Surface temperature across the species/WOA overlap.
-  in_range <- terra::mask(
-    t_annual,
-    envelope_to_voxel(range_rast, depths(t_annual))
-  )
+  # Surface temperature across the species/WOA overlap. mask() is
+  # depth-aware for an envelope: each depth layer keeps only the cells whose
+  # window reaches that depth.
+  in_range <- mask(t_annual, range_rast)
   terra::values(in_range[["t_an_depth=0"]], na.rm = TRUE)[, 1]
 })
 names(sst_values) <- depth_table_complete$sis_id
@@ -329,17 +328,12 @@ occupied **voxels** (cell × depth) while `n_surface_cells` counts the map cells
 with data at any depth.
 
 ```{r summary-helpers}
-# One environmental raster, restricted to a species' 3D range.
-mask_to_range <- function(v, range_rast) {
-  terra::mask(v, envelope_to_voxel(range_rast, depths(v)))
-}
-
 # One row of statistics per named raster, prefixed with that name.
 summarise_range <- function(range_rast, raster_list) {
   stopifnot(!is.null(names(raster_list)), all(names(raster_list) != ""))
 
   cols <- Map(function(v, nm) {
-    vals <- terra::values(mask_to_range(v, range_rast))
+    vals <- terra::values(mask(v, range_rast))
     out <- c(
       min             = suppressWarnings(min(vals, na.rm = TRUE)),
       max             = suppressWarnings(max(vals, na.rm = TRUE)),
@@ -437,7 +431,7 @@ library(tidyterra)
 # cells where that depth falls inside the species' per-cell depth window
 # (bathymetry-clamped). Layers that are all-NA are dropped.
 plot_depth_profile <- function(species_name, range_rast, rast_3d) {
-  masked <- mask_to_range(rast_3d, range_rast)
+  masked <- mask(rast_3d, range_rast)
   layer_depths <- depths(masked)
 
   summary_per_depth <- lapply(seq_len(terra::nlyr(masked)), function(i) {
@@ -554,7 +548,7 @@ range_rast <- vect_to_envelope(
 
 # Mask t_annual to the cells + depths the species actually occupies, then
 # bounding-box crop so as.data.frame doesn't iterate the entire globe.
-masked <- mask_to_range(t_annual, range_rast) |>
+masked <- mask(t_annual, range_rast) |>
   terra::crop(terra::vect(sp_range))
 
 long_df <- terra::as.data.frame(masked, xy = TRUE, na.rm = FALSE) |>

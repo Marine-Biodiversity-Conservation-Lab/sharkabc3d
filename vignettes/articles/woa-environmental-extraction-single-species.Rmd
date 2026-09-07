@@ -140,11 +140,11 @@ range_rast <- vect_to_envelope(
 )
 
 # Mask temperature to the cells + depths the species actually occupies.
-# envelope_to_voxel() puts the range envelope on the temperature stack's own
-# depth levels, so the two line up layer by layer. The grid is already scoped
-# to the range, and cells outside the polygon are NA, so no further cropping
-# is needed.
-masked <- terra::mask(t_annual, envelope_to_voxel(range_rast, depths(t_annual)))
+# mask() is depth-aware for an envelope: it puts the range on the temperature
+# stack's own depth levels and masks layer by layer. The grid is already
+# scoped to the range, and cells outside the polygon are NA, so no further
+# cropping is needed.
+masked <- mask(t_annual, range_rast)
 ```
 
 ## Figure 1: Animated GIF across all depths

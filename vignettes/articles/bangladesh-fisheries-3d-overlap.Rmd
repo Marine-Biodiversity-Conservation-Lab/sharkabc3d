@@ -563,7 +563,7 @@ par(mfrow = c(1, 1))
 | Grid type | Hexagonal grid (1 km cells) | Raster grid (1 km cells) |
 | Depth handling | Uniform depth range across entire intersection footprint | Per-cell depth clamped to bathymetry via `vect_to_envelope()` |
 | Volume formula | area × depth_range (single depth per pair) | Sum of per-cell (cell_area × clamped depth) via `calc_volume_overlap()` |
-| Fishery/species richness maps | Custom ggplot code | `count_3d_overlap()` + ggplot2 |
+| Fishery/species richness maps | Custom ggplot code | `intersects_3d()` + ggplot2 |
 | Species × fishery overlap maps | Custom ggplot code | `calc_volume_overlap()` + ggplot2/patchwork |
 | **Reproducibility** | **Single-use scripts** | **Reusable for any species x fishery** |
 
@@ -645,6 +645,13 @@ at each grid cell. Cells are coloured only where the species is present
 and at least one fishery overlaps in depth. Recreates the
 `all_fishery_by_species/` plots from the original analysis.
 
+`intersects_3d()` answers `TRUE`, `FALSE` or `NA` per cell, so the summed
+count is a real `0` where the species is present but no fishery reaches
+it, and `NA` only where there is nothing to compare. The colour scale
+starts at 1, so those zeros stay transparent and the map looks as before;
+the difference is in the numbers, which now separate "surveyed, no
+overlap" from "no data".
+
 ```{r fishery-richness-maps, fig.width=18, fig.height=18}
 cr_species <- species_iucn %>%
   filter(red_list_category == "CR") %>%
@@ -654,10 +661,10 @@ cr_species <- intersect(cr_species, names(species_rasters))
 fishery_richness_plots <- lapply(cr_species, function(sp) {
   sp_rast <- species_rasters[[sp]]
 
-  # Stack of 1/NA overlap rasters, summed across layers, gives the number of
-  # fisheries that overlap the species in 3D at each cell
+  # Stack of TRUE/FALSE/NA overlap rasters, summed across layers, gives the
+  # number of fisheries that overlap the species in 3D at each cell.
   overlap_stack <- terra::rast(lapply(fishery_rasters, function(fi_rast) {
-    count_3d_overlap(sp_rast, fi_rast)
+    intersects_3d(sp_rast, fi_rast)
   }))
   count_rast <- sum(overlap_stack, na.rm = TRUE) %>% project("EPSG:4326")
 
@@ -742,7 +749,7 @@ species_richness_plots <- lapply(names(fishery_rasters), function(fi) {
 
   cr_rasters <- species_rasters[cr_species]
   overlap_stack <- terra::rast(lapply(cr_rasters, function(sp_rast) {
-    count_3d_overlap(fi_rast, sp_rast)
+    intersects_3d(fi_rast, sp_rast)
   }))
   count_rast <- sum(overlap_stack, na.rm = TRUE) %>% project("EPSG:4326")
 

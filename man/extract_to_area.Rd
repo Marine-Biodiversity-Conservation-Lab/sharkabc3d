@@ -36,8 +36,7 @@ rather than observation points.
 
 To restrict a voxel to a species' \emph{per-cell} depth window rather than one
 depth band across the whole area, build a \link[=SpatEnvelope-class]{SpatEnvelope} and mask with
-it instead:
-\code{terra::mask(rast_3d, envelope_to_voxel(range_rast, depths(rast_3d)))}.
+it instead: \code{mask(rast_3d, range_rast)}. See \link{mask-3d}.
 }
 \examples{
 # A 4x4 voxel over five standard depths.

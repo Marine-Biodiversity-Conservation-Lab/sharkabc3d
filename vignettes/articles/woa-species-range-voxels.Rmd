@@ -238,14 +238,14 @@ do_annual <- as_voxel(
 env_rasters <- list(temperature = t_annual, oxygen = do_annual)
 
 do.call(cbind, unname(Map(function(v, nm) {
-  summarise_voxel(terra::mask(v, envelope_to_voxel(range_env, depths(v))), nm)
+  summarise_voxel(mask(v, range_env), nm)
 }, env_rasters, names(env_rasters))))
 ```
 
-Each environmental raster gets its own occupancy voxel, because each may be on
-a different set of standard depths — note `oxygen` reports three depths against
-temperature's five, because `depths(v)` is read per raster rather than assumed
-shared.
+`mask()` puts the envelope on each raster's own depth levels before it masks,
+so each environmental raster gets its own occupancy voxel. Note `oxygen`
+reports three depths against temperature's five: the levels are read from the
+raster being masked, never assumed shared.
 
 ## Step 6: Collapsing back to an envelope
 
@@ -274,18 +274,17 @@ range_env <- vect_to_envelope(poly, grid, depth_min = 0,
 # 2. the environmental raster
 t_annual <- as_voxel(stack, depths = standard_depths, varname = "t_an")
 
-# 3. the range, on the raster's depth axis
-occ <- envelope_to_voxel(range_env, depths = depths(t_annual))
-
-# 4. the values inside the range
-in_range <- terra::mask(t_annual, occ)
+# 3. the values inside the range
+in_range <- mask(t_annual, range_env)
 ```
 
-Steps 3 and 4 compose into the one line to reach for whenever a voxel needs
-restricting to a species' per-cell depth window:
+Step 3 is the one line to reach for whenever a voxel needs restricting to a
+species' per-cell depth window. `mask()` is depth-aware for the package's 3D
+classes: it places the envelope on the voxel's own depth levels, as
+`envelope_to_voxel()` did by hand above, and masks layer by layer.
 
 ```{r idiom, eval = FALSE}
-terra::mask(rast_3d, envelope_to_voxel(range_env, depths(rast_3d)))
+mask(rast_3d, range_env)
 ```
 
 To restrict a voxel to a polygon and a single depth band across the whole area

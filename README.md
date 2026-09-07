@@ -86,9 +86,27 @@ usethis::edit_r_environ()
   numerics and rasters, so bathymetry is just one more constraint: per
   cell the deepest `depth_min` and the shallowest `depth_max` win.
 
-### 3D volume and overlap
+### 3D spatial query
 
-All three dispatch on the 3D representation, so they take either a
+Three verbs ask how a `SpatEnvelope` or `SpatVoxel` relates to another
+object in 3D. The other object can be a 3D object too, or a 2D one: a
+`SpatRaster` footprint or polygons (`SpatVector`, `sf`). A 2D object
+restricts the domain horizontally and leaves its depths alone.
+
+- `intersect_3d(x, y)` — the 3D space the two share. Returns an
+  envelope with the shared depth interval, or a presence voxel.
+- `intersects_3d(x, y)` — whether they share any 3D space, cell by cell:
+  `TRUE`, `FALSE` (both present but disjoint, or only one present), or
+  `NA` (neither present). Sum a stack of these for a richness map.
+- `mask(x, mask)` — `terra::mask()`, made depth-aware. Keeps the values
+  of `x` where the mask domain reaches that cell *at that depth*.
+
+`terra::intersect()` on a 3D object is an error that points to these,
+because terra’s version ignores depth.
+
+### 3D volume
+
+Both dispatch on the 3D representation, so they take either a
 `SpatEnvelope` or a `SpatVoxel`. A voxel's volume sums the slab each
 occupied depth level stands for, so interior gaps cost volume instead of
 being filled in. Given one of each, the envelope is discretized onto the
@@ -97,9 +115,7 @@ voxel's depth levels.
 - `volume()` — total 3D volume (km³) of a rasterized domain.
 - `calc_volume_overlap()` — per-cell depth intervals and volumes for two
   rasterized domains and their intersection (returns a 9-layer stack).
-- `count_3d_overlap()` — binary `1`/`NA` raster indicating where two
-  domains overlap both horizontally and vertically, for richness / tally
-  maps; computes only the presence pattern, no volumes.
+  Built on `intersect_3d()`.
 
 ### Environmental extraction (3D)
 
@@ -110,11 +126,10 @@ voxel's depth levels.
   layers within a depth range.
 
 To restrict a `SpatVoxel` to a species’ *per-cell* depth window —
-preserving each cell’s vertical refuge — put the range envelope on the
-voxel’s depth axis and mask with it:
+preserving each cell’s vertical refuge — mask it with the range envelope:
 
 ``` r
-terra::mask(rast_3d, envelope_to_voxel(range_env, depths(rast_3d)))
+mask(rast_3d, range_env)
 ```
 
 See `vignette("woa-species-range-voxels")` for the full workflow, from a
