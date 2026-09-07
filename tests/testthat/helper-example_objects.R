@@ -19,7 +19,7 @@ make_template <- function(vals = NA) {
               vals = vals, crs = "EPSG:4326")
 }
 make_elevation <- function(elev = -500) {
-  r <- sv_template()
+  r <- make_template()
   terra::values(r) <- elev
   r
 }

@@ -106,10 +106,13 @@ range_ext <- terra::intersect(
   terra::ext(terra::vect(sp_range)) + 1,
   terra::ext(-180, 180, -90, 90)
 )
-t_annual <- terra::crop(t_annual, range_ext)
+# as_voxel() re-wraps after the crop: terra operations propagate the class but
+# do not re-run its validity rules, so wrapping is how the depth axis is
+# re-checked. It is idempotent, so this is cheap.
+t_annual <- as_voxel(terra::crop(t_annual, range_ext))
 
-# Derive the study grid from the cropped raster so the two stay aligned, as
-# extract_rast_range() requires.
+# Derive the study grid from the cropped raster so the envelope and the voxel
+# stay on the same grid.
 study_grid <- t_annual[[1]]
 
 # Bathymetry -> positive depth, aligned to the study grid.
@@ -136,10 +139,12 @@ range_rast <- vect_to_envelope(
   depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
-# Mask temperature to the cells + depths the species actually occupies. The
-# grid is already scoped to the range, and cells outside the polygon are NA,
-# so no further cropping is needed.
-masked <- extract_rast_range(range_rast, t_annual)
+# Mask temperature to the cells + depths the species actually occupies.
+# envelope_to_voxel() puts the range envelope on the temperature stack's own
+# depth levels, so the two line up layer by layer. The grid is already scoped
+# to the range, and cells outside the polygon are NA, so no further cropping
+# is needed.
+masked <- terra::mask(t_annual, envelope_to_voxel(range_rast, depths(t_annual)))
 ```
 
 ## Figure 1: Animated GIF across all depths
@@ -151,7 +156,7 @@ colours are comparable across frames.
 ```{r figure-1-animation}
 long_df <- terra::as.data.frame(masked, xy = TRUE, na.rm = FALSE) |>
   pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value") |>
-  mutate(depth = as.numeric(str_extract(layer, "(?<=_depth=)-?[0-9.]+"))) |>
+  mutate(depth = depths(layer)) |>
   filter(!is.na(value))
 
 # Lock the legend to the global min/max so colour mapping is identical per frame.
@@ -205,7 +210,7 @@ deepest layer with data inside the range.
 
 ```{r figure-2-depths}
 # Depths of each masked layer, and which layers hold any data for this species.
-layer_depths <- as.numeric(str_extract(names(masked), "(?<=_depth=)-?[0-9.]+"))
+layer_depths <- depths(masked)
 has_data <- vapply(seq_len(terra::nlyr(masked)), function(i) {
   !all(is.na(terra::values(masked[[i]])))
 }, logical(1))
@@ -228,10 +233,10 @@ map per depth. `patchwork` stacks them vertically.
 # Map view of a species range with environmental values at the depth layer
 # nearest `depth`.
 plot_range_at_depth <- function(species_range, depth, rast_3d) {
-  depths <- as.numeric(str_extract(names(rast_3d), "(?<=_depth=)-?[0-9.]+"))
-  idx <- which.min(abs(depths - depth))
+  layer_depths <- depths(rast_3d)
+  idx <- which.min(abs(layer_depths - depth))
   layer <- rast_3d[[idx]]
-  actual_depth <- depths[idx]
+  actual_depth <- layer_depths[idx]
 
   range_vect <- if (inherits(species_range, "sf")) {
     terra::vect(species_range)

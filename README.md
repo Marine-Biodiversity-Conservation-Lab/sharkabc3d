@@ -88,22 +88,37 @@ usethis::edit_r_environ()
 
 ### 3D volume and overlap
 
-- `calc_volume()` — total 3D volume (km³) of a rasterized range.
+All three dispatch on the 3D representation, so they take either a
+`SpatEnvelope` or a `SpatVoxel`. A voxel's volume sums the slab each
+occupied depth level stands for, so interior gaps cost volume instead of
+being filled in. Given one of each, the envelope is discretized onto the
+voxel's depth levels.
+
+- `volume()` — total 3D volume (km³) of a rasterized domain.
 - `calc_volume_overlap()` — per-cell depth intervals and volumes for two
-  rasterized ranges and their intersection (returns a 9-layer stack).
+  rasterized domains and their intersection (returns a 9-layer stack).
 - `count_3d_overlap()` — binary `1`/`NA` raster indicating where two
-  ranges overlap both horizontally and vertically; thin wrapper for
-  richness / tally maps.
+  domains overlap both horizontally and vertically, for richness / tally
+  maps; computes only the presence pattern, no volumes.
 
 ### Environmental extraction (3D)
 
-- `extract_rast_range()` — mask a multi-depth environmental raster by a
-  rasterized range, preserving each cell’s vertical refuge.
-- `extract_rast_volume()` — crop a multi-depth raster to an area polygon
-  and select layers within a depth range.
-- `summarise_species_environment()` — summary statistics (min, max,
-  mean, cell counts) per environmental variable inside a species’
-  per-cell 3D range.
+- `depths()` — the depths a `SpatVoxel`’s layers stand for, parsed from
+  the `{variable}_depth={value}` layer names. Also accepts a bare
+  character vector of layer names.
+- `extract_to_area()` — crop a `SpatVoxel` to an area polygon and select
+  layers within a depth range.
+
+To restrict a `SpatVoxel` to a species’ *per-cell* depth window —
+preserving each cell’s vertical refuge — put the range envelope on the
+voxel’s depth axis and mask with it:
+
+``` r
+terra::mask(rast_3d, envelope_to_voxel(range_env, depths(rast_3d)))
+```
+
+See `vignette("woa-species-range-voxels")` for the full workflow, from a
+range polygon through to summary statistics.
 
 ### World Ocean Atlas 2023 utilities
 

@@ -93,3 +93,102 @@
   the seafloor raster, and the standard depths as separate arguments.
   `vect_to_envelope()` requires `polygon` and `template` to already share a CRS
   rather than projecting silently, so project the polygons yourself first.
+
+* `volume()` (renamed from `calc_volume()`), `calc_volume_overlap()` and
+  `count_3d_overlap()` become S4
+  generics dispatching on the 3D representation, so they now accept a
+  `SpatVoxel` as well as a `SpatEnvelope`. A voxel's volume sums the slab each
+  occupied depth level stands for, using the same `bounds` conventions as
+  `envelope_to_voxel()` and the same `fun` occupancy predicate as
+  `voxel_to_envelope()`, so interior gaps cost volume rather than being filled
+  in. Given one envelope and one voxel, the envelope is discretized onto the
+  voxel's depth levels — `voxel_to_envelope()` fills gaps and would overstate
+  an overlap.
+
+  Three breaking changes come with this. `calc_volume()` is renamed to
+  `volume()`, matching how `terra` names `area()`; the class is now the
+  contract, so a bare `SpatRaster` carrying `depth_min` / `depth_max` layers
+  is rejected rather than duck-typed; and the formals are `x` / `y`.
+
+  ```r
+  # before
+  calc_volume(range_rast)
+  calc_volume_overlap(range_rast_a = a, range_rast_b = b)
+
+  # after
+  volume(as_envelope(range_rast))
+  calc_volume_overlap(x = a, y = b)
+  ```
+
+  The three functions also now check that their two inputs share a grid
+  instead of taking cell areas from the first argument and reusing them for
+  the second, and `count_3d_overlap()` computes only the presence pattern
+  rather than the whole nine-layer overlap stack. Its output layer is named
+  `overlap`. Volumes for `SpatEnvelope` input are numerically unchanged.
+
+* Retire `R/extract.R`. Its contents predated the `SpatVoxel` / `SpatEnvelope`
+  classes and re-derived by hand what those classes now guarantee.
+
+* `extract_rast_range()` is retired. It was a thin wrapper over a masking
+  operation the class converters already express, so compose them directly:
+
+  ```r
+  # before
+  masked <- extract_rast_range(range_rast, rast_3d)
+
+  # after
+  masked <- terra::mask(rast_3d, envelope_to_voxel(range_rast, depths(rast_3d)))
+  ```
+
+  This is also a **behaviour fix**. `extract_rast_range()` tested exact point
+  containment (`depth_min <= depth & depth_max >= depth`), so an envelope that
+  fell between two depth levels occupied none of them and the cell disappeared:
+  `[10, 20]` against depths `c(0, 100, 200)` came back empty. `envelope_to_voxel()`
+  tests slab overlap — a cell occupies a level when its envelope overlaps the
+  slab that level stands for — so the same envelope now occupies the 0 m level.
+  It also brings a `bounds` argument for choosing where the slab edges fall
+  (`"top"` or the World Ocean Atlas `"midpoint"` convention).
+
+* `summarise_species_environment()` is retired. It computed summary statistics
+  over a masked voxel — analysis rather than package machinery — and now lives
+  as a `summarise_range()` helper inside
+  `vignette("woa-environmental-extraction")`, alongside the plotting helpers
+  retired the same way. The column contract (`{name}_min`, `{name}_max`,
+  `{name}_mean`, `{name}_n_surface_cells`, `{name}_n_cells`, `{name}_n_depths`)
+  is unchanged.
+
+* `extract_rast_volume()` is renamed to `extract_to_area()`, matching the
+  `extract_to_point()` family in `R/extract_to_points.R`. Its signature changes:
+  the voxel is now the second argument (target first, source second, as in
+  `extract_to_point()`) and the depth bounds are optional and named.
+
+  ```r
+  # before
+  extract_rast_volume(area, min_depth = 40, max_depth = 600, rast_3d = v)
+
+  # after
+  extract_to_area(area, v, min_depth = 40, max_depth = 600)
+  extract_to_area(area, v)                      # every layer
+  extract_to_area(area, v, min_depth = 40)      # 40 m to the deepest layer
+  ```
+
+  It now requires a `SpatVoxel` and returns one, accepts `sfc` areas alongside
+  `sf` and `SpatVector`, and compares CRS with `terra::same.crs()` rather than
+  string equality on WKT.
+
+* New `depths()`, exported. The depths a voxel's layers stand for, parsed from
+  the `{variable}_depth={value}` layer names — previously an internal helper in
+  `R/extract.R`, hand-copied into three articles. It accepts a `SpatVoxel`, any
+  `SpatRaster` following the convention, or a bare character vector of layer
+  names, which makes the row names of a `terra::global()` result directly
+  usable:
+
+  ```r
+  per_depth <- terra::global(v, "sum", na.rm = TRUE)
+  per_depth$depth <- depths(rownames(per_depth))
+  ```
+
+* New article, `vignette("woa-species-range-voxels")`: a species range polygon
+  to a `SpatEnvelope`, applied to a WOA-shaped `SpatVoxel`, through to the
+  overlapping voxel values and their summaries. Unlike the other articles it is
+  fully synthetic and runs, so it doubles as a worked check of the idioms above.

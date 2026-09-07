@@ -16,11 +16,11 @@ single-layer SpatRaster on the grid of \code{x} giving the limit per cell. Omit
 both when \code{x} already carries the two depth layers.}
 }
 \value{
-A \linkS4class{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
+A \link[=SpatEnvelope-class]{SpatEnvelope} with layers \code{depth_min} and \code{depth_max}, on
 the grid of \code{x}.
 }
 \description{
-Build a \linkS4class{SpatEnvelope} — one continuous \verb{[depth_min, depth_max]}
+Build a \link[=SpatEnvelope-class]{SpatEnvelope} — one continuous \verb{[depth_min, depth_max]}
 interval per grid cell — from a 2D horizontal footprint and the depth limits
 that apply to it. This is the general form of the conversion
 \code{\link[=vect_to_envelope]{vect_to_envelope()}} performs for polygons: any 2D raster whose non-\code{NA}
@@ -32,7 +32,7 @@ it.
 a rasterized species range, a Global Fishing Watch effort layer, or a plain
 presence mask all work. A SpatRaster that \emph{already} has exactly the two
 layers \code{depth_min} and \code{depth_max} (the output of \code{\link[=vect_to_envelope]{vect_to_envelope()}}, or a
-\linkS4class{SpatEnvelope} itself) is promoted directly instead, in which case
+\link[=SpatEnvelope-class]{SpatEnvelope} itself) is promoted directly instead, in which case
 \code{depth_min} and \code{depth_max} must be omitted.
 
 Depths are positive metres increasing downward, following the package's

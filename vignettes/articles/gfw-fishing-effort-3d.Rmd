@@ -578,11 +578,16 @@ range_rast <- vect_to_envelope(
 )
 
 # Mask the 3D effort stack to cells + depths inside the species' per-cell
-# depth window. extract_rast_range() reads the `effort_<gear>_depth=<value>`
-# layer names and keeps each layer's effort only where the species is
-# present at that depth. `purse_seines_3d` is already one gear, so it goes
-# in whole; a multi-gear stack would be subset by layer name first.
-exposed_effort <- extract_rast_range(range_rast, purse_seines_3d)
+# depth window. envelope_to_voxel() re-expresses the range envelope on the
+# effort stack's own depth levels — read off its `effort_<gear>_depth=<value>`
+# layer names by depths() — so the two line up layer by layer and terra::mask()
+# keeps each layer's effort only where the species is present at that depth.
+# `purse_seines_3d` is already one gear, so it goes in whole; a multi-gear
+# stack would be subset by layer name first.
+exposed_effort <- terra::mask(
+  purse_seines_3d,
+  envelope_to_voxel(range_rast, depths(purse_seines_3d))
+)
 
 # Total purse-seine effort-hours overlapping the silky shark's 3D range.
 total_exposed <- sum(
@@ -594,9 +599,7 @@ total_exposed
 
 # Per-depth exposure profile (effort-hours summed across cells, per layer).
 per_depth <- terra::global(exposed_effort, "sum", na.rm = TRUE)
-per_depth$depth <- as.numeric(
-  stringr::str_extract(rownames(per_depth), "(?<=_depth=)-?[0-9.]+")
-)
+per_depth$depth <- depths(rownames(per_depth))
 per_depth[!is.na(per_depth$sum) & per_depth$sum > 0,
           c("depth", "sum")]
 ```

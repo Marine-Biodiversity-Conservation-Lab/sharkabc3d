@@ -1017,3 +1017,66 @@ test_that("vect_to_envelope() returns NA values for cells where input raster dep
   expect_true(all(is.na(terra::values(new$depth_max)[gaps])))
   expect_true(all(is.na(terra::values(new$depth_min)[gaps])))
 })
+
+# Masking a voxel by an envelope is the package's "restrict a 3D raster to a
+# species' per-cell depth window" operation:
+#   terra::mask(v, envelope_to_voxel(e, depths(v)))
+# It replaced the retired extract_rast_range(), so its behaviour is pinned here.
+test_that("masking a voxel by an envelope respects the per-cell depth window", {
+  r <- terra::rast(nrows = 2, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 2,
+                   nlyrs = 3)
+  terra::values(r) <- cbind(rep(1, 4), rep(2, 4), rep(3, 4))
+  v <- as_voxel(r, depths = c(0, 100, 500), varname = "tan")
+
+  # Cells 1-2 reach 100 m; cells 3-4 reach 500 m.
+  fp <- terra::rast(v[[1]])
+  terra::values(fp) <- 1
+  e <- as_envelope(fp, depth_min = 0,
+                   depth_max = terra::setValues(terra::rast(fp),
+                                                c(100, 100, 500, 500)))
+
+  out <- terra::mask(v, envelope_to_voxel(e, depths(v)))
+
+  # Layer names survive the mask, so callers can still index by depth.
+  expect_equal(names(out), names(v))
+  # Every cell reaches 100 m; only the last two reach 500 m.
+  expect_equal(sum(!is.na(terra::values(out[["tan_depth=100"]]))), 4)
+  expect_equal(sum(!is.na(terra::values(out[["tan_depth=500"]]))), 2)
+  # Values themselves are untouched where the cell is in window.
+  expect_equal(unique(terra::values(out[["tan_depth=0"]])[, 1]), 1)
+})
+
+test_that("masking keeps a cell whose envelope falls between two depth levels", {
+  # A [10, 20] envelope contains none of c(0, 100, 200). Slab overlap places it
+  # in the 0 m level; the retired point-containment test dropped the cell
+  # entirely, which is the bug this idiom fixes.
+  r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+                   nlyrs = 3)
+  terra::values(r) <- cbind(c(1, 1), c(2, 2), c(3, 3))
+  v <- as_voxel(r, depths = c(0, 100, 200), varname = "tan")
+
+  fp <- terra::rast(v[[1]])
+  terra::values(fp) <- 1
+  e <- as_envelope(fp, depth_min = 10, depth_max = 20)
+
+  out <- terra::mask(v, envelope_to_voxel(e, depths(v)))
+
+  expect_equal(sum(!is.na(terra::values(out[["tan_depth=0"]]))), 2)
+  expect_true(all(is.na(terra::values(out[["tan_depth=100"]]))))
+  expect_true(all(is.na(terra::values(out[["tan_depth=200"]]))))
+})
+
+test_that("masking drops cells that are NA in the envelope", {
+  r <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1,
+                   nlyrs = 2)
+  terra::values(r) <- cbind(c(1, 1), c(2, 2))
+  v <- as_voxel(r, depths = c(0, 100), varname = "tan")
+
+  fp <- terra::rast(v[[1]])
+  terra::values(fp) <- c(1, NA)     # second cell absent
+  e <- as_envelope(fp, depth_min = 0, depth_max = 100)
+
+  out <- terra::mask(v, envelope_to_voxel(e, depths(v)))
+
+  expect_equal(sum(!is.na(terra::values(out))), 2)  # one cell x two depths
+})

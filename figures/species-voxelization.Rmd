@@ -41,7 +41,7 @@ that envelope onto the standard depths. Between them, a voxel is *present* when
 its cell lies inside the polygon **and** its standard depth falls within the
 species' depth band **and** the water column there reaches that depth. The
 result (Panel D) is a raster stack whose cells are coloured where the species is
-present and left empty (NA) where it is not — the object `calc_volume()` and
+present and left empty (NA) where it is not — the object `volume()` and
 `calc_volume_overlap()` measure.
 
 Both 3D panels use [rayrender](https://www.rayrender.net/), rendering each voxel
@@ -457,6 +457,6 @@ the final `fig-species-voxel.pdf` / `.png` used in the manuscript.
   passed as one more `depth_max` constraint, and [envelope_to_voxel()] expands
   the result onto the standard depths; present cells carry the species, absent
   cells are NA (empty space).
-- The resulting stack is what [calc_volume()] and [calc_volume_overlap()] measure
+- The resulting stack is what [volume()] and [calc_volume_overlap()] measure
   — the same representation as the environmental stacks in Figure 1.
 ```

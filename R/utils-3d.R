@@ -1,0 +1,133 @@
+# R/utils-3d.R
+#
+# Internal helpers shared by the operations on the package's two 3D
+# representations: R/volume.R (volume and volumetric overlap) and
+# R/intersect.R (spatial query). Nothing here is exported.
+#
+# SpatEnvelope and SpatVoxel both describe a 3D domain over a 2D grid, but they
+# store depth in dual roles -- the envelope as a per-cell value, the voxel as
+# the layer index. The helpers below are the pieces both files need to read
+# that domain: occupancy, presence, depth bounds, cell areas, and the checks
+# that two inputs can be combined at all.
+
+
+# Internal: cell areas in km^2. terra::cellSize() returns m^2 by default, and
+# every volume here is km^3, so the unit change happens once, in one place.
+.cell_area_km2 <- function(x) {
+  terra::cellSize(x[[1]], unit = "km")
+}
+
+# Internal: two domains can only be combined cell by cell if they are on the
+# same grid. Nothing upstream guarantees this -- the old code took cell areas
+# from the first argument and silently reused them for the second.
+.check_same_grid <- function(x, y) {
+  if (!terra::compareGeom(x, y, stopOnError = FALSE)) {
+    stop("`x` and `y` must be on the same grid (CRS, extent, resolution). ",
+         "Project or resample one onto the other first.", call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# Internal: reject arguments a method cannot act on, rather than letting the
+# generic's `...` swallow them. Passing `bounds` to a pair of envelopes is a
+# misunderstanding worth naming, not a no-op.
+.no_extra_args <- function(...) {
+  extra <- list(...)
+  if (length(extra) == 0L) return(invisible(TRUE))
+  nms <- names(extra)
+  nms <- if (is.null(nms)) rep("", length(extra)) else nms
+  nms[nms == ""] <- "<unnamed>"
+  stop("unused argument(s): ", paste(nms, collapse = ", "),
+       ". `bounds` and `fun` apply to SpatVoxel input only; a SpatEnvelope ",
+       "carries its depth interval per cell.", call. = FALSE)
+}
+
+# Internal: occupancy of a voxel as a 0/1 stack, one layer per depth, so it can
+# be multiplied by slab thicknesses directly. `fun` is the same predicate
+# argument voxel_to_envelope() takes, with the same default, applied one depth
+# layer at a time.
+.voxel_occupancy <- function(x, fun) {
+  if (!is.function(fun)) {
+    stop("`fun` must be a function taking one depth layer and returning a ",
+         "logical value per cell.", call. = FALSE)
+  }
+
+  occ <- terra::rast(lapply(seq_len(terra::nlyr(x)), function(i) {
+    hit <- fun(x[[i]])
+    if (!inherits(hit, "SpatRaster") || terra::nlyr(hit) != 1) {
+      stop("`fun` must return a single-layer SpatRaster when applied to one ",
+           "depth layer; got ", paste(class(hit), collapse = "/"), ".",
+           call. = FALSE)
+    }
+    # A cell the predicate rejects and a cell it could not judge are both
+    # unoccupied, so NA collapses to 0 instead of poisoning the layer sum.
+    terra::ifel(is.na(hit) | !hit, 0, 1)
+  }))
+  names(occ) <- names(x)
+  occ
+}
+
+# Internal: vertical extent each depth level stands for, in metres.
+# .depth_slabs() (create_3d_objects.R) owns the top/midpoint conventions; this
+# is only their height, so the two stay in step by construction.
+.slab_thickness <- function(depths, bounds) {
+  slab <- .depth_slabs(depths, bounds)
+  slab$upper - slab$lower
+}
+
+# Internal: per-cell occupied volume of a voxel, km^3. Summing thickness over
+# occupied layers is what makes an interior gap cost volume, which is the whole
+# reason the voxel path is not just voxel_to_envelope() plus the 2.5D formula.
+.voxel_cell_volume <- function(occ, depths, bounds, area_km2) {
+  thickness_m <- .slab_thickness(depths, bounds)
+  # The raster stays on the left of the operator: terra mishandles
+  # `numeric <op> SpatRaster`. The vector is recycled layer-wise.
+  occupied_m <- sum(occ * thickness_m)
+  area_km2 * (occupied_m / 1000)
+}
+
+# Internal: 1 where a cell is occupied at any depth, NA elsewhere -- the voxel
+# equivalent of a non-NA envelope cell.
+.voxel_present <- function(occ) {
+  terra::ifel(sum(occ) > 0, 1, NA)
+}
+
+# Internal: shallowest and deepest occupied level of an occupancy stack.
+# These are summary bounds only: a voxel with an interior gap is not solid
+# between them, which is why volumes are computed from the occupancy itself.
+.occupancy_bounds <- function(occ) {
+  voxel_to_envelope(as_voxel(occ), fun = function(v) v > 0)
+}
+
+# Internal: the shared depth levels of two voxels. Resampling one onto the
+# other would be a guess about the vertical axis the caller is better placed to
+# make, so a mismatch is an error.
+.shared_depths <- function(x, y) {
+  dx <- .parse_depth_layers(x)
+  dy <- .parse_depth_layers(y)
+  if (!isTRUE(all.equal(dx, dy))) {
+    stop("`x` and `y` must be sampled at the same depth levels; got ",
+         paste(dx, collapse = ", "), " and ", paste(dy, collapse = ", "),
+         ". Rebuild one on the other's depths.", call. = FALSE)
+  }
+  dx
+}
+
+# Internal: bring an envelope up to a voxel's depth levels. This direction, not
+# the reverse: envelope_to_voxel() quantizes, but voxel_to_envelope() fills
+# interior gaps, which would overstate an overlap.
+.promote_to_voxel <- function(e, v, bounds) {
+  envelope_to_voxel(e, depths = .parse_depth_layers(v), bounds = bounds)
+}
+
+# Internal: the class boundary is the contract. A raster that merely happens to
+# carry the right layer names is not one of the package's 3D representations --
+# duck-typing was how these functions used to accept a voxel silently and hand
+# back nonsense for it.
+.stop_not_volume <- function() {
+  stop("input must be a SpatEnvelope or a SpatVoxel, not a bare SpatRaster. ",
+       "Build one with as_envelope() or vect_to_envelope() for a 2.5D ",
+       "min-max envelope, or with as_voxel() for a multi-depth voxel model.",
+       call. = FALSE)
+}
+

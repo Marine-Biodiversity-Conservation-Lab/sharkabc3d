@@ -297,7 +297,7 @@ names(ocean)   # one layer per standard depth
 That model is a stack of cubes: at every ocean cell, the water column from the
 surface (0 m) down to the seafloor is sliced into voxels at the standard depths,
 with the deepest voxel clamped to the local seafloor. That is exactly the volume
-[vect_to_envelope()] fills for a feature and that [calc_volume()] and
+[vect_to_envelope()] fills for a feature and that [volume()] and
 [calc_volume_overlap()] measure.
 
 We render it with `rayrender`, which builds a path-traced scene from real 3D
@@ -505,7 +505,7 @@ Panel E drops those same plates to their true depths — spaced finely near the
 surface and widening below — their clamped bottoms tracing the seabed that Panel
 B renders as a surface: short over the shallow shelf and reaching deep in the
 south-east, absent over the north-west land. These plates are the same voxels [vect_to_envelope()] fills for a
-feature and that [calc_volume()] and [calc_volume_overlap()] measure. Because
+feature and that [volume()] and [calc_volume_overlap()] measure. Because
 `rayrender` path-traces real geometry, the render is deterministic and needs no
 browser or `webshot` step — `render_scene()` writes the PNG directly.
 
@@ -553,5 +553,5 @@ manuscript. All three live here in `figures/` alongside this source.
 - [as_envelope()] and [envelope_to_voxel()] turn them into the package's two
   representations, the 2.5D [SpatEnvelope-class] and the 3D [SpatVoxel-class].
 - The output is a voxelized ocean: per-cell columns of cubes clamped to the
-  seafloor, which [vect_to_envelope()], [calc_volume()], and
+  seafloor, which [vect_to_envelope()], [volume()], and
   [calc_volume_overlap()] operate on directly.

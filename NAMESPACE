@@ -2,18 +2,17 @@
 
 export(as_envelope)
 export(as_voxel)
-export(calc_volume)
 export(calc_volume_overlap)
 export(count_3d_overlap)
 export(create_study_raster)
+export(depths)
 export(envelope_to_voxel)
 export(extract2d)
 export(extract3d_all)
 export(extract3d_bottom)
 export(extract3d_nearest)
 export(extract3d_surface)
-export(extract_rast_range)
-export(extract_rast_volume)
+export(extract_to_area)
 export(extract_to_point)
 export(fetch_species_assessments)
 export(fill_missing_depths)
@@ -21,9 +20,9 @@ export(gfw_effort_to_raster)
 export(load_gebco_bathymetry)
 export(profile_equal)
 export(profile_flat)
-export(summarise_species_environment)
 export(temporal_summarise)
 export(vect_to_envelope)
+export(volume)
 export(voxel_to_envelope)
 export(woa_cache_clear)
 export(woa_cache_dir)
@@ -32,19 +31,32 @@ export(woa_load_nc)
 exportClasses(SpatEnvelope)
 exportClasses(SpatVolume)
 exportClasses(SpatVoxel)
+exportMethods(calc_volume_overlap)
+exportMethods(count_3d_overlap)
+exportMethods(volume)
 import(terra)
 importClassesFrom(terra,SpatRaster)
 importFrom(magrittr,"%>%")
-importFrom(methods,is)
-importFrom(methods,new)
-importFrom(methods,setClass)
-importFrom(methods,setClassUnion)
-importFrom(methods,setValidity)
-importFrom(methods,validObject)
-importFrom(rlang,"%||%")
-importFrom(rlang,.data)
+importFrom(methods,
+  is,
+  new,
+  setClass,
+  setClassUnion,
+  setGeneric,
+  setMethod,
+  setValidity,
+  validObject
+)
+importFrom(rlang,
+  "%||%",
+  .data
+)
 importFrom(sf,st_as_sf)
-importFrom(stringr,str_remove)
-importFrom(stringr,str_subset)
-importFrom(utils,setTxtProgressBar)
-importFrom(utils,txtProgressBar)
+importFrom(stringr,
+  str_remove,
+  str_subset
+)
+importFrom(utils,
+  setTxtProgressBar,
+  txtProgressBar
+)

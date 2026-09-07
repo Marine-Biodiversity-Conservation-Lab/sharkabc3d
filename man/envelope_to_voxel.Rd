@@ -41,11 +41,11 @@ rather than extrapolated.}
 \item{varname}{Name to use for depth layer, taking on form of \verb{\{varname\}_depth=\{depths[i]\}}}
 }
 \value{
-A \linkS4class{SpatVoxel} with one layer per depth in \code{depths}, on the
+A \link[=SpatVoxel-class]{SpatVoxel} with one layer per depth in \code{depths}, on the
 grid of \code{x}, layers ordered shallow to deep.
 }
 \description{
-Expand a \linkS4class{SpatEnvelope} to the \linkS4class{SpatVoxel}, with an input of
+Expand a \link[=SpatEnvelope-class]{SpatEnvelope} to the \link[=SpatVoxel-class]{SpatVoxel}, with an input of
 depth levels. A depth level belongs to a cell when it falls inside that
 cell's \verb{[depth_min, depth_max]} interval, inclusive of both ends; depths
 outside the interval, and cells that are \code{NA} in the envelope, are \code{NA} in

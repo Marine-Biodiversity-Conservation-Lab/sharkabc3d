@@ -294,8 +294,8 @@ with the overlap volume and proportion of each range's total volume.
 ```{r single-overlap}
 # Example: overlap between first species and first fishery
 overlap_rast <- calc_volume_overlap(
-  range_rast_a = species_rasters[[1]],
-  range_rast_b = fishery_rasters[[1]]
+  x = species_rasters[[1]],
+  y = fishery_rasters[[1]]
 )
 
 message(
@@ -333,8 +333,8 @@ for (i in seq_len(n_pairs)) {
   fi <- pairs$fishery[i]
 
   ov <- calc_volume_overlap(
-    range_rast_a = species_rasters[[sp]],
-    range_rast_b = fishery_rasters[[fi]]
+    x = species_rasters[[sp]],
+    y = fishery_rasters[[fi]]
   )
 
   overlap_rasters[[i]] <- ov
@@ -563,7 +563,7 @@ par(mfrow = c(1, 1))
 | Grid type | Hexagonal grid (1 km cells) | Raster grid (1 km cells) |
 | Depth handling | Uniform depth range across entire intersection footprint | Per-cell depth clamped to bathymetry via `vect_to_envelope()` |
 | Volume formula | area × depth_range (single depth per pair) | Sum of per-cell (cell_area × clamped depth) via `calc_volume_overlap()` |
-| Fishery/species richness maps | Custom ggplot code | `count_3d_overlaps()` + ggplot2 |
+| Fishery/species richness maps | Custom ggplot code | `count_3d_overlap()` + ggplot2 |
 | Species × fishery overlap maps | Custom ggplot code | `calc_volume_overlap()` + ggplot2/patchwork |
 | **Reproducibility** | **Single-use scripts** | **Reusable for any species x fishery** |
 
