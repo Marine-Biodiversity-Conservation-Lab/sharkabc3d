@@ -74,35 +74,70 @@ usethis::edit_r_environ()
 - [`create_study_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/create_study_raster.md)
   — build an empty study-area `SpatRaster` covering the combined extent
   of one or more spatial inputs.
-- [`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md)
-  — rasterize a single species range or fishery footprint and assign
-  per-cell `depth_min` / `depth_max` clamped to the seafloor.
-- [`voxelize_ranges()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_ranges.md)
-  — vectorised wrapper that rasterizes every row of an `sf` object with
-  its own depth limits.
+- [`vect_to_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/vect_to_envelope.md)
+  — rasterize a single species range or fishery footprint onto the study
+  grid and attach per-cell `depth_min` / `depth_max`, returning a
+  `SpatEnvelope`. Depth limits are lists mixing numerics and rasters, so
+  bathymetry is just one more constraint: per cell the deepest
+  `depth_min` and the shallowest `depth_max` win.
 
-### 3D volume and overlap
+### 3D spatial query
 
-- [`calc_volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume.md)
-  — total 3D volume (km³) of a rasterized range.
+Three verbs ask how a `SpatEnvelope` or `SpatVoxel` relates to another
+object in 3D. The other object can be a 3D object too, or a 2D one: a
+`SpatRaster` footprint or polygons (`SpatVector`, `sf`). A 2D object
+restricts the domain horizontally and leaves its depths alone.
+
+- `intersect_3d(x, y)` — the 3D space the two share. Returns an envelope
+  with the shared depth interval, or a presence voxel.
+- `intersects_3d(x, y)` — whether they share any 3D space, cell by cell:
+  `TRUE`, `FALSE` (both present but disjoint, or only one present), or
+  `NA` (neither present). Sum a stack of these for a richness map.
+- `mask(x, mask)` —
+  [`terra::mask()`](https://rspatial.github.io/terra/reference/mask.html),
+  made depth-aware. Keeps the values of `x` where the mask domain
+  reaches that cell *at that depth*.
+
+[`terra::intersect()`](https://rspatial.github.io/terra/reference/intersect.html)
+on a 3D object is an error that points to these, because terra’s version
+ignores depth.
+
+### 3D volume
+
+Both dispatch on the 3D representation, so they take either a
+`SpatEnvelope` or a `SpatVoxel`. A voxel’s volume sums the slab each
+occupied depth level stands for, so interior gaps cost volume instead of
+being filled in. Given one of each, the envelope is discretized onto the
+voxel’s depth levels.
+
+- [`volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/volume.md)
+  — total 3D volume (km³) of a rasterized domain.
 - [`calc_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume_overlap.md)
-  — per-cell depth intervals and volumes for two rasterized ranges and
-  their intersection (returns a 9-layer stack).
-- [`count_3d_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/count_3d_overlap.md)
-  — binary `1`/`NA` raster indicating where two ranges overlap both
-  horizontally and vertically; thin wrapper for richness / tally maps.
+  — per-cell depth intervals and volumes for two rasterized domains and
+  their intersection (returns a 9-layer stack). Built on
+  [`intersect_3d()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/intersect_3d.md).
 
 ### Environmental extraction (3D)
 
-- [`extract_rast_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_range.md)
-  — mask a multi-depth environmental raster by a rasterized range,
-  preserving each cell’s vertical refuge.
-- [`extract_rast_volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_volume.md)
-  — crop a multi-depth raster to an area polygon and select layers
-  within a depth range.
-- [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
-  — summary statistics (min, max, mean, cell counts) per environmental
-  variable inside a species’ per-cell 3D range.
+- [`depths()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/depths.md)
+  — the depths a `SpatVoxel`’s layers stand for, parsed from the
+  `{variable}_depth={value}` layer names. Also accepts a bare character
+  vector of layer names.
+- [`extract_to_area()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_area.md)
+  — crop a `SpatVoxel` to an area polygon and select layers within a
+  depth range.
+
+To restrict a `SpatVoxel` to a species’ *per-cell* depth window —
+preserving each cell’s vertical refuge — mask it with the range
+envelope:
+
+``` r
+
+mask(rast_3d, range_env)
+```
+
+See `vignette("woa-species-range-voxels")` for the full workflow, from a
+range polygon through to summary statistics.
 
 ### World Ocean Atlas 2023 utilities
 
@@ -129,11 +164,13 @@ usethis::edit_r_environ()
   — turn the long-format apparent-fishing-hours tibble from
   [`gfwr::gfw_ais_fishing_hours()`](https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html)
   into a multi-layer `SpatRaster`, one layer per gear (or other
-  grouping).
-- [`gfw_gear_depth_bands()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_gear_depth_bands.md)
-  — combine a single-gear effort raster with bathymetry and a
-  user-supplied gear-to-depth-band lookup to produce a depth-stratified
-  effort stack (pelagic, benthic, midwater, or unknown).
+  grouping). Extending that into 3D uses the general converters —
+  [`as_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/as_envelope.md)
+  and
+  [`envelope_to_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/envelope_to_voxel.md)
+  — driven by a gear-to-depth-band lookup. Those operating-depth priors
+  are analysis assumptions rather than package data, so they live in the
+  `gfw-fishing-effort-3d` article.
 
 ## Contributing
 

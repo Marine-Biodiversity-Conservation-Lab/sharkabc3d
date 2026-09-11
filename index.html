@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,6 +39,7 @@
     <li><a class="dropdown-item" href="articles/gfw-fishing-effort-3d.html">Depth-Stratified Fishing Effort from Global Fishing Watch</a></li>
     <li><a class="dropdown-item" href="articles/woa-environmental-extraction-single-species.html">Extracting 3D Environmental Data for a Single Species</a></li>
     <li><a class="dropdown-item" href="articles/woa-environmental-extraction.html">Extracting 3D Environmental Data for Sharks and Rays</a></li>
+    <li><a class="dropdown-item" href="articles/woa-species-range-voxels.html">Extracting Voxel Values Within a Species' 3D Range</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -108,21 +109,32 @@
 <li>
 <code><a href="reference/create_study_raster.html">create_study_raster()</a></code> — build an empty study-area <code>SpatRaster</code> covering the combined extent of one or more spatial inputs.</li>
 <li>
-<code><a href="reference/voxelize_range.html">voxelize_range()</a></code> — rasterize a single species range or fishery footprint and assign per-cell <code>depth_min</code> / <code>depth_max</code> clamped to the seafloor.</li>
-<li>
-<code><a href="reference/voxelize_ranges.html">voxelize_ranges()</a></code> — vectorised wrapper that rasterizes every row of an <code>sf</code> object with its own depth limits.</li>
+<code><a href="reference/vect_to_envelope.html">vect_to_envelope()</a></code> — rasterize a single species range or fishery footprint onto the study grid and attach per-cell <code>depth_min</code> / <code>depth_max</code>, returning a <code>SpatEnvelope</code>. Depth limits are lists mixing numerics and rasters, so bathymetry is just one more constraint: per cell the deepest <code>depth_min</code> and the shallowest <code>depth_max</code> win.</li>
 </ul>
 </div>
 <div class="section level3">
-<h3 id="id_3d-volume-and-overlap">3D volume and overlap<a class="anchor" aria-label="anchor" href="#id_3d-volume-and-overlap"></a>
+<h3 id="id_3d-spatial-query">3D spatial query<a class="anchor" aria-label="anchor" href="#id_3d-spatial-query"></a>
 </h3>
+<p>Three verbs ask how a <code>SpatEnvelope</code> or <code>SpatVoxel</code> relates to another object in 3D. The other object can be a 3D object too, or a 2D one: a <code>SpatRaster</code> footprint or polygons (<code>SpatVector</code>, <code>sf</code>). A 2D object restricts the domain horizontally and leaves its depths alone.</p>
 <ul>
 <li>
-<code><a href="reference/calc_volume.html">calc_volume()</a></code> — total 3D volume (km³) of a rasterized range.</li>
+<code>intersect_3d(x, y)</code> — the 3D space the two share. Returns an envelope with the shared depth interval, or a presence voxel.</li>
 <li>
-<code><a href="reference/calc_volume_overlap.html">calc_volume_overlap()</a></code> — per-cell depth intervals and volumes for two rasterized ranges and their intersection (returns a 9-layer stack).</li>
+<code>intersects_3d(x, y)</code> — whether they share any 3D space, cell by cell: <code>TRUE</code>, <code>FALSE</code> (both present but disjoint, or only one present), or <code>NA</code> (neither present). Sum a stack of these for a richness map.</li>
 <li>
-<code><a href="reference/count_3d_overlap.html">count_3d_overlap()</a></code> — binary <code>1</code>/<code>NA</code> raster indicating where two ranges overlap both horizontally and vertically; thin wrapper for richness / tally maps.</li>
+<code>mask(x, mask)</code> — <code><a href="https://rspatial.github.io/terra/reference/mask.html" class="external-link">terra::mask()</a></code>, made depth-aware. Keeps the values of <code>x</code> where the mask domain reaches that cell <em>at that depth</em>.</li>
+</ul>
+<p><code><a href="https://rspatial.github.io/terra/reference/intersect.html" class="external-link">terra::intersect()</a></code> on a 3D object is an error that points to these, because terra’s version ignores depth.</p>
+</div>
+<div class="section level3">
+<h3 id="id_3d-volume">3D volume<a class="anchor" aria-label="anchor" href="#id_3d-volume"></a>
+</h3>
+<p>Both dispatch on the 3D representation, so they take either a <code>SpatEnvelope</code> or a <code>SpatVoxel</code>. A voxel’s volume sums the slab each occupied depth level stands for, so interior gaps cost volume instead of being filled in. Given one of each, the envelope is discretized onto the voxel’s depth levels.</p>
+<ul>
+<li>
+<code><a href="reference/volume.html">volume()</a></code> — total 3D volume (km³) of a rasterized domain.</li>
+<li>
+<code><a href="reference/calc_volume_overlap.html">calc_volume_overlap()</a></code> — per-cell depth intervals and volumes for two rasterized domains and their intersection (returns a 9-layer stack). Built on <code><a href="reference/intersect_3d.html">intersect_3d()</a></code>.</li>
 </ul>
 </div>
 <div class="section level3">
@@ -130,12 +142,14 @@
 </h3>
 <ul>
 <li>
-<code><a href="reference/extract_rast_range.html">extract_rast_range()</a></code> — mask a multi-depth environmental raster by a rasterized range, preserving each cell’s vertical refuge.</li>
+<code><a href="reference/depths.html">depths()</a></code> — the depths a <code>SpatVoxel</code>’s layers stand for, parsed from the <code>{variable}_depth={value}</code> layer names. Also accepts a bare character vector of layer names.</li>
 <li>
-<code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code> — crop a multi-depth raster to an area polygon and select layers within a depth range.</li>
-<li>
-<code><a href="reference/summarise_species_environment.html">summarise_species_environment()</a></code> — summary statistics (min, max, mean, cell counts) per environmental variable inside a species’ per-cell 3D range.</li>
+<code><a href="reference/extract_to_area.html">extract_to_area()</a></code> — crop a <code>SpatVoxel</code> to an area polygon and select layers within a depth range.</li>
 </ul>
+<p>To restrict a <code>SpatVoxel</code> to a species’ <em>per-cell</em> depth window — preserving each cell’s vertical refuge — mask it with the range envelope:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">mask</span><span class="op">(</span><span class="va">rast_3d</span>, <span class="va">range_env</span><span class="op">)</span></span></code></pre></div>
+<p>See <code>vignette("woa-species-range-voxels")</code> for the full workflow, from a range polygon through to summary statistics.</p>
 </div>
 <div class="section level3">
 <h3 id="world-ocean-atlas-2023-utilities">World Ocean Atlas 2023 utilities<a class="anchor" aria-label="anchor" href="#world-ocean-atlas-2023-utilities"></a>
@@ -158,9 +172,7 @@
 </h3>
 <ul>
 <li>
-<code><a href="reference/gfw_effort_to_raster.html">gfw_effort_to_raster()</a></code> — turn the long-format apparent-fishing-hours tibble from <code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfwr::gfw_ais_fishing_hours()</a></code> into a multi-layer <code>SpatRaster</code>, one layer per gear (or other grouping).</li>
-<li>
-<code><a href="reference/gfw_gear_depth_bands.html">gfw_gear_depth_bands()</a></code> — combine a single-gear effort raster with bathymetry and a user-supplied gear-to-depth-band lookup to produce a depth-stratified effort stack (pelagic, benthic, midwater, or unknown).</li>
+<code><a href="reference/gfw_effort_to_raster.html">gfw_effort_to_raster()</a></code> — turn the long-format apparent-fishing-hours tibble from <code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfwr::gfw_ais_fishing_hours()</a></code> into a multi-layer <code>SpatRaster</code>, one layer per gear (or other grouping). Extending that into 3D uses the general converters — <code><a href="reference/as_envelope.html">as_envelope()</a></code> and <code><a href="reference/envelope_to_voxel.html">envelope_to_voxel()</a></code> — driven by a gear-to-depth-band lookup. Those operating-depth priors are analysis assumptions rather than package data, so they live in the <code>gfw-fishing-effort-3d</code> article.</li>
 </ul>
 </div>
 </div>

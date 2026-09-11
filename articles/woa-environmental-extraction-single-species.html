@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/gfw-fishing-effort-3d.html">Depth-Stratified Fishing Effort from Global Fishing Watch</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction-single-species.html">Extracting 3D Environmental Data for a Single Species</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction.html">Extracting 3D Environmental Data for Sharks and Rays</a></li>
+    <li><a class="dropdown-item" href="../articles/woa-species-range-voxels.html">Extracting Voxel Values Within a Species' 3D Range</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -154,17 +155,20 @@ filtering.</p>
 <span><span class="va">t_annual</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/woa_load_nc.html">woa_load_nc</a></span><span class="op">(</span><span class="va">t_annual_path</span>, field <span class="op">=</span> <span class="st">"an"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Crop to the species range (plus a ~1 degree margin) before any heavy work.</span></span>
-<span><span class="co"># WOA ships globally, but the bathymetry projection, voxelization, and</span></span>
+<span><span class="co"># WOA ships globally, but the bathymetry projection, envelope construction, and</span></span>
 <span><span class="co"># per-depth masking all cost in proportion to grid size. A circumglobal range</span></span>
 <span><span class="co"># whose bbox spans the antimeridian makes this a no-op.</span></span>
 <span><span class="va">range_ext</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/intersect.html" class="external-link">intersect</a></span><span class="op">(</span></span>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/ext.html" class="external-link">ext</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/vect.html" class="external-link">vect</a></span><span class="op">(</span><span class="va">sp_range</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> <span class="fl">1</span>,</span>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/ext.html" class="external-link">ext</a></span><span class="op">(</span><span class="op">-</span><span class="fl">180</span>, <span class="fl">180</span>, <span class="op">-</span><span class="fl">90</span>, <span class="fl">90</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">t_annual</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/crop.html" class="external-link">crop</a></span><span class="op">(</span><span class="va">t_annual</span>, <span class="va">range_ext</span><span class="op">)</span></span>
+<span><span class="co"># as_voxel() re-wraps after the crop: terra operations propagate the class but</span></span>
+<span><span class="co"># do not re-run its validity rules, so wrapping is how the depth axis is</span></span>
+<span><span class="co"># re-checked. It is idempotent, so this is cheap.</span></span>
+<span><span class="va">t_annual</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_voxel.html">as_voxel</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/crop.html" class="external-link">crop</a></span><span class="op">(</span><span class="va">t_annual</span>, <span class="va">range_ext</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Derive the study grid from the cropped raster so the two stay aligned, as</span></span>
-<span><span class="co"># extract_rast_range() requires.</span></span>
+<span><span class="co"># Derive the study grid from the cropped raster so the envelope and the voxel</span></span>
+<span><span class="co"># stay on the same grid.</span></span>
 <span><span class="va">study_grid</span> <span class="op">&lt;-</span> <span class="va">t_annual</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
 <span></span>
 <span><span class="co"># Bathymetry -&gt; positive depth, aligned to the study grid.</span></span>
@@ -176,24 +180,26 @@ filtering.</p>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span>lower <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="step-4-voxelize-the-species-range">Step 4: Voxelize the species range<a class="anchor" aria-label="anchor" href="#step-4-voxelize-the-species-range"></a>
+<h3 id="step-4-build-the-species-depth-envelope">Step 4: Build the species’ depth envelope<a class="anchor" aria-label="anchor" href="#step-4-build-the-species-depth-envelope"></a>
 </h3>
-<p><code><a href="../reference/voxelize_range.html">voxelize_range()</a></code> builds the per-cell depth window,
-clamping the species’ nominal depth limits to the seafloor at each
-cell.</p>
+<p><code><a href="../reference/vect_to_envelope.html">vect_to_envelope()</a></code> builds the per-cell depth window. The
+seafloor goes in as one more <code>depth_max</code> constraint, so the
+species’ nominal lower limit is clamped to the bed wherever the bed is
+shallower; per cell the shallowest <code>depth_max</code> wins.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">range_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/voxelize_range.html">voxelize_range</a></span><span class="op">(</span></span>
-<span>  polygons <span class="op">=</span> <span class="va">sp_range</span>,</span>
-<span>  voxel <span class="op">=</span> <span class="va">study_grid</span>,</span>
-<span>  bathymetry <span class="op">=</span> <span class="va">seafloor</span>,</span>
+<code class="sourceCode R"><span><span class="va">range_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/vect_to_envelope.html">vect_to_envelope</a></span><span class="op">(</span></span>
+<span>  polygon <span class="op">=</span> <span class="va">sp_range</span>,</span>
+<span>  template <span class="op">=</span> <span class="va">study_grid</span>,</span>
 <span>  depth_min <span class="op">=</span> <span class="va">sp_depths</span><span class="op">$</span><span class="va">upper_depth</span>,</span>
-<span>  depth_max <span class="op">=</span> <span class="va">sp_depths</span><span class="op">$</span><span class="va">lower_depth</span></span>
+<span>  depth_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">sp_depths</span><span class="op">$</span><span class="va">lower_depth</span>, <span class="va">seafloor</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Mask temperature to the cells + depths the species actually occupies. The</span></span>
-<span><span class="co"># grid is already scoped to the range, and cells outside the polygon are NA,</span></span>
-<span><span class="co"># so no further cropping is needed.</span></span>
-<span><span class="va">masked</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/extract_rast_range.html">extract_rast_range</a></span><span class="op">(</span><span class="va">range_rast</span>, <span class="va">t_annual</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Mask temperature to the cells + depths the species actually occupies.</span></span>
+<span><span class="co"># mask() is depth-aware for an envelope: it puts the range on the temperature</span></span>
+<span><span class="co"># stack's own depth levels and masks layer by layer. The grid is already</span></span>
+<span><span class="co"># scoped to the range, and cells outside the polygon are NA, so no further</span></span>
+<span><span class="co"># cropping is needed.</span></span>
+<span><span class="va">masked</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/mask.html" class="external-link">mask</a></span><span class="op">(</span><span class="va">t_annual</span>, <span class="va">range_rast</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="figure-1-animated-gif-across-all-depths">Figure 1: Animated GIF across all depths<a class="anchor" aria-label="anchor" href="#figure-1-animated-gif-across-all-depths"></a>
@@ -204,7 +210,7 @@ temperature range so colours are comparable across frames.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">long_df</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">masked</span>, xy <span class="op">=</span> <span class="cn">TRUE</span>, na.rm <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/pivot_longer.html" class="external-link">pivot_longer</a></span><span class="op">(</span>cols <span class="op">=</span> <span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span>, names_to <span class="op">=</span> <span class="st">"layer"</span>, values_to <span class="op">=</span> <span class="st">"value"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>depth <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_extract.html" class="external-link">str_extract</a></span><span class="op">(</span><span class="va">layer</span>, <span class="st">"(?&lt;=_depth=)-?[0-9.]+"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>depth <span class="op">=</span> <span class="fu"><a href="../reference/depths.html">depths</a></span><span class="op">(</span><span class="va">layer</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">value</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Lock the legend to the global min/max so colour mapping is identical per frame.</span></span>
@@ -258,7 +264,7 @@ the surface (0 m), the standard WOA depth closest to the halfway point,
 and the deepest layer with data inside the range.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Depths of each masked layer, and which layers hold any data for this species.</span></span>
-<span><span class="va">layer_depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_extract.html" class="external-link">str_extract</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">masked</span><span class="op">)</span>, <span class="st">"(?&lt;=_depth=)-?[0-9.]+"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">layer_depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/depths.html">depths</a></span><span class="op">(</span><span class="va">masked</span><span class="op">)</span></span>
 <span><span class="va">has_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">nlyr</a></span><span class="op">(</span><span class="va">masked</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">masked</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/logical.html" class="external-link">logical</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
@@ -279,10 +285,10 @@ this article rather than exported by the package — it is a thin
 <code class="sourceCode R"><span><span class="co"># Map view of a species range with environmental values at the depth layer</span></span>
 <span><span class="co"># nearest `depth`.</span></span>
 <span><span class="va">plot_range_at_depth</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">species_range</span>, <span class="va">depth</span>, <span class="va">rast_3d</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_extract.html" class="external-link">str_extract</a></span><span class="op">(</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">rast_3d</span><span class="op">)</span>, <span class="st">"(?&lt;=_depth=)-?[0-9.]+"</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="va">idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/summarize-generics.html" class="external-link">which.min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">depths</span> <span class="op">-</span> <span class="va">depth</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">layer_depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/depths.html">depths</a></span><span class="op">(</span><span class="va">rast_3d</span><span class="op">)</span></span>
+<span>  <span class="va">idx</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/summarize-generics.html" class="external-link">which.min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">layer_depths</span> <span class="op">-</span> <span class="va">depth</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">layer</span> <span class="op">&lt;-</span> <span class="va">rast_3d</span><span class="op">[[</span><span class="va">idx</span><span class="op">]</span><span class="op">]</span></span>
-<span>  <span class="va">actual_depth</span> <span class="op">&lt;-</span> <span class="va">depths</span><span class="op">[</span><span class="va">idx</span><span class="op">]</span></span>
+<span>  <span class="va">actual_depth</span> <span class="op">&lt;-</span> <span class="va">layer_depths</span><span class="op">[</span><span class="va">idx</span><span class="op">]</span></span>
 <span></span>
 <span>  <span class="va">range_vect</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits</a></span><span class="op">(</span><span class="va">species_range</span>, <span class="st">"sf"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/vect.html" class="external-link">vect</a></span><span class="op">(</span><span class="va">species_range</span><span class="op">)</span></span>

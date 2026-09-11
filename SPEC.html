@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@
     <li><a class="dropdown-item" href="articles/gfw-fishing-effort-3d.html">Depth-Stratified Fishing Effort from Global Fishing Watch</a></li>
     <li><a class="dropdown-item" href="articles/woa-environmental-extraction-single-species.html">Extracting 3D Environmental Data for a Single Species</a></li>
     <li><a class="dropdown-item" href="articles/woa-environmental-extraction.html">Extracting 3D Environmental Data for Sharks and Rays</a></li>
+    <li><a class="dropdown-item" href="articles/woa-species-range-voxels.html">Extracting Voxel Values Within a Species' 3D Range</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -83,7 +84,7 @@
 <p>Multi-depth rasters used by <code>sharkabc3d</code> must encode depth in layer names using the format <code>{variable}_{field}_depth={value}</code> (e.g., <code>t_an_depth=0</code>, <code>t_an_depth=100</code> for temperature with annual means at 0 and 100 m depths).</p>
 <p>The convention for the depth bounds that a given raster layer represents depends on source netCDF. For example, WOA provides standard depth levels and explicit depth_bnds. For example, the 0 m layer has bounds from 0 to 2.5 m, the 5 m layer 2.5–7.5 m, the 10 m layer 7.5–12.5 m, etc.</p>
 <p>In these rasters, there is a continuous representation of values across x, y, and depth dimensions. For environmental variables, this could be temperature in degrees C at each coordinate and depth. For a species range, this could be probability of occurrence at each coordinate an depth.</p>
-<p>Data source utilities are responsible for converting other formats into this convention. Functions like <code><a href="reference/extract_rast_volume.html">extract_rast_volume()</a></code> parse layer names to determine which depth layers to select for a given depth range.</p>
+<p>Data source utilities are responsible for converting other formats into this convention. Layer names are parsed by <code><a href="reference/depths.html">depths()</a></code>, which utilities such as <code><a href="reference/extract_to_area.html">extract_to_area()</a></code> use to determine which depth layers to select for a given depth range.</p>
 </div>
 <div class="section level3">
 <h3 id="id_3d-min-max-25d">3D (Min-max 2.5D)<a class="anchor" aria-label="anchor" href="#id_3d-min-max-25d"></a></h3>
@@ -116,9 +117,14 @@
 <strong>Convert 2D rasters to 2.5D</strong>. When depth ranges are available, use that to convert 2D raster data into 2.5D representations. Ex. working with Global Fishing Watch data on fishing effort by gear type.</li>
 </ul></div>
 <div class="section level3">
+<h3 id="spatial-query">Spatial query<a class="anchor" aria-label="anchor" href="#spatial-query"></a></h3>
+<p>Three verbs cover every pairing of a 3D object (<code>SpatEnvelope</code>, <code>SpatVoxel</code>) with another 3D object or with a 2D one (a <code>SpatRaster</code> footprint, or polygons). A 2D object restricts the domain horizontally and leaves its depths alone. - <strong><code>intersect_3d(x, y)</code></strong>: the 3D space the two share. Two envelopes intersect their depth intervals; two voxels keep the levels both occupy; an envelope is placed on a voxel’s levels before the two are compared. The result is a domain, never field values. - <strong><code>intersects_3d(x, y)</code></strong>: whether they share any 3D space, cell by cell, with terra’s three answers: <code>TRUE</code>, <code>FALSE</code> (both present but disjoint, or only one present), <code>NA</code> (neither present). - <strong><code>mask(x, mask)</code></strong>: <code><a href="https://rspatial.github.io/terra/reference/mask.html" class="external-link">terra::mask()</a></code> made depth-aware. Keeps <code>x</code>’s values where the mask domain reaches that cell at that depth. A voxel masked by an envelope puts the envelope on the voxel’s own levels, so the caller cannot misalign them.</p>
+<p><code><a href="https://rspatial.github.io/terra/reference/intersect.html" class="external-link">terra::intersect()</a></code> is a 2D test, so on a 3D object it is an error pointing to the verbs above. Dispatch names concrete classes only: S4 prefers a <code>SpatRaster</code> method over one on the <code>SpatVolume</code> union, so the union is a documentation device, not a dispatch target.</p>
+</div>
+<div class="section level3">
 <h3 id="volume-calculations">Volume calculations<a class="anchor" aria-label="anchor" href="#volume-calculations"></a></h3>
 <ul><li>
-<strong>Calculate the volume occupied by 2.5D representation</strong>. Each rasterized range stores presence plus <code>depth_min/depth_max</code> per cell, clamped to the seafloor. Volume is the sum of <code>cell_area × (depth_max - depth_min)</code> over present cells; overlap between two ranges is the same arithmetic on the intersected depth window.</li>
+<strong>Calculate the volume occupied by 2.5D representation</strong>. Each rasterized range stores presence plus <code>depth_min/depth_max</code> per cell, clamped to the seafloor. Volume is the sum of <code>cell_area × (depth_max - depth_min)</code> over present cells. The overlap between two domains is the volume of <code><a href="reference/intersect_3d.html">intersect_3d()</a></code>’s result, measured the same way.</li>
 <li>
 <strong>Calculate the volume occupied by 3D representation</strong>. Each raster layer has a height that it represents, which is defined by the height difference from the next raster layer. Ex. <code>t_an_depth=0</code>, <code>t_an_depth=100</code> would mean that the first <code>t_an_depth=0</code> layer has a height of 100m.</li>
 </ul></div>

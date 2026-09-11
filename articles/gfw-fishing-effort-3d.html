@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/gfw-fishing-effort-3d.html">Depth-Stratified Fishing Effort from Global Fishing Watch</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction-single-species.html">Extracting 3D Environmental Data for a Single Species</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction.html">Extracting 3D Environmental Data for Sharks and Rays</a></li>
+    <li><a class="dropdown-item" href="../articles/woa-species-range-voxels.html">Extracting Voxel Values Within a Species' 3D Range</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -71,65 +72,78 @@
 <div class="section level2">
 <h2 id="depth-stratified-fishing-effort-from-global-fishing-watch">Depth-Stratified Fishing Effort from Global Fishing Watch<a class="anchor" aria-label="anchor" href="#depth-stratified-fishing-effort-from-global-fishing-watch"></a>
 </h2>
-<p>This vignette walks through turning Global Fishing Watch (GFW)
-apparent fishing-effort data from a flat, 2D per-cell product into a
-<strong>3D, depth-stratified effort stack</strong> that can be
-intersected with shark and ray ranges via [calc_volume_overlap()].</p>
-<p>Ingest is delegated to the <a href="https://globalfishingwatch.github.io/gfwr/" class="external-link">gfwr</a> package,
-which queries the GFW 4Wings API and returns effort already aggregated
-per cell × group. <code>sharkabc3d</code> covers the two steps gfwr does
-not: rasterising onto the canonical study grid, and extending the 2D
-effort product into a 3D depth-stratified stack via gear-class depth
-priors and bathymetry. Both steps are implemented —
-<code><a href="../reference/gfw_effort_to_raster.html">gfw_effort_to_raster()</a></code> and
-<code><a href="../reference/gfw_gear_depth_bands.html">gfw_gear_depth_bands()</a></code> — but chunks here are
-<code>eval = FALSE</code> because they need a <code>GFW_TOKEN</code> and
-a local bathymetry grid.</p>
+<p>This article turns Global Fishing Watch (GFW) fishing-effort data
+from a flat 2D map into a <strong>3D stack with one layer per
+depth</strong>. You can then overlap that stack with shark and ray
+ranges using [calc_volume_overlap()].</p>
+<p>Three tools do the work:</p>
+<ul>
+<li>
+<a href="https://globalfishingwatch.github.io/gfwr/" class="external-link">gfwr</a>
+fetches the effort data from the GFW API.</li>
+<li>[gfw_effort_to_raster()] puts it on your study grid.</li>
+<li>[as_envelope()] and [envelope_to_voxel()] extend it into 3D.</li>
+</ul>
+<p>The depth at which each gear fishes is an assumption, not a
+measurement. This article therefore defines it as a lookup table you
+edit, instead of the package shipping one.</p>
 <div class="section level3">
-<h3 id="what-gfw-provides-and-what-we-need">What GFW provides, and what we need<a class="anchor" aria-label="anchor" href="#what-gfw-provides-and-what-we-need"></a>
+<h3 id="what-gfw-gives-you-and-what-is-missing">What GFW gives you, and what is missing<a class="anchor" aria-label="anchor" href="#what-gfw-gives-you-and-what-is-missing"></a>
 </h3>
 <p>GFW (Kroodsma et al. 2018, <em>Science</em>) publishes apparent
-fishing effort in fishing hours per grid cell × time × flag state × gear
-type. It is a <strong>2D raster product</strong>: a longline set hooks
-at 80 m and a bottom trawl scraping the seafloor at 400 m both appear as
-undifferentiated “effort” pixels. For species with strong vertical
-habitat partitioning, flat overlap over- or under-counts risk.</p>
+fishing effort as hours per grid cell, time period, flag state, and gear
+type. The product is <strong>2D</strong>. A longline fishing at 80 m and
+a bottom trawl working the seafloor at 400 m both appear as the same
+kind of effort pixel. If a species uses only part of the water column,
+measuring its overlap against flat effort will over- or under-state the
+risk.</p>
 <p>The workflow has three steps:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>Fetch</strong> effort for a region with
-<code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfwr::gfw_ais_fishing_hours()</a></code>, grouped by gear type (and
-optionally flag).</li>
+<code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfwr::gfw_ais_fishing_hours()</a></code>, grouped by gear type.</li>
 <li>
-<strong>Rasterise</strong> the returned tibble onto a target grid,
-one layer per group level, with [gfw_effort_to_raster()].</li>
+<strong>Rasterise</strong> it onto your study grid with
+[gfw_effort_to_raster()], one layer per gear.</li>
 <li>
-<strong>Extend into 3D</strong> by attaching a depth window per gear
-class and clamping benthic gears to bathymetry, producing a stack
-indexed by <code>effort_&lt;geartype&gt;_depth=&lt;value&gt;</code> with
-[gfw_gear_depth_bands()].</li>
+<strong>Extend into 3D</strong>. Give each gear a depth window, then
+turn that window into depth layers with [as_envelope()] and
+[envelope_to_voxel()]. The result is a stack named
+<code>effort_&lt;geartype&gt;_depth=&lt;value&gt;</code>.</li>
 </ol>
 </div>
 <div class="section level3">
-<h3 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
+<h3 id="before-you-start">Before you start<a class="anchor" aria-label="anchor" href="#before-you-start"></a>
 </h3>
+<p>You need three things:</p>
+<ul>
+<li>
+<strong>A GFW API token.</strong> Register at <a href="https://globalfishingwatch.org/our-apis/tokens" class="external-link uri">https://globalfishingwatch.org/our-apis/tokens</a>, then set
+the key as the <code>GFW_TOKEN</code> environment variable.
+<code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_auth.html" class="external-link">gfwr::gfw_auth()</a></code> reads it from there.</li>
+<li>
+<strong>A local bathymetry file.</strong> The examples use
+GEBCO.</li>
+<li>
+<strong>Your own file paths.</strong> The paths below point to one
+machine. Replace them with yours.</li>
+</ul>
+<p>The code chunks do not run when this article is built, so every
+output shown is an illustration rather than a live result.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># library(sharkabc3d)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rspatial.org/" class="external-link">terra</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://here.r-lib.org/" class="external-link">here</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/GlobalFishingWatch/gfwr" class="external-link">gfwr</a></span><span class="op">)</span></span></code></pre></div>
-<p><code>gfwr</code> requires an API token. Register at <a href="https://globalfishingwatch.org/our-apis/tokens" class="external-link uri">https://globalfishingwatch.org/our-apis/tokens</a> and put
-the key in the <code>GFW_TOKEN</code> environment variable;
-<code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_auth.html" class="external-link">gfwr::gfw_auth()</a></code> will pick it up.</p>
 </div>
 <div class="section level3">
 <h3 id="step-1-fetch-apparent-fishing-effort">Step 1: Fetch apparent fishing effort<a class="anchor" aria-label="anchor" href="#step-1-fetch-apparent-fishing-effort"></a>
 </h3>
-<p><code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfw_ais_fishing_hours()</a></code> returns a long-format tibble
-with one row per cell × time bucket × group level. For an EEZ, MPA, or
-RFMO region, first resolve the human-readable name to the numeric region
-ID with <code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_region_id.html" class="external-link">gfwr::gfw_region_id()</a></code> — the API expects the ID, not
-an ISO3 string.</p>
+<p><code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_ais_fishing_hours.html" class="external-link">gfw_ais_fishing_hours()</a></code> returns a long tibble with one
+row per cell, time bucket, and group level. For an EEZ, MPA, or RFMO
+region, first convert the region name into a numeric ID with
+<code><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_region_id.html" class="external-link">gfwr::gfw_region_id()</a></code>. The API needs the ID, not an ISO3
+code.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Resolve the Japan EEZ to its numeric region ID.</span></span>
 <span><span class="va">jpn_eez</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://globalfishingwatch.github.io/gfwr/reference/gfw_region_id.html" class="external-link">gfw_region_id</a></span><span class="op">(</span>region <span class="op">=</span> <span class="st">"JPN"</span>, region_source <span class="op">=</span> <span class="st">"EEZ"</span><span class="op">)</span><span class="op">$</span><span class="va">id</span></span>
@@ -153,20 +167,17 @@ an ISO3 string.</p>
 <span><span class="co">#&gt; 3  35.1 139.7         2022 fishing                       1                     3.05</span></span>
 <span><span class="co">#&gt; 4  33.2 137.4         2022 drifting_longlines            1                     2.38</span></span>
 <span><span class="co">#&gt; ...</span></span></code></pre></div>
-<p>Note: GFW returns gear-class labels in lower-case
-(<code>geartype</code> column, values like <code>trawlers</code>,
-<code>drifting_longlines</code>). It also emits an
-<code>inconclusive</code> class for vessels the classifier could not
-assign — these are passed through and treated like <code>fishing</code>
-(unclassified) in the depth-band logic.</p>
+<p>GFW returns gear labels in lower case, such as <code>trawlers</code>
+and <code>drifting_longlines</code>. Vessels the classifier cannot
+assign get the label <code>inconclusive</code>. The lookup below marks
+those as <code>unknown</code>, and step 3 skips them.</p>
 </div>
 <div class="section level3">
-<h3 id="step-2-rasterise-to-a-per-gear-stack-on-the-study-grid">Step 2: Rasterise to a per-gear stack on the study grid<a class="anchor" aria-label="anchor" href="#step-2-rasterise-to-a-per-gear-stack-on-the-study-grid"></a>
+<h3 id="step-2-rasterise-onto-the-study-grid">Step 2: Rasterise onto the study grid<a class="anchor" aria-label="anchor" href="#step-2-rasterise-onto-the-study-grid"></a>
 </h3>
-<p>Pick a target grid — typically the same grid used for species ranges
-and WOA extraction — and rasterise the effort tibble onto it. One
-SpatRaster layer is produced per unique level of
-<code>layer_by</code>.</p>
+<p>Choose a target grid, then rasterise the effort tibble onto it. Use
+the same grid you use for species ranges and WOA extraction. The
+function returns one layer per level of <code>layer_by</code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use the bathymetry grid as the canonical study grid.</span></span>
 <span><span class="va">bathy</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_gebco_bathymetry.html">load_gebco_bathymetry</a></span><span class="op">(</span></span>
@@ -199,40 +210,36 @@ SpatRaster layer is produced per unique level of
 <span><span class="co">#&gt; [1] "effort_drifting_longlines" "effort_set_gillnets"</span></span>
 <span><span class="co">#&gt; [3] "effort_trawlers"           "effort_pots_and_traps"</span></span>
 <span><span class="co">#&gt; ...</span></span></code></pre></div>
-<p>If you need a different cut (e.g. one layer per flag, or per flag ×
-geartype), re-fetch with the appropriate <code>group_by</code> on the
-API — that’s cheaper and more honest than collapsing client-side.</p>
+<p>To group the data differently, for example one layer per flag state,
+re-fetch it with a different <code>group_by</code>. That is cheaper and
+more accurate than combining layers yourself.</p>
 </div>
 <div class="section level3">
-<h3 id="step-3-extend-into-3d-with-a-user-supplied-gear-depth-lookup">Step 3: Extend into 3D with a user-supplied gear-depth lookup<a class="anchor" aria-label="anchor" href="#step-3-extend-into-3d-with-a-user-supplied-gear-depth-lookup"></a>
+<h3 id="step-3-extend-into-3d">Step 3: Extend into 3D<a class="anchor" aria-label="anchor" href="#step-3-extend-into-3d"></a>
 </h3>
-<p>[gfw_gear_depth_bands()] needs a <code>depth_lookup</code> table
-mapping each GFW gear class to an operating depth band. <strong>The
-package does not ship a default lookup</strong>: operating depths vary
-by region, fleet, and time, and the right values for a given analysis
-depend on assumptions the analyst is responsible for. The example below
-is a placeholder used purely to demonstrate the function’s mechanics —
-it is <em>not</em> a recommendation for real analyses. Replace it with
-literature- or fishery-specific values appropriate to your study.</p>
-<p>The lookup has five columns:</p>
+<p>This step needs a <code>depth_lookup</code> table giving each gear
+class a depth band. <strong>The package does not ship one, and no
+package function reads one.</strong> Operating depths vary by region,
+fleet, and time period, so both the table and the code that uses it
+belong to your analysis. The values below are placeholders that show the
+mechanics. Replace them with values from the literature or from your own
+fishery.</p>
+<p>The table has five columns:</p>
 <ul>
 <li>
-<code>geartype</code> — the GFW gear class label (matching the
-<code>geartype</code> values in the effort tibble).</li>
+<code>geartype</code> — the GFW gear label. Must match the
+<code>geartype</code> values in the effort tibble.</li>
 <li>
 <code>depth_min</code>, <code>depth_max</code> — shallowest and
-deepest operating depths in metres, positive-down. Set both to
-<code>NA</code> for benthic gears whose band is computed from
-bathymetry, and for unknown/unclassified gears.</li>
+deepest fishing depth in metres, measured downward from the surface. Use
+<code>NA</code> for benthic gears, whose band comes from bathymetry, and
+for unknown gears.</li>
 <li>
-<code>mode</code> — <code>"pelagic"</code> (fixed band in the water
-column), <code>"benthic"</code> (band clamped to bathymetry ±
-<code>benthic_buffer</code>), or <code>"unknown"</code> (handled via the
-<code>fallback</code> argument).</li>
+<code>mode</code> — <code>"pelagic"</code>, <code>"benthic"</code>,
+or <code>"unknown"</code>.</li>
 <li>
-<code>benthic_buffer</code> — for <code>mode = "benthic"</code>,
-metres above the seafloor the gear is assumed to fish. <code>NA</code>
-otherwise.</li>
+<code>benthic_buffer</code> — for benthic gears, how many metres
+above the seafloor the gear fishes. <code>NA</code> otherwise.</li>
 </ul>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Placeholder values for demonstration only — substitute literature- or</span></span>
@@ -257,14 +264,37 @@ otherwise.</li>
 <span>  benthic_buffer <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span> <span class="cn">NA</span>, <span class="fl">50</span>,  <span class="cn">NA</span>, <span class="fl">50</span>, <span class="fl">10</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>,  <span class="cn">NA</span>, <span class="fl">50</span>, <span class="fl">50</span>, <span class="cn">NA</span>, <span class="cn">NA</span><span class="op">)</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Pelagic gears use a fixed depth band. Benthic gears ride the
-seafloor: the band becomes <code>[max(bathy − buffer, 0), bathy]</code>
-per cell, handled by [gfw_gear_depth_bands()]. The function processes
-one gear at a time so peak memory stays bounded by a single gear’s
-depth-stratified stack rather than every gear at once. Loop over gears
-externally and concatenate the results — writing each per-gear stack to
-a tempfile in the loop body keeps the working set on disk for large
-analyses.</p>
+<div class="section level4">
+<h4 id="how-the-conversion-works">How the conversion works<a class="anchor" aria-label="anchor" href="#how-the-conversion-works"></a>
+</h4>
+<p>Each row of the lookup describes an <strong>envelope</strong>: for
+every cell, the shallowest and deepest depth that gear fishes.
+[as_envelope()] builds the envelope, and [envelope_to_voxel()] spreads
+the cell’s fishing hours down it.</p>
+<p>The two modes differ only in where the depth limits come from:</p>
+<ul>
+<li>
+<strong>Pelagic</strong> gears fish a fixed band, so the limits are
+two numbers.</li>
+<li>
+<strong>Benthic</strong> gears fish close to the seafloor, so the
+limits are rasters: <code>[seafloor − buffer, seafloor]</code>.</li>
+</ul>
+<p>Two arguments to [envelope_to_voxel()] carry assumptions you should
+know about:</p>
+<ul>
+<li>
+<code>profile = profile_equal</code> splits each cell’s hours evenly
+across the depths its window reaches, so the total number of hours is
+preserved. Use [profile_flat()] to write the full value at every depth
+instead. That double-counts, and suits footprint maps only.</li>
+<li>
+<code>bounds = "midpoint"</code> treats each depth level as the
+water halfway to its neighbours. This is the World Ocean Atlas
+convention, which the <code>standard_depths</code> below follow. A
+window that falls between two levels still lands in the level whose band
+contains it, so no hours are lost.</li>
+</ul>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Use WOA's 57 standard depths (0–1500 m) as the vertical grid.</span></span>
 <span><span class="va">standard_depths</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -276,63 +306,154 @@ analyses.</p>
 <span></span>
 <span><span class="co"># `study_grid` already carries positive-down depth on the cropped</span></span>
 <span><span class="co"># footprint; clamp non-ocean cells to 0 to get the seafloor reference.</span></span>
-<span><span class="va">seafloor</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span><span class="va">study_grid</span>, lower <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="va">seafloor</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span><span class="va">study_grid</span>, lower <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level4">
+<h4 id="benthic-gear-trawlers">Benthic gear: trawlers<a class="anchor" aria-label="anchor" href="#benthic-gear-trawlers"></a>
+</h4>
+<p>Trawls fish close to the seafloor, so the window follows bathymetry
+instead of fixed numbers. Both limits are rasters, and every cell gets
+its own window.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">trawl_effort</span> <span class="op">&lt;-</span> <span class="va">effort_by_gear</span><span class="op">[[</span><span class="st">"effort_trawlers"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">trawl_buffer</span> <span class="op">&lt;-</span> <span class="va">depth_lookup</span><span class="op">$</span><span class="va">benthic_buffer</span><span class="op">[</span><span class="va">depth_lookup</span><span class="op">$</span><span class="va">geartype</span> <span class="op">==</span> <span class="st">"trawlers"</span><span class="op">]</span></span>
+<span><span class="va">trawl_buffer</span></span>
+<span><span class="co">#&gt; [1] 50</span></span>
 <span></span>
-<span><span class="co"># Build a depth-stratified stack for one mode (benthic or pelagic). The</span></span>
-<span><span class="co"># per-gear loop writes each stack to a tempfile so peak memory stays</span></span>
-<span><span class="co"># bounded by one gear at a time — essential at Japan-EEZ scale.</span></span>
-<span><span class="va">build_mode_stack</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">mode</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">gears</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/intersect.html" class="external-link">intersect</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">sub</a></span><span class="op">(</span><span class="st">"^effort_"</span>, <span class="st">""</span>, <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">effort_by_gear</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>    <span class="va">depth_lookup</span><span class="op">$</span><span class="va">geartype</span><span class="op">[</span><span class="va">depth_lookup</span><span class="op">$</span><span class="va">mode</span> <span class="op">==</span> <span class="va">mode</span><span class="op">]</span></span>
-<span>  <span class="op">)</span></span>
-<span>  <span class="va">per_gear</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">gears</span>, <span class="kw">function</span><span class="op">(</span><span class="va">gear</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gfw_gear_depth_bands.html">gfw_gear_depth_bands</a></span><span class="op">(</span></span>
-<span>      effort_layer    <span class="op">=</span> <span class="va">effort_by_gear</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"effort_"</span>, <span class="va">gear</span><span class="op">)</span><span class="op">]</span><span class="op">]</span>,</span>
-<span>      gear            <span class="op">=</span> <span class="va">gear</span>,</span>
-<span>      bathymetry      <span class="op">=</span> <span class="va">seafloor</span>,</span>
-<span>      standard_depths <span class="op">=</span> <span class="va">standard_depths</span>,</span>
-<span>      depth_lookup    <span class="op">=</span> <span class="va">depth_lookup</span>,</span>
-<span>      allocation      <span class="op">=</span> <span class="st">"uniform"</span></span>
-<span>    <span class="op">)</span></span>
-<span>    <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/writeRaster.html" class="external-link">writeRaster</a></span><span class="op">(</span><span class="va">s</span>, <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".tif"</span><span class="op">)</span>, overwrite <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span>  <span class="op">}</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">c</span>, <span class="va">per_gear</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
+<span><span class="co"># Step 1 — the 2.5D envelope. A band `trawl_buffer` metres thick riding the</span></span>
+<span><span class="co"># seafloor, clamped at the surface so a cell shallower than the buffer does</span></span>
+<span><span class="co"># not produce a negative depth. `trawl_effort` is also the footprint: cells</span></span>
+<span><span class="co"># with no trawling are NA, so they get no window.</span></span>
+<span><span class="va">trawl_env</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_envelope.html">as_envelope</a></span><span class="op">(</span></span>
+<span>  <span class="va">trawl_effort</span>,</span>
+<span>  depth_min <span class="op">=</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/clamp.html" class="external-link">clamp</a></span><span class="op">(</span><span class="va">seafloor</span> <span class="op">-</span> <span class="va">trawl_buffer</span>, lower <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  depth_max <span class="op">=</span> <span class="va">seafloor</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Two stacks — benthic gears ride the seafloor, pelagic gears occupy a</span></span>
-<span><span class="co"># fixed depth band — kept separate so the visualisation can render them</span></span>
-<span><span class="co"># with distinct colour scales.</span></span>
-<span><span class="va">benthic_3d</span> <span class="op">&lt;-</span> <span class="fu">build_mode_stack</span><span class="op">(</span><span class="st">"benthic"</span><span class="op">)</span></span>
-<span><span class="va">pelagic_3d</span> <span class="op">&lt;-</span> <span class="fu">build_mode_stack</span><span class="op">(</span><span class="st">"pelagic"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">trawl_env</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "depth_min" "depth_max"</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">benthic_3d</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span></span>
+<span><span class="co"># Step 2 — the 3D voxel. `values` is what gets spread down the window, and</span></span>
+<span><span class="co"># `profile_equal` splits each cell's hours evenly across the depths its</span></span>
+<span><span class="co"># window reaches, so the stack conserves total effort-hours.</span></span>
+<span><span class="va">trawlers_3d</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/envelope_to_voxel.html">envelope_to_voxel</a></span><span class="op">(</span></span>
+<span>  <span class="va">trawl_env</span>,</span>
+<span>  depths  <span class="op">=</span> <span class="va">standard_depths</span>,</span>
+<span>  values  <span class="op">=</span> <span class="va">trawl_effort</span>,</span>
+<span>  profile <span class="op">=</span> <span class="va">profile_equal</span>,</span>
+<span>  bounds  <span class="op">=</span> <span class="st">"midpoint"</span>,</span>
+<span>  varname <span class="op">=</span> <span class="st">"effort_trawlers"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">trawlers_3d</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span></span>
 <span><span class="co">#&gt; [1] "effort_trawlers_depth=0"</span></span>
 <span><span class="co">#&gt; [2] "effort_trawlers_depth=5"</span></span>
 <span><span class="co">#&gt; [3] "effort_trawlers_depth=10"</span></span>
 <span><span class="co">#&gt; [4] "effort_trawlers_depth=15"</span></span>
-<span><span class="co">#&gt; [5] "effort_trawlers_depth=20"</span></span></code></pre></div>
+<span><span class="co">#&gt; [5] "effort_trawlers_depth=20"</span></span>
+<span></span>
+<span><span class="co"># Nothing created, nothing lost.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">trawlers_3d</span>, <span class="st">"sum"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">sum</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] &lt;hours&gt;</span></span>
+<span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">trawl_effort</span>, <span class="st">"sum"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">sum</span></span>
+<span><span class="co">#&gt; [1] &lt;the same number&gt;</span></span></code></pre></div>
+<p>The standard depths are 5 m apart near the surface, but 25 to 50 m
+apart below 100 m. The same 50 m band therefore resolves differently
+with depth: a shelf cell at 80 m spreads its hours over about a dozen
+layers, while a slope cell at 1200 m spreads them over two or three. A
+band that contains no standard depth at all still lands in the level
+whose band holds it, so its hours are kept.</p>
+</div>
+<div class="section level4">
+<h4 id="pelagic-gear-purse-seines">Pelagic gear: purse seines<a class="anchor" aria-label="anchor" href="#pelagic-gear-purse-seines"></a>
+</h4>
+<p>A purse seine fishes a fixed band near the surface. The limits are
+the same everywhere, so they come straight from the lookup as two
+numbers. The rest of the code is identical to the trawler example: both
+modes use the same pair of functions.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">seine_effort</span> <span class="op">&lt;-</span> <span class="va">effort_by_gear</span><span class="op">[[</span><span class="st">"effort_purse_seines"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="va">seine_band</span>   <span class="op">&lt;-</span> <span class="va">depth_lookup</span><span class="op">[</span><span class="va">depth_lookup</span><span class="op">$</span><span class="va">geartype</span> <span class="op">==</span> <span class="st">"purse_seines"</span>, <span class="op">]</span></span>
+<span><span class="va">seine_band</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"depth_min"</span>, <span class="st">"depth_max"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt;   depth_min depth_max</span></span>
+<span><span class="co">#&gt; 8         0       200</span></span>
+<span></span>
+<span><span class="co"># Step 1 — the 2.5D envelope. Constant limits, so `as_envelope()` broadcasts</span></span>
+<span><span class="co"># them across the footprint instead of reading a raster per cell.</span></span>
+<span><span class="va">seine_env</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_envelope.html">as_envelope</a></span><span class="op">(</span></span>
+<span>  <span class="va">seine_effort</span>,</span>
+<span>  depth_min <span class="op">=</span> <span class="va">seine_band</span><span class="op">$</span><span class="va">depth_min</span>,</span>
+<span>  depth_max <span class="op">=</span> <span class="va">seine_band</span><span class="op">$</span><span class="va">depth_max</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Step 2 — the 3D voxel. Identical to the trawler call; only the envelope</span></span>
+<span><span class="co"># and the variable name differ.</span></span>
+<span><span class="va">purse_seines_3d</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/envelope_to_voxel.html">envelope_to_voxel</a></span><span class="op">(</span></span>
+<span>  <span class="va">seine_env</span>,</span>
+<span>  depths  <span class="op">=</span> <span class="va">standard_depths</span>,</span>
+<span>  values  <span class="op">=</span> <span class="va">seine_effort</span>,</span>
+<span>  profile <span class="op">=</span> <span class="va">profile_equal</span>,</span>
+<span>  bounds  <span class="op">=</span> <span class="st">"midpoint"</span>,</span>
+<span>  varname <span class="op">=</span> <span class="st">"effort_purse_seines"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># A 0–200 m band reaches the first 25 of the 57 standard depths, so every</span></span>
+<span><span class="co"># fished cell spreads its hours over 25 layers at 1/25 each.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/values.html" class="external-link">values</a></span><span class="op">(</span><span class="va">purse_seines_3d</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span>, <span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 25</span></span></code></pre></div>
+<p>The two modes are kept in separate stacks because they behave so
+differently. A benthic cell fills a handful of layers; a pelagic cell
+fills twenty-five. That matters for the 3D scene below.</p>
+</div>
+<div class="section level4">
+<h4 id="scaling-to-the-whole-fleet">Scaling to the whole fleet<a class="anchor" aria-label="anchor" href="#scaling-to-the-whole-fleet"></a>
+</h4>
+<p>The two blocks above are the whole pattern: pick the window, build
+the envelope, convert it. For a full analysis, repeat them for every row
+of <code>depth_lookup</code> and combine the results with
+<code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code>.</p>
+<p>Two practical points:</p>
+<ul>
+<li>
+<strong>Work one gear at a time.</strong> Memory then scales with
+one gear’s stack rather than the whole fleet’s. Write each stack to a
+tempfile with <code><a href="https://rspatial.github.io/terra/reference/writeRaster.html" class="external-link">terra::writeRaster()</a></code> before combining
+them.</li>
+<li>
+<strong>A combined stack is no longer a voxel.</strong> Each
+single-gear stack is a [SpatVoxel-class]: one variable, one layer per
+depth, ordered shallow to deep. Combining gears breaks that order, but
+<code><a href="https://rdrr.io/r/base/c.html" class="external-link">c()</a></code> keeps the class label anyway, so you get an object that
+claims to be a voxel and is not. The <code><a href="https://rspatial.github.io/terra/reference/writeRaster.html" class="external-link">writeRaster()</a></code> step
+avoids the problem, because it returns a plain SpatRaster. Keep the
+single-gear stacks if you need the voxel class for
+[calc_volume_overlap()] or [voxel_to_envelope()].</li>
+</ul>
+<p>Gears with <code>mode = "unknown"</code> have no depth information,
+so skip them. Placing their effort at the surface would invent a result
+rather than estimate one.</p>
+</div>
 </div>
 <div class="section level3">
-<h3 id="visualising-the-3d-benthic-effort-stack">Visualising the 3D benthic-effort stack<a class="anchor" aria-label="anchor" href="#visualising-the-3d-benthic-effort-stack"></a>
+<h3 id="visualising-the-benthic-stack">Visualising the benthic stack<a class="anchor" aria-label="anchor" href="#visualising-the-benthic-stack"></a>
 </h3>
-<p>A 3D scene is the most direct way to read <code>benthic_3d</code>:
-the cubes sit on the seafloor, you can see whether effort is
-concentrated on the shelf or in deeper canyons, and the bathymetric
-surface gives every cube a spatial reference. We render with
-<code>plotly</code> so the scene stays interactive in the rendered HTML
-vignette. Pelagic effort is excluded — those gears occupy dozens of
-standard depths per cell and the cube count crashes plotly’s JSON
-serializer.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<p>A 3D scene is the clearest way to read <code>trawlers_3d</code>. The
+cubes sit on the seafloor, so you can see whether effort concentrates on
+the shelf or in deeper canyons, and the bathymetry surface gives each
+cube a reference. We use <code>plotly</code> to keep the scene
+interactive in the rendered article.</p>
+<p>Only benthic effort is drawn. <code>purse_seines_3d</code> has
+twenty-five layers under every fished cell, and that many cubes exceeds
+what plotly can serialise.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://plotly-r.com" class="external-link">plotly</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyr.tidyverse.org" class="external-link">tidyr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://stringr.tidyverse.org" class="external-link">stringr</a></span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># `benthic_3d` and `pelagic_3d` are both produced by the gear-depth-bands</span></span>
-<span><span class="co"># chunk above; we render them as two mesh3d traces with distinct colour</span></span>
-<span><span class="co"># scales so the modes read as separate categories.</span></span>
+<span><span class="co"># `trawlers_3d` comes from the benthic chunk above. Only the benthic stack</span></span>
+<span><span class="co"># is rendered; the helpers below are written to take any stack following the</span></span>
+<span><span class="co"># `{variable}_depth=&lt;value&gt;` convention.</span></span>
 <span></span>
 <span><span class="co"># Vertical extent of each depth band: half-way to neighbouring standard</span></span>
 <span><span class="co"># depths (so adjacent cubes meet without gaps or overlap).</span></span>
@@ -389,13 +510,11 @@ serializer.</p>
 <span>  <span class="fu">make_cube_mesh</span><span class="op">(</span><span class="va">voxels</span>, dx <span class="op">=</span> <span class="va">dx</span>, dy <span class="op">=</span> <span class="va">dy</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># Only render benthic effort. Pelagic gears occupy dozens of standard</span></span>
-<span><span class="co"># depths per cell, so the cube count blows past plotly's JSON serializer</span></span>
-<span><span class="co"># (R's 2 GB string limit) even after threshold-thinning. `pelagic_3d` is</span></span>
-<span><span class="co"># still produced by the gear-depth-bands chunk for the species-overlap</span></span>
-<span><span class="co"># analysis below.</span></span>
+<span><span class="co"># Only benthic effort is rendered. Pelagic gears fill dozens of depths per</span></span>
+<span><span class="co"># cell, so the cube count exceeds plotly's JSON serializer (R's 2 GB string</span></span>
+<span><span class="co"># limit) even after thinning by threshold.</span></span>
 <span><span class="va">res</span>           <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/dimensions.html" class="external-link">res</a></span><span class="op">(</span><span class="va">study_grid</span><span class="op">)</span></span>
-<span><span class="va">benthic_cubes</span> <span class="op">&lt;-</span> <span class="fu">stack_to_cubes</span><span class="op">(</span><span class="va">benthic_3d</span>, <span class="va">res</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span>, <span class="va">res</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span>, <span class="va">bands</span><span class="op">)</span></span>
+<span><span class="va">benthic_cubes</span> <span class="op">&lt;-</span> <span class="fu">stack_to_cubes</span><span class="op">(</span><span class="va">trawlers_3d</span>, <span class="va">res</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span>, <span class="va">res</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span>, <span class="va">bands</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Log-scale colour mapping. Plotly's mesh3d colourscale is linear in</span></span>
 <span><span class="co"># `intensity`, so we feed it log10(effort) directly, then relabel the</span></span>
@@ -504,75 +623,14 @@ reversed so the sea surface sits at the top and the seafloor at the
 bottom.</p>
 </div>
 <div class="section level3">
-<h3 id="exporting-an-animation-for-slides">Exporting an animation for slides<a class="anchor" aria-label="anchor" href="#exporting-an-animation-for-slides"></a>
+<h3 id="overlapping-with-a-species-range">Overlapping with a species range<a class="anchor" aria-label="anchor" href="#overlapping-with-a-species-range"></a>
 </h3>
-<p>Plotly widgets are interactive in HTML but PowerPoint can’t embed
-them. The path below renders the same scene at a series of camera angles
-(turntable rotation), captures each frame as a PNG via
-<code>webshot2</code>, and stitches the frames into an MP4 with
-<code>av</code> (which wraps ffmpeg). MP4 embeds natively in PowerPoint
-and Keynote.</p>
-<p><code>webshot2</code> needs a Chrome/Chromium install (one-time:
-<code>webshot2::install_chrome()</code>). <code>av</code> pulls ffmpeg
-via the bundled binary on most platforms, no system install
-required.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rstudio.github.io/webshot2/" class="external-link">webshot2</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ropensci.r-universe.dev/av" class="external-link">av</a></span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Turntable parameters. Plotly's camera works in scene-coordinate units;</span></span>
-<span><span class="co"># `eye` is the camera position relative to the scene's centre. Distance</span></span>
-<span><span class="co"># from origin is sqrt(x^2 + y^2 + z^2) ≈ 1.8 here. Adjust `elev_z` for</span></span>
-<span><span class="co"># pitch (higher = more top-down) and `radius` for zoom.</span></span>
-<span><span class="va">n_frames</span> <span class="op">&lt;-</span> <span class="fl">60</span></span>
-<span><span class="va">radius</span>   <span class="op">&lt;-</span> <span class="fl">1.7</span></span>
-<span><span class="va">elev_z</span>   <span class="op">&lt;-</span> <span class="fl">0.6</span></span>
-<span><span class="va">angles</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span>, length.out <span class="op">=</span> <span class="va">n_frames</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span><span class="op">[</span><span class="op">-</span><span class="op">(</span><span class="va">n_frames</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span><span class="op">]</span></span>
-<span></span>
-<span><span class="va">frame_dir</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="st">"benthic_frames_"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/files2.html" class="external-link">dir.create</a></span><span class="op">(</span><span class="va">frame_dir</span><span class="op">)</span></span>
-<span><span class="va">frame_files</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="va">n_frames</span><span class="op">)</span></span>
-<span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">angles</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">theta</span> <span class="op">&lt;-</span> <span class="va">angles</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
-<span>  <span class="va">cam</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    eye    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">radius</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="va">theta</span><span class="op">)</span>, y <span class="op">=</span> <span class="va">radius</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">theta</span><span class="op">)</span>, z <span class="op">=</span> <span class="va">elev_z</span><span class="op">)</span>,</span>
-<span>    center <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0</span>, y <span class="op">=</span> <span class="fl">0</span>, z <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>,</span>
-<span>    up     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">0</span>, y <span class="op">=</span> <span class="fl">0</span>, z <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span>  <span class="va">fig</span> <span class="op">&lt;-</span> <span class="fu">build_benthic_scene</span><span class="op">(</span>camera <span class="op">=</span> <span class="va">cam</span><span class="op">)</span></span>
-<span></span>
-<span>  <span class="va">html_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span>fileext <span class="op">=</span> <span class="st">".html"</span><span class="op">)</span></span>
-<span>  <span class="va">png_path</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">frame_dir</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"frame_%03d.png"</span>, <span class="va">i</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="fu">htmlwidgets</span><span class="fu">::</span><span class="fu">saveWidget</span><span class="op">(</span><span class="va">fig</span>, <span class="va">html_path</span>, selfcontained <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span>  <span class="co"># `delay` gives the WebGL canvas time to render before screenshot.</span></span>
-<span>  <span class="fu">webshot2</span><span class="fu">::</span><span class="fu">webshot</span><span class="op">(</span><span class="va">html_path</span>, <span class="va">png_path</span>,</span>
-<span>                    vwidth <span class="op">=</span> <span class="fl">1280</span>, vheight <span class="op">=</span> <span class="fl">720</span>, delay <span class="op">=</span> <span class="fl">1.5</span><span class="op">)</span></span>
-<span>  <span class="va">frame_files</span><span class="op">[</span><span class="va">i</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">png_path</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="co"># 24 fps × 60 frames = 2.5 s loop. Bump n_frames or fps for smoother</span></span>
-<span><span class="co"># rotation; keep the file under ~10 MB for easy slide embedding.</span></span>
-<span><span class="va">out_mp4</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://here.r-lib.org/reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"figures/benthic_effort_3d.mp4"</span><span class="op">)</span></span>
-<span><span class="fu">av</span><span class="fu">::</span><span class="fu">av_encode_video</span><span class="op">(</span><span class="va">frame_files</span>, output <span class="op">=</span> <span class="va">out_mp4</span>, framerate <span class="op">=</span> <span class="fl">24</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Optional GIF fallback for venues that block MP4 (rarer).</span></span>
-<span><span class="co"># magick::image_animate(magick::image_read(frame_files), fps = 24) |&gt;</span></span>
-<span><span class="co">#   magick::image_write(here("presentation/benthic_effort_3d.gif"))</span></span></code></pre></div>
-<p>Drop the resulting <code>.mp4</code> straight into a slide via
-<strong>Insert → Video → Video on My PC</strong> (PowerPoint) or
-<strong>Insert → Movie</strong> (Keynote). PowerPoint will play it
-in-place; for a presentation-mode auto-loop, set the playback options to
-<em>Start: Automatically</em> and <em>Loop until Stopped</em>.</p>
-</div>
-<div class="section level3">
-<h3 id="intersecting-with-a-species-3d-range">Intersecting with a species’ 3D range<a class="anchor" aria-label="anchor" href="#intersecting-with-a-species-3d-range"></a>
-</h3>
-<p>Once <code>benthic_3d</code> / <code>pelagic_3d</code> follow the
-<code>{variable}_depth=&lt;value&gt;</code> convention, they compose
-with the rest of the package the same way WOA rasters do:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Example: silky shark (epipelagic, shallow exposure to longlines).</span></span>
+<p><code>trawlers_3d</code> and <code>purse_seines_3d</code> follow the
+<code>{variable}_depth=&lt;value&gt;</code> naming convention, so they
+work with the rest of the package exactly as WOA rasters do:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example: silky shark (epipelagic, and heavily taken as bycatch in</span></span>
+<span><span class="co"># tuna purse seines around FADs).</span></span>
 <span><span class="co"># The IUCN shark/ray/chimaera shapefile carries one row per species range</span></span>
 <span><span class="co"># polygon. Filter at read time with SQL so the in-memory object is small.</span></span>
 <span><span class="va">iucn_shp</span> <span class="op">&lt;-</span> <span class="st">"/home/jay/Programming_Projects/Big_Data/SHARKS_RAYS_CHIMAERAS/SHARKS_RAYS_CHIMAERAS.shp"</span></span>
@@ -586,22 +644,24 @@ with the rest of the package the same way WOA rasters do:</p>
 <span><span class="co"># Depth limits are placeholder values for demonstration; in practice pull</span></span>
 <span><span class="co"># them per-species via fetch_species_assessments() / fill_missing_depths()</span></span>
 <span><span class="co"># from the IUCN Red List API.</span></span>
-<span><span class="va">range_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/voxelize_range.html">voxelize_range</a></span><span class="op">(</span></span>
-<span>  polygons   <span class="op">=</span> <span class="va">sp_range</span>,</span>
-<span>  voxel      <span class="op">=</span> <span class="va">study_grid</span>,</span>
-<span>  bathymetry <span class="op">=</span> <span class="va">seafloor</span>,</span>
-<span>  depth_min  <span class="op">=</span> <span class="fl">0</span>,</span>
-<span>  depth_max  <span class="op">=</span> <span class="fl">500</span></span>
+<span><span class="va">range_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/vect_to_envelope.html">vect_to_envelope</a></span><span class="op">(</span></span>
+<span>  polygon   <span class="op">=</span> <span class="va">sp_range</span>,</span>
+<span>  template  <span class="op">=</span> <span class="va">study_grid</span>,</span>
+<span>  depth_min <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  <span class="co"># The seafloor is just another depth_max constraint: per cell the shallowest</span></span>
+<span>  <span class="co"># of the two wins, so the range never extends below the bed.</span></span>
+<span>  depth_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">500</span>, <span class="va">seafloor</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Mask the 3D effort stack to cells + depths inside the species' per-cell</span></span>
-<span><span class="co"># depth window. extract_rast_range() reads the `effort_&lt;gear&gt;_depth=&lt;value&gt;`</span></span>
-<span><span class="co"># layer names and keeps each layer's effort only where the species is</span></span>
-<span><span class="co"># present at that depth.</span></span>
-<span><span class="va">longline_layers</span> <span class="op">&lt;-</span> <span class="va">pelagic_3d</span><span class="op">[[</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grep</a></span><span class="op">(</span><span class="st">"drifting_longlines"</span>, <span class="fu"><a href="https://rspatial.github.io/terra/reference/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">pelagic_3d</span><span class="op">)</span><span class="op">)</span><span class="op">]</span><span class="op">]</span></span>
-<span><span class="va">exposed_effort</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/extract_rast_range.html">extract_rast_range</a></span><span class="op">(</span><span class="va">range_rast</span>, <span class="va">longline_layers</span><span class="op">)</span></span>
+<span><span class="co"># depth window. mask() is depth-aware for an envelope: it places the range on</span></span>
+<span><span class="co"># the effort stack's own `effort_&lt;gear&gt;_depth=&lt;value&gt;` levels and keeps each</span></span>
+<span><span class="co"># layer's effort only where the species is present at that depth.</span></span>
+<span><span class="co"># `purse_seines_3d` is already one gear, so it goes in whole; a multi-gear</span></span>
+<span><span class="co"># stack would be subset by layer name first.</span></span>
+<span><span class="va">exposed_effort</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rspatial.github.io/terra/reference/mask.html" class="external-link">mask</a></span><span class="op">(</span><span class="va">purse_seines_3d</span>, <span class="va">range_rast</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Total longline effort-hours overlapping the silky shark's 3D range.</span></span>
+<span><span class="co"># Total purse-seine effort-hours overlapping the silky shark's 3D range.</span></span>
 <span><span class="va">total_exposed</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span></span>
 <span>  <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">exposed_effort</span>, <span class="st">"sum"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">$</span><span class="va">sum</span>,</span>
 <span>  na.rm <span class="op">=</span> <span class="cn">TRUE</span></span>
@@ -611,35 +671,31 @@ with the rest of the package the same way WOA rasters do:</p>
 <span></span>
 <span><span class="co"># Per-depth exposure profile (effort-hours summed across cells, per layer).</span></span>
 <span><span class="va">per_depth</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/global.html" class="external-link">global</a></span><span class="op">(</span><span class="va">exposed_effort</span>, <span class="st">"sum"</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="va">per_depth</span><span class="op">$</span><span class="va">depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span></span>
-<span>  <span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_extract.html" class="external-link">str_extract</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">per_depth</span><span class="op">)</span>, <span class="st">"(?&lt;=_depth=)-?[0-9.]+"</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
+<span><span class="va">per_depth</span><span class="op">$</span><span class="va">depth</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/depths.html">depths</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">rownames</a></span><span class="op">(</span><span class="va">per_depth</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">per_depth</span><span class="op">[</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">per_depth</span><span class="op">$</span><span class="va">sum</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">per_depth</span><span class="op">$</span><span class="va">sum</span> <span class="op">&gt;</span> <span class="fl">0</span>,</span>
 <span>          <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"depth"</span>, <span class="st">"sum"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="caveats-worth-surfacing">Caveats worth surfacing<a class="anchor" aria-label="anchor" href="#caveats-worth-surfacing"></a>
+<h3 id="caveats">Caveats<a class="anchor" aria-label="anchor" href="#caveats"></a>
 </h3>
-<p>These split into two groups: limitations of the underlying GFW AIS
-effort product (sourced from <a href="https://globalfishingwatch.org/data-documentation/apparent-fishing-effort-ais/" class="external-link uri">https://globalfishingwatch.org/data-documentation/apparent-fishing-effort-ais/</a>),
-and limitations of the depth-stratification step this package adds on
-top.</p>
+<p>There are two groups: limits of the GFW AIS effort product itself,
+and limits of the depth step added here. The first group is drawn from
+the <a href="https://globalfishingwatch.org/data-documentation/apparent-fishing-effort-ais/" class="external-link">GFW
+data documentation</a>.</p>
 <div class="section level4">
 <h4 id="inherited-from-gfw-ais-effort">Inherited from GFW AIS effort<a class="anchor" aria-label="anchor" href="#inherited-from-gfw-ais-effort"></a>
 </h4>
 <ul>
 <li>
-<strong>AIS coverage skews to large, offshore vessels.</strong> AIS
-carriage is primarily mandated for vessels over 24 m operating offshore;
-small-scale and artisanal fleets are largely absent from the dataset.
-SAR dark-vessel detections (Paolo et al. 2024) are the complementary
-layer for artisanal-fleet coverage.</li>
+<strong>AIS coverage favours large, offshore vessels.</strong> AIS
+is mainly required on vessels over 24 m working offshore, so small-scale
+and artisanal fleets are largely missing. SAR dark-vessel detections
+(Paolo et al. 2024) cover that gap.</li>
 <li>
-<strong>Class A vs. Class B reception is uneven.</strong> Smaller
-AIS-equipped vessels carry Class B units, which transmit at lower power
-and are detected less reliably by satellites — so smaller-vessel effort
-is systematically under-represented even within the AIS-equipped
-fleet.</li>
+<strong>Class A and Class B reception differ.</strong> Smaller
+vessels carry Class B units, which transmit at lower power. Satellites
+detect them less reliably, so smaller-vessel effort is under-represented
+even within the AIS fleet.</li>
 <li>
 <strong>AIS can be disabled or spoofed.</strong> Deliberate gaps and
 falsified identities produce missing or misattributed positions.</li>
@@ -648,10 +704,10 @@ falsified identities produce missing or misattributed positions.</li>
 regions overlapping AIS transmissions degrade satellite detection,
 reducing apparent effort.</li>
 <li>
-<strong>“Apparent” fishing is a behavioural inference.</strong> The
-classifier flags movement patterns consistent with searching, setting,
-soaking, and hauling — not just confirmed gear deployment. Expect false
-positives where vessels slow or change course for non-fishing
+<strong>“Apparent” fishing is inferred from behaviour.</strong> The
+classifier flags movement patterns that look like searching, setting,
+soaking, and hauling. It does not confirm that gear went in the water.
+Expect false positives where vessels slow down or turn for other
 reasons.</li>
 <li>
 <strong>Vessel-type and gear misclassification.</strong> Registry
@@ -659,11 +715,10 @@ data is inconsistent; MMSI recycling can mix two vessels’ tracks;
 vessels that switch gears are inherently hard to classify. Treat
 per-gear effort as a best-available label, not a measurement.</li>
 <li>
-<strong>Temporal comparisons are confounded by AIS
-adoption.</strong> Year-on-year changes in apparent effort partly
-reflect changes in AIS uptake, satellite coverage, and
-terrestrial-station access, not just changes in real fishing
-activity.</li>
+<strong>Comparisons over time are confounded by AIS uptake.</strong>
+Year-on-year changes in apparent effort partly reflect changes in AIS
+adoption, satellite coverage, and shore-station access, not only changes
+in real fishing.</li>
 </ul>
 </div>
 <div class="section level4">
@@ -677,18 +732,22 @@ not publish set depth, so any per-gear band is an assumption — and the
 right assumption depends on the region, fleet, and time period being
 analysed.</li>
 <li>
-<strong>Pelagic vs. benthic variants of gillnets and trawls are not
-always distinguished</strong> in GFW’s classification. The
-midwater/bottom trawl case is the clearest example: in 2D the
-distinction is invisible, but in 3D the two gears live in completely
-different parts of the water column. Whatever you assign in
-<code>depth_lookup</code> will carry that uncertainty until GFW
-separates them.</li>
+<strong>GFW does not always separate pelagic and benthic gear
+variants.</strong> Midwater and bottom trawls are the clearest case. In
+2D the difference is invisible, but in 3D the two gears occupy
+completely different parts of the water column. Whatever you assign in
+<code>depth_lookup</code> carries that uncertainty.</li>
 <li>
-<strong><code>allocation = "uniform"</code> preserves total
-effort-hours</strong> but assumes gear distributes evenly across its
-band; <code>"presence"</code> is cheaper but double counts and is only
-appropriate for footprint maps.</li>
+<strong>[profile_equal()] preserves total effort-hours</strong> but
+assumes gear distributes evenly across the depths its window reaches;
+[profile_flat()] double counts and is only appropriate for footprint
+maps.</li>
+<li>
+<strong>Depth windows are widened to whole levels.</strong> A 10 m
+benthic band can be assigned to a level tens of metres thick. This keeps
+the hours in the stack, but it means the vertical precision of the
+result is the spacing of <code>standard_depths</code>, not the precision
+of <code>depth_lookup</code>.</li>
 </ul>
 </div>
 </div>
@@ -717,9 +776,19 @@ server-side by <code>group_by</code>
 level</td>
 </tr>
 <tr class="odd">
-<td>[gfw_gear_depth_bands()]</td>
-<td>Extend a per-gear effort raster into a 3D depth-stratified stack
-using a user-supplied gear → depth-band lookup</td>
+<td>[as_envelope()]</td>
+<td>Turn a gear’s effort footprint plus its depth limits into a 2.5D
+envelope</td>
+</tr>
+<tr class="even">
+<td>[envelope_to_voxel()]</td>
+<td>Spread each cell’s effort down the standard depths its window
+reaches</td>
+</tr>
+<tr class="odd">
+<td>[profile_equal()]</td>
+<td>Allocation that splits a cell’s hours evenly, conserving the
+total</td>
 </tr>
 </tbody>
 </table>

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">sharkabc3d</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9005</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -37,6 +37,7 @@
     <li><a class="dropdown-item" href="../articles/gfw-fishing-effort-3d.html">Depth-Stratified Fishing Effort from Global Fishing Watch</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction-single-species.html">Extracting 3D Environmental Data for a Single Species</a></li>
     <li><a class="dropdown-item" href="../articles/woa-environmental-extraction.html">Extracting 3D Environmental Data for Sharks and Rays</a></li>
+    <li><a class="dropdown-item" href="../articles/woa-species-range-voxels.html">Extracting Voxel Values Within a Species' 3D Range</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -306,33 +307,46 @@ resolution and CRS.</p>
 <div class="section level4">
 <h4 id="b-rasterize-species">2b: Rasterize species<a class="anchor" aria-label="anchor" href="#b-rasterize-species"></a>
 </h4>
-<p><code><a href="../reference/voxelize_range.html">voxelize_range()</a></code> converts each polygon + depth range
-into a multi-layer SpatRaster (presence, depth_min, depth_max) aligned
-to the study grid. The depth_max is clamped to the seafloor per cell so
-that no species or fishery extends deeper than the actual
-bathymetry.</p>
+<p><code><a href="../reference/vect_to_envelope.html">vect_to_envelope()</a></code> converts one polygon + its depth
+limits into a <code>SpatEnvelope</code>: a two-layer raster
+(<code>depth_min</code>, <code>depth_max</code>) on the study grid.
+Depth limits are lists, and every entry narrows the envelope — per cell
+the deepest <code>depth_min</code> and the shallowest
+<code>depth_max</code> win. Passing <code>seafloor</code> as a second
+<code>depth_max</code> is what keeps a species or fishery from extending
+below the actual bathymetry, and drops cells where the bed sits above
+the shallowest depth the animal occupies.</p>
+<p><code><a href="../reference/vect_to_envelope.html">vect_to_envelope()</a></code> works one polygon at a time and does
+not reproject, so we transform the ranges onto the grid’s CRS once and
+loop with <code><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply()</a></code>.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">species_rasters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/voxelize_ranges.html">voxelize_ranges</a></span><span class="op">(</span></span>
-<span>  sf_data <span class="op">=</span> <span class="va">bangladesh_species</span>,</span>
-<span>  voxel <span class="op">=</span> <span class="va">study_grid</span>,</span>
-<span>  bathymetry <span class="op">=</span> <span class="va">seafloor</span>,</span>
-<span>  depth_min_col <span class="op">=</span> <span class="st">"depth_min_sel"</span>,</span>
-<span>  depth_max_col <span class="op">=</span> <span class="st">"depth_max_sel"</span>,</span>
-<span>  name_col <span class="op">=</span> <span class="st">"sci_name"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">species_proj</span> <span class="op">&lt;-</span> <span class="fu">sf</span><span class="fu">::</span><span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_transform.html" class="external-link">st_transform</a></span><span class="op">(</span><span class="va">bangladesh_species</span>, <span class="va">bangladesh_crs</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">species_rasters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">species_proj</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/vect_to_envelope.html">vect_to_envelope</a></span><span class="op">(</span></span>
+<span>    polygon   <span class="op">=</span> <span class="va">species_proj</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span>,</span>
+<span>    template  <span class="op">=</span> <span class="va">study_grid</span>,</span>
+<span>    depth_min <span class="op">=</span> <span class="va">species_proj</span><span class="op">$</span><span class="va">depth_min_sel</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>,</span>
+<span>    depth_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">species_proj</span><span class="op">$</span><span class="va">depth_max_sel</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>, <span class="va">seafloor</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">species_rasters</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">species_proj</span><span class="op">$</span><span class="va">sci_name</span></span></code></pre></div>
 </div>
 <div class="section level4">
 <h4 id="c-rasterize-fisheries">2c: Rasterize fisheries<a class="anchor" aria-label="anchor" href="#c-rasterize-fisheries"></a>
 </h4>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fishery_rasters</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/voxelize_ranges.html">voxelize_ranges</a></span><span class="op">(</span></span>
-<span>  sf_data <span class="op">=</span> <span class="va">fisheries</span>,</span>
-<span>  voxel <span class="op">=</span> <span class="va">study_grid</span>,</span>
-<span>  bathymetry <span class="op">=</span> <span class="va">seafloor</span>,</span>
-<span>  depth_min_col <span class="op">=</span> <span class="st">"depth_min"</span>,</span>
-<span>  depth_max_col <span class="op">=</span> <span class="st">"depth_max"</span>,</span>
-<span>  name_col <span class="op">=</span> <span class="st">"fishery_type"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">fisheries_proj</span> <span class="op">&lt;-</span> <span class="fu">sf</span><span class="fu">::</span><span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_transform.html" class="external-link">st_transform</a></span><span class="op">(</span><span class="va">fisheries</span>, <span class="va">bangladesh_crs</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">fishery_rasters</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">fisheries_proj</span><span class="op">)</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/vect_to_envelope.html">vect_to_envelope</a></span><span class="op">(</span></span>
+<span>    polygon   <span class="op">=</span> <span class="va">fisheries_proj</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span>,</span>
+<span>    template  <span class="op">=</span> <span class="va">study_grid</span>,</span>
+<span>    depth_min <span class="op">=</span> <span class="va">fisheries_proj</span><span class="op">$</span><span class="va">depth_min</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>,</span>
+<span>    depth_max <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">fisheries_proj</span><span class="op">$</span><span class="va">depth_max</span><span class="op">[</span><span class="va">i</span><span class="op">]</span>, <span class="va">seafloor</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fishery_rasters</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="va">fisheries_proj</span><span class="op">$</span><span class="va">fishery_type</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level3">
@@ -348,8 +362,8 @@ total volume.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example: overlap between first species and first fishery</span></span>
 <span><span class="va">overlap_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calc_volume_overlap.html">calc_volume_overlap</a></span><span class="op">(</span></span>
-<span>  range_rast_a <span class="op">=</span> <span class="va">species_rasters</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>,</span>
-<span>  range_rast_b <span class="op">=</span> <span class="va">fishery_rasters</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
+<span>  x <span class="op">=</span> <span class="va">species_rasters</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>  y <span class="op">=</span> <span class="va">fishery_rasters</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span></span>
@@ -387,8 +401,8 @@ total volume.</p>
 <span>  <span class="va">fi</span> <span class="op">&lt;-</span> <span class="va">pairs</span><span class="op">$</span><span class="va">fishery</span><span class="op">[</span><span class="va">i</span><span class="op">]</span></span>
 <span></span>
 <span>  <span class="va">ov</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calc_volume_overlap.html">calc_volume_overlap</a></span><span class="op">(</span></span>
-<span>    range_rast_a <span class="op">=</span> <span class="va">species_rasters</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span>,</span>
-<span>    range_rast_b <span class="op">=</span> <span class="va">fishery_rasters</span><span class="op">[[</span><span class="va">fi</span><span class="op">]</span><span class="op">]</span></span>
+<span>    x <span class="op">=</span> <span class="va">species_rasters</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span>,</span>
+<span>    y <span class="op">=</span> <span class="va">fishery_rasters</span><span class="op">[[</span><span class="va">fi</span><span class="op">]</span><span class="op">]</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
 <span>  <span class="va">overlap_rasters</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">ov</span></span>
@@ -638,7 +652,7 @@ it.</p>
 <td>Depth handling</td>
 <td>Uniform depth range across entire intersection footprint</td>
 <td>Per-cell depth clamped to bathymetry via
-<code><a href="../reference/voxelize_range.html">voxelize_range()</a></code>
+<code><a href="../reference/vect_to_envelope.html">vect_to_envelope()</a></code>
 </td>
 </tr>
 <tr class="odd">
@@ -652,7 +666,7 @@ it.</p>
 <td>Fishery/species richness maps</td>
 <td>Custom ggplot code</td>
 <td>
-<code>count_3d_overlaps()</code> + ggplot2</td>
+<code><a href="../reference/intersects_3d.html">intersects_3d()</a></code> + ggplot2</td>
 </tr>
 <tr class="odd">
 <td>Species × fishery overlap maps</td>
@@ -752,6 +766,13 @@ overlap at each grid cell. Cells are coloured only where the species is
 present and at least one fishery overlaps in depth. Recreates the
 <code>all_fishery_by_species/</code> plots from the original
 analysis.</p>
+<p><code><a href="../reference/intersects_3d.html">intersects_3d()</a></code> answers <code>TRUE</code>,
+<code>FALSE</code> or <code>NA</code> per cell, so the summed count is a
+real <code>0</code> where the species is present but no fishery reaches
+it, and <code>NA</code> only where there is nothing to compare. The
+colour scale starts at 1, so those zeros stay transparent and the map
+looks as before; the difference is in the numbers, which now separate
+“surveyed, no overlap” from “no data”.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cr_species</span> <span class="op">&lt;-</span> <span class="va">species_iucn</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">red_list_category</span> <span class="op">==</span> <span class="st">"CR"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
@@ -761,10 +782,10 @@ analysis.</p>
 <span><span class="va">fishery_richness_plots</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">cr_species</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">sp_rast</span> <span class="op">&lt;-</span> <span class="va">species_rasters</span><span class="op">[[</span><span class="va">sp</span><span class="op">]</span><span class="op">]</span></span>
 <span></span>
-<span>  <span class="co"># Stack of 1/NA overlap rasters, summed across layers, gives the number of</span></span>
-<span>  <span class="co"># fisheries that overlap the species in 3D at each cell</span></span>
+<span>  <span class="co"># Stack of TRUE/FALSE/NA overlap rasters, summed across layers, gives the</span></span>
+<span>  <span class="co"># number of fisheries that overlap the species in 3D at each cell.</span></span>
 <span>  <span class="va">overlap_stack</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">fishery_rasters</span>, <span class="kw">function</span><span class="op">(</span><span class="va">fi_rast</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu"><a href="../reference/count_3d_overlap.html">count_3d_overlap</a></span><span class="op">(</span><span class="va">sp_rast</span>, <span class="va">fi_rast</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="../reference/intersects_3d.html">intersects_3d</a></span><span class="op">(</span><span class="va">sp_rast</span>, <span class="va">fi_rast</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">count_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">overlap_stack</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu">project</span><span class="op">(</span><span class="st">"EPSG:4326"</span><span class="op">)</span></span>
 <span></span>
@@ -849,7 +870,7 @@ analysis.</p>
 <span></span>
 <span>  <span class="va">cr_rasters</span> <span class="op">&lt;-</span> <span class="va">species_rasters</span><span class="op">[</span><span class="va">cr_species</span><span class="op">]</span></span>
 <span>  <span class="va">overlap_stack</span> <span class="op">&lt;-</span> <span class="fu">terra</span><span class="fu">::</span><span class="fu"><a href="https://rspatial.github.io/terra/reference/rast.html" class="external-link">rast</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">cr_rasters</span>, <span class="kw">function</span><span class="op">(</span><span class="va">sp_rast</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu"><a href="../reference/count_3d_overlap.html">count_3d_overlap</a></span><span class="op">(</span><span class="va">fi_rast</span>, <span class="va">sp_rast</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="../reference/intersects_3d.html">intersects_3d</a></span><span class="op">(</span><span class="va">fi_rast</span>, <span class="va">sp_rast</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="va">count_rast</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">overlap_stack</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu">project</span><span class="op">(</span><span class="st">"EPSG:4326"</span><span class="op">)</span></span>
 <span></span>

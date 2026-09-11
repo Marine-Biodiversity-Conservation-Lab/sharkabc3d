@@ -2,16 +2,24 @@
 
 ## All functions
 
-- [`calc_volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume.md)
-  : Calculate total 3D volume of a rasterized range
+- [`SpatEnvelope-class`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/SpatEnvelope-class.md)
+  : 2.5D min-max envelope: exactly depth_min, depth_max
+- [`SpatVolume-class`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/SpatVolume-class.md)
+  : Union of the package's 3D domain representations
+- [`SpatVoxel-class`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/SpatVoxel-class.md)
+  : 3D voxel model: one layer per standard depth level
+- [`as_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/as_envelope.md)
+  : Coerce a 2D footprint to a 2.5D min-max envelope
+- [`as_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/as_voxel.md)
+  : Create a voxel object
 - [`calc_volume_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/calc_volume_overlap.md)
-  : Calculate 3D volume overlap between two rasterized ranges
-- [`count_3d_overlap()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/count_3d_overlap.md)
-  : Binary 3D overlap between two rasterized ranges
+  : Per-cell 3D volume overlap between two rasterized domains
 - [`create_study_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/create_study_raster.md)
   : Create a study area raster grid
-- [`create_study_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/create_study_voxel.md)
-  : Create a study voxel: the 3D voxel grid space for an analysis
+- [`depths()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/depths.md)
+  : Depths of a voxel's layers
+- [`envelope_to_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/envelope_to_voxel.md)
+  : Convert Envelope 2.5D -\> Voxel 3D
 - [`extract2d()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract2d.md)
   : Extract values from a 2D netCDF variable
 - [`extract3d_all()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_all.md)
@@ -22,10 +30,8 @@
   : Extract the nearest valid depth layer from a 3D netCDF variable
 - [`extract3d_surface()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract3d_surface.md)
   : Extract the surface layer from a 3D netCDF variable
-- [`extract_rast_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_range.md)
-  : Mask a 3D raster by a rasterized species range
-- [`extract_rast_volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_volume.md)
-  : Extract raster values from a 3D volume
+- [`extract_to_area()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_area.md)
+  : Extract a 3D raster to an area and a depth band
 - [`extract_to_point()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_to_point.md)
   : Extract values from netCDFs to one or more point observations
 - [`fetch_species_assessments()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/fetch_species_assessments.md)
@@ -34,18 +40,32 @@
   : Fill missing depth values
 - [`gfw_effort_to_raster()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_effort_to_raster.md)
   : Rasterise a GFW effort tibble onto a target grid
-- [`gfw_gear_depth_bands()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/gfw_gear_depth_bands.md)
-  : Build a depth-stratified fishing-effort stack for one gear class
+- [`intersect_3d()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/intersect_3d.md)
+  : The 3D space two objects share
+- [`intersects_3d()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/intersects_3d.md)
+  : Do two objects share any 3D space?
 - [`load_gebco_bathymetry()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/load_gebco_bathymetry.md)
   : Load GEBCO bathymetry raster
-- [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
-  : Summarise environmental conditions within a species' 3D range
+- [`mask(`*`<SpatVoxel>`*`,`*`<SpatEnvelope>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  [`mask(`*`<SpatVoxel>`*`,`*`<SpatVoxel>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  [`mask(`*`<SpatEnvelope>`*`,`*`<SpatEnvelope>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  [`mask(`*`<SpatEnvelope>`*`,`*`<SpatVoxel>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  [`mask(`*`<SpatRaster>`*`,`*`<SpatEnvelope>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  [`mask(`*`<SpatRaster>`*`,`*`<SpatVoxel>`*`)`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/mask-3d.md)
+  : Keep a raster's values inside a 3D domain
+- [`occupied()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/occupied.md)
+  : Reduce a variable voxel to a presence voxel
 - [`temporal_summarise()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/temporal_summarise.md)
   : Summarise across temporal dimension
-- [`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md)
-  : Voxelize a species range or fishery footprint onto a study grid
-- [`voxelize_ranges()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_ranges.md)
-  : Voxelize multiple ranges onto a study grid
+- [`vect_to_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/vect_to_envelope.md)
+  : Convert SpatVector or sf to SpatEnvelope
+- [`volume()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/volume.md)
+  : Total 3D volume of a rasterized domain
+- [`profile_flat()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxel_profiles.md)
+  [`profile_equal()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxel_profiles.md)
+  : Vertical profiles for voxel building
+- [`voxel_to_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxel_to_envelope.md)
+  : Collapse Voxel 3D -\> Envelope 2.5D
 - [`woa_cache_clear()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_clear.md)
   : Clear the WOA cache
 - [`woa_cache_dir()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_cache_dir.md)

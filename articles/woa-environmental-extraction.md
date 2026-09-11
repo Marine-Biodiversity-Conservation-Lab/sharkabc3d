@@ -146,9 +146,10 @@ do_annual <- woa_load_nc(do_annual_path, field = "an")
 #### 4c: Prepare the study grid and bathymetry
 
 Per-cell depth windows are computed by
-[`voxelize_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/voxelize_range.md),
-which clamps the species’ nominal depth limits to the seafloor at each
-cell. We pick one environmental raster as the canonical study grid;
+[`vect_to_envelope()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/vect_to_envelope.md),
+which takes the seafloor as one more `depth_max` constraint and so
+clamps the species’ nominal lower limit to the bed wherever the bed is
+shallower. We pick one environmental raster as the canonical study grid;
 every other raster (bathymetry and all WOA variables at other
 resolutions) gets projected onto it so the entire downstream pipeline
 operates on a single, consistent grid.
@@ -172,24 +173,25 @@ seafloor <- (terra::project(bathy, study_grid) * -1) |>
 
 #### 4d: Align the annual rasters onto the study grid
 
-[`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md)
-and
-[`extract_rast_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_range.md)
-require the rasterized range and every environmental raster to share
-extent, resolution, and CRS. Project each WOA raster onto `study_grid`
-up front (nearest-neighbour preserves the `{variable}_depth={value}`
-layer naming and the standard depth bins without interpolation across
-depths). We align the annual means here; the monthly summaries are
-aligned in Step 5 once they have been computed.
+Masking a range envelope onto an environmental raster requires the two
+to share extent, resolution, and CRS. Project each WOA raster onto
+`study_grid` up front (nearest-neighbour preserves the
+`{variable}_depth={value}` layer naming and the standard depth bins
+without interpolation across depths). We align the annual means here;
+the monthly summaries are aligned in Step 5 once they have been
+computed.
 
 ``` r
 
-# Any raster not already on the study grid gets reprojected.
+# Any raster not already on the study grid gets reprojected, then re-wrapped as
+# a SpatVoxel: terra operations propagate the class but do not re-run its
+# validity rules, so as_voxel() is how the depth axis is re-checked after a
+# projection. It is idempotent, so wrapping defensively costs nothing.
 align_to_grid <- function(r, grid) {
   if (terra::compareGeom(r[[1]], grid, stopOnError = FALSE, messages = FALSE)) {
-    r
+    as_voxel(r)
   } else {
-    terra::project(r, grid, method = "near")
+    as_voxel(terra::project(r, grid, method = "near"))
   }
 }
 
@@ -204,8 +206,10 @@ do_annual <- align_to_grid(do_annual, study_grid)
 Before the full pipeline, here is the simplest possible extraction: the
 sea surface temperature (depth = 0) values where a species’ range
 overlaps the WOA temperature raster.
-[`extract_rast_range()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/extract_rast_range.md)
-masks `t_annual` to the cells and depths the species occupies; selecting
+[`envelope_to_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/envelope_to_voxel.md)
+puts the range envelope on `t_annual`’s depth levels so
+[`terra::mask()`](https://rspatial.github.io/terra/reference/mask.html)
+can restrict it to the cells and depths the species occupies; selecting
 the `t_an_depth=0` layer leaves just the surface.
 
 We loop over every species and save its surface temperature values,
@@ -220,17 +224,18 @@ sst_values <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   # Per-cell depth window for this species, clamped to the seafloor.
-  range_rast <- voxelize_range(
-    polygons = sp_range,
-    voxel = study_grid,
-    bathymetry = seafloor,
+  range_rast <- vect_to_envelope(
+    polygon = sp_range,
+    template = study_grid,
     depth_min = sp_depths$upper_depth,
-    depth_max = sp_depths$lower_depth
+    depth_max = list(sp_depths$lower_depth, seafloor)
   )
 
-  # Surface temperature across the species/WOA overlap.
-  sst <- extract_rast_range(range_rast, t_annual)[["t_an_depth=0"]]
-  terra::values(sst, na.rm = TRUE)[, 1]
+  # Surface temperature across the species/WOA overlap. mask() is
+  # depth-aware for an envelope: each depth layer keeps only the cells whose
+  # window reaches that depth.
+  in_range <- mask(t_annual, range_rast)
+  terra::values(in_range[["t_an_depth=0"]], na.rm = TRUE)[, 1]
 })
 names(sst_values) <- depth_table_complete$sis_id
 
@@ -319,11 +324,51 @@ env_rasters <- list(
 
 The original analysis used a ~90-line `foreach` loop that manually
 called `woa_volume_extract()` eight times per species (4 rasters x 2
-variables), computed summary statistics, and assembled output rows. Now
-this is handled by
-[`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md).
+variables), computed summary statistics, and assembled output rows. That
+collapses to the two helpers below, applied across species with
+[`lapply()`](https://rdrr.io/r/base/lapply.html).
 
-#### 5c: Summarise for a single species
+#### 5c: Two helpers — mask, then summarise
+
+`summarise_range()` is the whole per-species step: for each
+environmental raster, restrict it to the species’ 3D range and reduce
+the result to one row of statistics.
+
+Each raster gets its own occupancy voxel, because each may sit on a
+different set of standard depths — `depths(v)` is read per raster rather
+than assumed shared.
+[`terra::values()`](https://rspatial.github.io/terra/reference/values.html)
+returns a cells × depths matrix, so `n_cells` counts occupied **voxels**
+(cell × depth) while `n_surface_cells` counts the map cells with data at
+any depth.
+
+``` r
+
+# One row of statistics per named raster, prefixed with that name.
+summarise_range <- function(range_rast, raster_list) {
+  stopifnot(!is.null(names(raster_list)), all(names(raster_list) != ""))
+
+  cols <- Map(function(v, nm) {
+    vals <- terra::values(mask(v, range_rast))
+    out <- c(
+      min             = suppressWarnings(min(vals, na.rm = TRUE)),
+      max             = suppressWarnings(max(vals, na.rm = TRUE)),
+      mean            = suppressWarnings(mean(vals, na.rm = TRUE)),
+      n_surface_cells = sum(rowSums(!is.na(vals)) > 0),
+      n_cells         = sum(!is.na(vals)),
+      n_depths        = ncol(vals)
+    )
+    # A species whose range misses the raster entirely gives -Inf / Inf.
+    out[is.infinite(out)] <- NA_real_
+    names(out) <- paste(nm, names(out), sep = "_")
+    as.list(out)
+  }, raster_list, names(raster_list))
+
+  as.data.frame(unlist(cols, recursive = FALSE), stringsAsFactors = FALSE)
+}
+```
+
+#### 5d: Summarise for a single species
 
 ``` r
 
@@ -332,15 +377,14 @@ sp_id <- depth_table_complete$sis_id[i]
 sp_range <- species_ranges[species_ranges$id_no == sp_id, ]
 sp_depths <- depth_table_complete[i, ]
 
-range_rast <- voxelize_range(
-  polygons = sp_range,
-  voxel = study_grid,
-  bathymetry = seafloor,
+range_rast <- vect_to_envelope(
+  polygon = sp_range,
+  template = study_grid,
   depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
+  depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
-result <- summarise_species_environment(
+result <- summarise_range(
   range_rast = range_rast,
   raster_list = env_rasters
 )
@@ -350,7 +394,7 @@ result
 #>   temperature_annual_mean_min temperature_annual_mean_max ...
 ```
 
-#### 5d: Apply across all species
+#### 5e: Apply across all species
 
 ``` r
 
@@ -362,14 +406,13 @@ results <- lapply(seq_len(nrow(depth_table_complete)), function(i) {
   sp_depths <- depth_table_complete[i, ]
 
   row <- tryCatch({
-    range_rast <- voxelize_range(
-      polygons = sp_range,
-      voxel = study_grid,
-      bathymetry = seafloor,
+    range_rast <- vect_to_envelope(
+      polygon = sp_range,
+      template = study_grid,
       depth_min = sp_depths$upper_depth,
-      depth_max = sp_depths$lower_depth
+      depth_max = list(sp_depths$lower_depth, seafloor)
     )
-    summarise_species_environment(range_rast, env_rasters)
+    summarise_range(range_rast, env_rasters)
   },
   error = function(e) {
     message("Error for ", sp_depths$scientific_name, ": ", e$message)
@@ -385,7 +428,7 @@ summary_table <- results |>
   merge(depth_table_complete, by = "sis_id")
 ```
 
-#### 5e: Save output
+#### 5f: Save output
 
 ``` r
 
@@ -404,25 +447,19 @@ examples.
 library(ggplot2)
 library(tidyterra)
 
-# Parse the numeric depth out of the package's `{variable}_depth={value}`
-# layer-naming convention.
-parse_depth_layers <- function(rast) {
-  as.numeric(str_extract(names(rast), "(?<=_depth=)-?[0-9.]+"))
-}
-
 # Vertical depth profile of an environmental variable within a species range.
 # At each depth layer the spatial mean, min, and max are computed across the
 # cells where that depth falls inside the species' per-cell depth window
 # (bathymetry-clamped). Layers that are all-NA are dropped.
 plot_depth_profile <- function(species_name, range_rast, rast_3d) {
-  masked <- extract_rast_range(range_rast, rast_3d)
-  depths <- parse_depth_layers(masked)
+  masked <- mask(rast_3d, range_rast)
+  layer_depths <- depths(masked)
 
   summary_per_depth <- lapply(seq_len(terra::nlyr(masked)), function(i) {
     v <- terra::values(masked[[i]])
     if (all(is.na(v))) return(NULL)
     data.frame(
-      depth = depths[i],
+      depth = layer_depths[i],
       mean  = mean(v, na.rm = TRUE),
       min   = min(v, na.rm = TRUE),
       max   = max(v, na.rm = TRUE)
@@ -447,10 +484,10 @@ plot_depth_profile <- function(species_name, range_rast, rast_3d) {
 # Map view of a species range with environmental values at the depth layer
 # nearest `depth`.
 plot_range_at_depth <- function(species_range, depth, rast_3d) {
-  depths <- parse_depth_layers(rast_3d)
-  idx <- which.min(abs(depths - depth))
+  layer_depths <- depths(rast_3d)
+  idx <- which.min(abs(layer_depths - depth))
   layer <- rast_3d[[idx]]
-  actual_depth <- depths[idx]
+  actual_depth <- layer_depths[idx]
 
   range_vect <- if (inherits(species_range, "sf")) {
     terra::vect(species_range)
@@ -485,11 +522,11 @@ plot_range_at_depth <- function(species_range, depth, rast_3d) {
 ``` r
 
 # Temperature depth profile within the white shark's range.
-# Reuse the per-species voxelize_range() output from step 5d.
+# Reuse the per-species vect_to_envelope() output from step 5e.
 sp_range <- species_ranges[species_ranges$sci_name == "Carcharhinus longimanus", ]
-sp_range_rast <- voxelize_range(
-  polygons = sp_range, voxel = study_grid, bathymetry = seafloor,
-  depth_min = 0, depth_max = 1200
+sp_range_rast <- vect_to_envelope(
+  polygon = sp_range, template = study_grid,
+  depth_min = 0, depth_max = list(1200, seafloor)
 )
 
 # Is this really necessary 
@@ -526,22 +563,21 @@ sp_depths <- depth_table_complete[
   depth_table_complete$scientific_name == sp_name, ]
 
 # Per-cell depth window, clamped to bathymetry.
-range_rast <- voxelize_range(
-  polygons = sp_range,
-  voxel = study_grid,
-  bathymetry = seafloor,
+range_rast <- vect_to_envelope(
+  polygon = sp_range,
+  template = study_grid,
   depth_min = sp_depths$upper_depth,
-  depth_max = sp_depths$lower_depth
+  depth_max = list(sp_depths$lower_depth, seafloor)
 )
 
 # Mask t_annual to the cells + depths the species actually occupies, then
 # bounding-box crop so as.data.frame doesn't iterate the entire globe.
-masked <- extract_rast_range(range_rast, t_annual) |>
+masked <- mask(t_annual, range_rast) |>
   terra::crop(terra::vect(sp_range))
 
 long_df <- terra::as.data.frame(masked, xy = TRUE, na.rm = FALSE) |>
   pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value") |>
-  mutate(depth = as.numeric(str_extract(layer, "(?<=_depth=)-?[0-9.]+"))) |>
+  mutate(depth = depths(layer)) |>
   filter(!is.na(value))
 
 # Lock the legend to the global min/max so colour mapping is identical per frame.
@@ -585,5 +621,5 @@ anim
 | Load species ranges | ~10 lines with manual filtering | inline [`sf::st_read()`](https://r-spatial.github.io/sf/reference/st_read.html) with SQL filter |
 | Download WOA files | manual URL lookup per variable | [`woa_download()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/woa_download.md) (cached) |
 | Create monthly summaries | `data-raw/WOA.R` (~170 lines) | `woa_summarise_monthly()` helper (this article) |
-| Per-species extraction loop | ~90 lines foreach loop | [`summarise_species_environment()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/summarise_species_environment.md) via [`lapply()`](https://rdrr.io/r/base/lapply.html) |
+| Per-species extraction loop | ~90 lines foreach loop | [`envelope_to_voxel()`](https://marine-biodiversity-conservation-lab.github.io/sharkabc3d/reference/envelope_to_voxel.md) + [`terra::mask()`](https://rspatial.github.io/terra/reference/mask.html), wrapped in a `summarise_range()` helper (this article) |
 | **Total** | **~350+ lines across multiple files** | **~30 lines of package calls** |

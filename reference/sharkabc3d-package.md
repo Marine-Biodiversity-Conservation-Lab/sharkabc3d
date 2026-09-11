@@ -21,3 +21,8 @@ Useful links:
 
 **Maintainer**: Jay Matsushiba <hello@jmatsushiba.com>
 ([ORCID](https://orcid.org/0000-0003-0496-9188))
+
+Authors:
+
+- Jay Matsushiba <hello@jmatsushiba.com>
+  ([ORCID](https://orcid.org/0000-0003-0496-9188))
