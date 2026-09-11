@@ -70,7 +70,7 @@ test_that("profile_equal() does not depend on the depth values themselves", {
 
 test_that("envelope_to_voxel() accepts a profile written by the caller", {
   fp <- make_footprint(c(1, 1, 1, 1))
-  envel <- as_envelope(fp, depth_min = 0, depth_max = 300)
+  envel <- as_envelope(fp, depth_min = 0, depth_max = 350)
   depths <- c(0, 100, 200, 300)
 
   # weight the top two levels twice as heavily as the deeper ones, normalised
@@ -95,7 +95,7 @@ test_that("envelope_to_voxel() accepts a profile written by the caller", {
 
 test_that("a custom profile may name its arguments however it likes", {
   # the profile is called positionally, so these formals are not a contract
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
 
   vals <- terra::values(
     envelope_to_voxel(envel, depths = c(0, 100, 200, 300), values = 8,
@@ -106,7 +106,7 @@ test_that("a custom profile may name its arguments however it likes", {
 })
 
 test_that("a custom profile sees the depths it is being asked about", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
   seen <- NULL
 
   envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
@@ -119,7 +119,7 @@ test_that("a custom profile sees the depths it is being asked about", {
 })
 
 test_that("a custom profile may return one weight per depth", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
   depths <- c(0, 100, 200, 300)
 
   # a full stack: half the value at the surface layer, whole value below
@@ -138,7 +138,7 @@ test_that("a custom profile may return one weight per depth", {
 # profile return values ----
 
 test_that("envelope_to_voxel() rejects a profile returning the wrong layer count", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
 
   expect_error(
     envelope_to_voxel(envel, depths = c(0, 100, 200, 300),
@@ -149,7 +149,7 @@ test_that("envelope_to_voxel() rejects a profile returning the wrong layer count
 })
 
 test_that("envelope_to_voxel() rejects a profile returning an off-grid raster", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
   other <- terra::rast(nrows = 3, ncols = 3, xmin = 0, xmax = 3,
                        ymin = 0, ymax = 3, vals = 1)
 
@@ -162,7 +162,7 @@ test_that("envelope_to_voxel() rejects a profile returning an off-grid raster", 
 })
 
 test_that("envelope_to_voxel() rejects a profile returning a non-weight", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
   depths <- c(0, 100, 200, 300)
 
   expect_error(
@@ -186,7 +186,7 @@ test_that("envelope_to_voxel() rejects a profile returning a non-weight", {
 })
 
 test_that("a failing profile is reported as the profile's failure", {
-  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 300)
+  envel <- as_envelope(make_footprint(), depth_min = 0, depth_max = 350)
 
   expect_error(
     envelope_to_voxel(envel, depths = c(0, 100, 200, 300),

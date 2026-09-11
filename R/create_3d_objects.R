@@ -229,10 +229,10 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' Convert Envelope 2.5D -> Voxel 3D
 #' 
 #' Expand a [SpatEnvelope-class] to the [SpatVoxel-class], with an input of
-#' depth levels. A depth level belongs to a cell when it falls inside that
-#' cell's `[depth_min, depth_max]` interval, inclusive of both ends; depths
-#' outside the interval, and cells that are `NA` in the envelope, are `NA` in
-#' every layer.
+#' depth levels. A depth level belongs to a cell when the slab of water it
+#' stands for shares some thickness with that cell's `[depth_min, depth_max]`
+#' interval; depths outside the interval, and cells that are `NA` in the
+#' envelope, are `NA` in every layer.
 #'
 #' \itemize{
 #'   \item `values` is the magnitude, which can be a single number for the whole grid or a
@@ -246,10 +246,14 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' }
 #'
 #' A depth level stands for a slab of water rather than a knife-edge, and a cell
-#' occupies that level when its envelope overlaps the slab at all — the vertical
-#' counterpart of rasterizing with `touches = TRUE`. An interval of `[10, 20]`
-#' against levels `c(0, 100)` therefore occupies the 0 m level, rather than
-#' falling between the levels and coming back empty.
+#' occupies that level when its envelope overlaps the slab by more than a
+#' shared edge. An interval of `[10, 20]` against levels `c(0, 100)` therefore
+#' occupies the 0 m level, rather than falling between the levels and coming
+#' back empty. Touching is not overlapping: an interval that ends exactly where
+#' a slab begins, `[0, 100]` against the slab `100-200`, does not occupy that
+#' level, so adjacent depth ranges are placed on disjoint levels and do not
+#' intersect as voxels. This is the same rule [intersect_3d()] applies between
+#' two envelopes.
 #'
 #' Where a slab's edges fall is a property of the dataset the levels came from,
 #' not of the levels themselves, so `bounds` selects the convention:
@@ -269,7 +273,12 @@ as_voxel <- function(x, depths = NULL, varname = "value") {
 #' than extrapolated, which is why WOA's 0 m layer starts at the surface rather
 #' than half a gap above it. The expansion is therefore limited only at the two
 #' ends when a cell whose envelope lies wholly above `min(depths)` or wholly below
-#' `max(depths)`. 
+#' `max(depths)`. Under `"top"` the deepest level has no next level to run to,
+#' so it stands for a zero-thickness slab: an envelope is recorded there only
+#' when it reaches below `max(depths)`, and one that ends exactly at
+#' `max(depths)` stops at the level above. For the same reason a
+#' [voxel_to_envelope()] round trip drops each cell's deepest occupied level:
+#' the envelope's `depth_max` names that level, which is the top of its slab.
 #'
 #' @param x SpatEnvelope, e.g. from [as_envelope()] or [voxel_to_envelope()].
 #' @param depths Array of values that can be coerced into numeric type,
@@ -380,9 +389,12 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
 
   # Step 1: occupancy. Each level stands for a slab of water, `bounds` says
   # where its edges fall, and a cell occupies the level when its envelope
-  # overlaps that slab at all — the vertical form of `touches = TRUE`. Slabs
-  # are half-open so a shared edge is claimed by the deeper level alone, the
-  # deepest closed. Raster stays left: terra mishandles `scalar <op> raster`.
+  # shares some thickness of water with that slab. Strict `>` on the
+  # envelope's floor: an envelope that merely ends where a slab begins shares
+  # no water with it, the same rule intersect_3d() applies between envelopes,
+  # so adjacent depth ranges never meet on a level. Slabs are half-open so a
+  # shared edge is claimed by the deeper level alone, the deepest closed.
+  # Raster stays left: terra mishandles `scalar <op> raster`.
   slab <- .depth_slabs(depths, bounds)
   # Plain layers, so the occupancy stack and everything derived from it is a
   # plain SpatRaster rather than an object still tagged SpatEnvelope. terra
@@ -393,9 +405,9 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
   deepest <- length(depths)
   ind <- terra::rast(lapply(seq_along(depths), function(i) {
     if (i == deepest) {
-      (lower <= slab$upper[i]) & (upper >= slab$lower[i])
+      (lower <= slab$upper[i]) & (upper > slab$lower[i])
     } else {
-      (lower < slab$upper[i]) & (upper >= slab$lower[i])
+      (lower < slab$upper[i]) & (upper > slab$lower[i])
     }
   }))
   # number of depth levels present per vertical column, cell 
@@ -435,8 +447,8 @@ envelope_to_voxel <- function(x, depths, values = NULL, profile = NULL,
 
 # Internal: the slab of water each depth level stands for, as parallel vectors
 # of its shallow and deep edge. Slabs are half-open, `[lower, upper)`, except
-# the deepest, which is closed so an envelope sitting exactly on the last level
-# is still caught.
+# the deepest, which is closed so an envelope that starts exactly on the last
+# level and reaches below it is still caught.
 #
 # Outer edges are clamped to `range(depths)` rather than extrapolated, under
 # both conventions. Extrapolating would invent reach the levels were never

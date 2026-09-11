@@ -113,6 +113,19 @@ restricts the domain horizontally and leaves its depths alone.
   back empty. `envelope_to_voxel()` tests slab overlap instead, so the same
   envelope now occupies the 0 m level, and its `bounds` argument chooses where
   the slab edges fall (`"top"` or the World Ocean Atlas `"midpoint"`).
+* Touching is not overlapping, for voxels as well as envelopes.
+  `envelope_to_voxel()` used to record an envelope at a level whose slab it
+  merely ended on, so `[0, 100]` and `[100, 200]` both occupied the 100 m
+  level and their voxels intersected, while `intersect_3d()` on the same two
+  envelopes said they did not. The occupancy test is now strict on the
+  envelope's floor: a level is occupied only where the envelope shares some
+  thickness of water with its slab. Adjacent depth ranges therefore land on
+  disjoint levels, and `intersect_3d()`, `intersects_3d()`, `mask()` and
+  `calc_volume_overlap()` give the envelope answer whichever types they are
+  handed. Two consequences: an envelope ending exactly at a level no longer
+  occupies that level, and under `"top"` an envelope ending at `max(depths)`
+  is not recorded at the deepest level, which stands for a zero-thickness
+  slab.
 * `calc_volume_overlap()` returned its nine-layer stack tagged `SpatEnvelope`.
   It is now the plain `SpatRaster` its documentation describes.
 

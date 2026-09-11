@@ -46,10 +46,10 @@ grid of \code{x}, layers ordered shallow to deep.
 }
 \description{
 Expand a \link[=SpatEnvelope-class]{SpatEnvelope} to the \link[=SpatVoxel-class]{SpatVoxel}, with an input of
-depth levels. A depth level belongs to a cell when it falls inside that
-cell's \verb{[depth_min, depth_max]} interval, inclusive of both ends; depths
-outside the interval, and cells that are \code{NA} in the envelope, are \code{NA} in
-every layer.
+depth levels. A depth level belongs to a cell when the slab of water it
+stands for shares some thickness with that cell's \verb{[depth_min, depth_max]}
+interval; depths outside the interval, and cells that are \code{NA} in the
+envelope, are \code{NA} in every layer.
 }
 \details{
 \itemize{
@@ -64,10 +64,14 @@ so sum of all depth levels in the voxel equals \code{values}.
 }
 
 A depth level stands for a slab of water rather than a knife-edge, and a cell
-occupies that level when its envelope overlaps the slab at all — the vertical
-counterpart of rasterizing with \code{touches = TRUE}. An interval of \verb{[10, 20]}
-against levels \code{c(0, 100)} therefore occupies the 0 m level, rather than
-falling between the levels and coming back empty.
+occupies that level when its envelope overlaps the slab by more than a
+shared edge. An interval of \verb{[10, 20]} against levels \code{c(0, 100)} therefore
+occupies the 0 m level, rather than falling between the levels and coming
+back empty. Touching is not overlapping: an interval that ends exactly where
+a slab begins, \verb{[0, 100]} against the slab \verb{100-200}, does not occupy that
+level, so adjacent depth ranges are placed on disjoint levels and do not
+intersect as voxels. This is the same rule \code{\link[=intersect_3d]{intersect_3d()}} applies between
+two envelopes.
 
 Where a slab's edges fall is a property of the dataset the levels came from,
 not of the levels themselves, so \code{bounds} selects the convention:
@@ -87,7 +91,12 @@ the deepest and no further: outer edges are clamped to \code{range(depths)} rath
 than extrapolated, which is why WOA's 0 m layer starts at the surface rather
 than half a gap above it. The expansion is therefore limited only at the two
 ends when a cell whose envelope lies wholly above \code{min(depths)} or wholly below
-\code{max(depths)}.
+\code{max(depths)}. Under \code{"top"} the deepest level has no next level to run to,
+so it stands for a zero-thickness slab: an envelope is recorded there only
+when it reaches below \code{max(depths)}, and one that ends exactly at
+\code{max(depths)} stops at the level above. For the same reason a
+\code{\link[=voxel_to_envelope]{voxel_to_envelope()}} round trip drops each cell's deepest occupied level:
+the envelope's \code{depth_max} names that level, which is the top of its slab.
 }
 \examples{
 fp <- terra::rast(nrows = 1, ncols = 2, xmin = 0, xmax = 2, ymin = 0, ymax = 1)

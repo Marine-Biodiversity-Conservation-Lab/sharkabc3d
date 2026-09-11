@@ -93,6 +93,26 @@ test_that("calc_volume_overlap() overlap is zero when depth ranges don't overlap
   expect_true(all(is.na(terra::values(result[["depth_max_overlap"]]))))
 })
 
+test_that("calc_volume_overlap() overlap is zero for adjacent depth ranges, as voxels too", {
+  # A ends exactly where B begins. The envelopes share no water, and neither
+  # do their voxels: the boundary level belongs to B alone.
+  a <- make_range_rast(rep(0, 9), rep(100, 9))
+  b <- make_range_rast(rep(100, 9), rep(200, 9))
+  depths <- c(0, 100, 200)
+
+  env_overlap <- terra::values(calc_volume_overlap(a, b)[["volume_overlap"]])
+  expect_true(all(env_overlap == 0))
+
+  va <- envelope_to_voxel(a, depths)
+  vb <- envelope_to_voxel(b, depths)
+  vox_overlap <- terra::values(calc_volume_overlap(va, vb)[["volume_overlap"]])
+  expect_true(all(vox_overlap == 0))
+
+  # the mixed path promotes the envelope and must agree
+  mixed_overlap <- terra::values(calc_volume_overlap(a, vb)[["volume_overlap"]])
+  expect_true(all(mixed_overlap == 0))
+})
+
 test_that("calc_volume_overlap() full overlap when ranges are identical", {
   a <- make_range_rast(
     depth_min_vals = rep(0, 9),

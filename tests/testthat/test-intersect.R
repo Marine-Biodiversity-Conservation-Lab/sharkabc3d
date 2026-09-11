@@ -263,6 +263,42 @@ test_that("intersects_3d() treats touching intervals as not intersecting", {
   expect_equal(vals_of(intersects_3d(a, b)), rep(FALSE, 9))
 })
 
+test_that("adjacent depth ranges do not intersect as voxels either", {
+  # The envelope rule, touching is not overlapping, must survive promotion to
+  # depth levels: [0, 100] and [100, 200] share only the boundary at 100 m,
+  # so their voxels occupy no common level and every 3D verb agrees with the
+  # envelope answer, whichever combination of types it is asked about.
+  a <- make_range_rast(rep(0, 9), rep(100, 9))
+  b <- make_range_rast(rep(100, 9), rep(200, 9))
+  depths <- c(0, 100, 200)
+  va <- envelope_to_voxel(a, depths)
+  vb <- envelope_to_voxel(b, depths)
+
+  # voxel vs voxel
+  expect_equal(vals_of(intersects_3d(va, vb)), rep(FALSE, 9))
+  expect_equal(vals_of(intersects_3d(vb, va)), rep(FALSE, 9))
+  expect_true(all(is.na(terra::values(intersect_3d(va, vb)))))
+
+  # envelope vs voxel, both orders
+  expect_equal(vals_of(intersects_3d(a, vb)), rep(FALSE, 9))
+  expect_equal(vals_of(intersects_3d(vb, a)), rep(FALSE, 9))
+  expect_true(all(is.na(terra::values(intersect_3d(a, vb)))))
+  expect_true(all(is.na(terra::values(intersect_3d(va, b)))))
+
+  # and the same under the midpoint convention, with levels whose slab edge
+  # falls at 100 m (halfway between 50 and 150)
+  depths_mid <- c(0, 50, 150, 200)
+  va_mid <- envelope_to_voxel(a, depths_mid, bounds = "midpoint")
+  vb_mid <- envelope_to_voxel(b, depths_mid, bounds = "midpoint")
+  expect_equal(vals_of(intersects_3d(va_mid, vb_mid)), rep(FALSE, 9))
+  expect_equal(vals_of(intersects_3d(a, vb_mid, bounds = "midpoint")), rep(FALSE, 9))
+
+  # overlapping by any amount is still an intersection, so this is the
+  # boundary itself and not a wider gap
+  c_ <- make_range_rast(rep(99, 9), rep(200, 9))
+  expect_equal(vals_of(intersects_3d(va, envelope_to_voxel(c_, depths))), rep(TRUE, 9))
+})
+
 test_that("intersects_3d() on voxels gives the tri-state truth table", {
   depths <- c(0, 100, 200)
   a <- make_voxel(cbind(c(1, 1, 1, NA), c(1, NA, 1, NA), c(NA, NA, 1, NA)),
@@ -378,7 +414,8 @@ test_that("mask(voxel, envelope) equals the hand-written idiom exactly", {
 test_that("mask(voxel, envelope) consults the depth axis", {
   # Before: terra's method masked layer by layer and left the voxel unchanged.
   field <- make_field()
-  shallow <- make_range_rast(rep(0, 9), rep(50, 9))
+  # [0, 75] runs through the 0 and 50 m slabs and stops short of 100.
+  shallow <- make_range_rast(rep(0, 9), rep(75, 9))
 
   out <- mask(field, shallow)
   expect_true(all(!is.na(terra::values(out[[c("temp_depth=0", "temp_depth=50")]]))))
