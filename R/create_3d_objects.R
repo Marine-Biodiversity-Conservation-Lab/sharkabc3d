@@ -144,16 +144,14 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' Most terra operations (`crop()`, `mask()`, `[[`, arithmetic) propagate the
 #' class, so a `SpatVoxel` normally survives them; a few, such as `mean()`,
 #' return a plain `SpatRaster` instead. Re-wrapping is cheap either way, since
-#' `as_voxel()` is idempotent — given a `SpatVoxel` and no `depths` it returns
-#' it untouched.
+#' `as_voxel()` is idempotent — given a valid `SpatVoxel` and no `depths` it
+#' returns it untouched.
 #'
 #' Propagating the class does not re-run the validity rules, so an operation
-#' that changes the layer set can leave an object still labelled `SpatVoxel`
-#' that no longer satisfies them: `app()`, for instance, collapses the stack to
-#' a single layer whose name no longer carries a depth. Because
-#' `as_voxel()` returns any `SpatVoxel` unchanged, it will not repair that —
-#' pass `depths` to rebuild the layer names, or check with
-#' [methods::validObject()].
+#' that changes the raster layer set can leave an object still labelled `SpatVoxel`
+#' even if invalid. Passing an invalid `SpatVoxel` to `as_voxel()` rebuilds
+#' from layer names, passing through the function as if a plain multi-layer raster. 
+#' Pass `depths` to rebuild the layer names.
 #'
 #' Depths are positive metres increasing downward, matching the World Ocean
 #' Atlas convention. Negative depths are an error rather than being silently
@@ -181,10 +179,15 @@ as_envelope <- function(x, depth_min, depth_max) {
 #' names(as_voxel(r))
 #' @export
 as_voxel <- function(x, depths = NULL, varname = "value") {
-  # Idempotent: re-wrapping is cheap, so callers can do it defensively. Note
-  # this skips validation, so it will not repair a SpatVoxel that a terra
-  # operation left invalid; supplying `depths` rebuilds the names and revalidates.
-  if (methods::is(x, "SpatVoxel") && is.null(depths)) return(x)
+  # Idempotent: a valid SpatVoxel comes back as it is, so re-wrapping is cheap
+  # and callers can do it defensively. terra propagates the class tag through
+  # `[[`, `names<-` and the like without re-running validity, so a tagged
+  # object may no longer be a voxel. `as_voxel()` repairs what is unambiguous 
+  # (layer order) and rejects the rest with the constructor's own messages. 
+  if (methods::is(x, "SpatVoxel") && is.null(depths)) {
+    if (isTRUE(methods::validObject(x, test = TRUE))) return(x)
+    x <- .as_plain_raster(x)
+  }
 
   if (is.list(x)) x <- terra::rast(x)
   if (!methods::is(x, "SpatRaster")) {

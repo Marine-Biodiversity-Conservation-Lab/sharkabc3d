@@ -241,6 +241,54 @@ test_that("as_voxel() rejects a non-raster input", {
   expect_error(as_voxel("not a raster"), "must be a SpatRaster")
 })
 
+test_that("as_voxel() catches a SpatVoxel that a terra operation broke", {
+  # terra propagates the class tag through `[[` without re-running validity,
+  # so an object can be labelled SpatVoxel and not be one. The idempotent
+  # fast path must not wave it through.
+  r <- terra::rast(nrows = 1, ncols = 2, nlyrs = 3)
+  terra::values(r) <- 1
+  v <- as_voxel(r, depths = c(0, 100, 200), varname = "presence")
+  expect_true(methods::validObject(v, test = TRUE))
+
+  # selecting the first layer twice leaves depths 0, 0, 100
+  broken <- v[[c(1, 1, 2)]]
+  expect_s4_class(broken, "SpatVoxel")
+  expect_false(isTRUE(methods::validObject(broken, test = TRUE)))
+
+  # as_voxel() refuses it, with the message a plain raster would get
+  expect_error(as_voxel(broken), "duplicate depth")
+
+  # and the same when the depth is lost from the layer names
+  renamed <- v
+  names(renamed) <- c("a", "b", "c")
+  expect_s4_class(renamed, "SpatVoxel")
+  expect_error(as_voxel(renamed), "_depth=")
+
+  # a lost name is recoverable by supplying `depths`, which rebuilds the names
+  rebuilt <- as_voxel(renamed, depths = c(0, 100, 200), varname = "presence")
+  expect_true(methods::validObject(rebuilt, test = TRUE))
+  expect_identical(names(rebuilt), names(v))
+})
+
+test_that("as_voxel() repairs a tagged SpatVoxel whose layers are out of order", {
+  # package functions advise that as_voxel() can be used to repair SpatVoxel
+  # so it should be able to repair when possible from the input invalid SpatVoxel
+  r <- terra::rast(nrows = 1, ncols = 2, nlyrs = 3)
+  terra::values(r) <- cbind(c(1, 1), c(2, 2), c(3, 3))
+  v <- as_voxel(r, depths = c(0, 100, 200), varname = "presence")
+
+  reversed <- v[[c(3, 1, 2)]]
+  expect_s4_class(reversed, "SpatVoxel")
+  expect_false(isTRUE(methods::validObject(reversed, test = TRUE)))
+  expect_error(volume(reversed), "not a valid one")
+
+  fixed <- as_voxel(reversed)
+  expect_true(methods::validObject(fixed, test = TRUE))
+  expect_identical(names(fixed), names(v))
+  expect_equal(terra::values(fixed), terra::values(v))
+  expect_equal(volume(fixed), volume(v))
+})
+
 test_that("as_voxel() output is accepted by voxel_to_envelope()", {
   e <- voxel_to_envelope(as_voxel(make_multidepth_rast()))
   expect_s4_class(e, "SpatEnvelope")

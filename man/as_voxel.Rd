@@ -29,16 +29,14 @@ following the \verb{\{variable\}_depth=\{value\}} convention.
 Most terra operations (\code{crop()}, \code{mask()}, \code{[[}, arithmetic) propagate the
 class, so a \code{SpatVoxel} normally survives them; a few, such as \code{mean()},
 return a plain \code{SpatRaster} instead. Re-wrapping is cheap either way, since
-\code{as_voxel()} is idempotent — given a \code{SpatVoxel} and no \code{depths} it returns
-it untouched.
+\code{as_voxel()} is idempotent — given a valid \code{SpatVoxel} and no \code{depths} it
+returns it untouched.
 
 Propagating the class does not re-run the validity rules, so an operation
-that changes the layer set can leave an object still labelled \code{SpatVoxel}
-that no longer satisfies them: \code{app()}, for instance, collapses the stack to
-a single layer whose name no longer carries a depth. Because
-\code{as_voxel()} returns any \code{SpatVoxel} unchanged, it will not repair that —
-pass \code{depths} to rebuild the layer names, or check with
-\code{\link[methods:validObject]{methods::validObject()}}.
+that changes the raster layer set can leave an object still labelled \code{SpatVoxel}
+even if invalid. Passing an invalid \code{SpatVoxel} to \code{as_voxel()} rebuilds
+from layer names, passing through the function as if a plain multi-layer raster.
+Pass \code{depths} to rebuild the layer names.
 
 Depths are positive metres increasing downward, matching the World Ocean
 Atlas convention. Negative depths are an error rather than being silently
